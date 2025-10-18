@@ -7,7 +7,18 @@ import TransactionForm from './TransactionForm';
 const PAGE_SIZE = 15; // Number of transactions to load at a time
 
 const formatCurrency = (amount: number, currency: string | undefined) => {
-    return new Intl.NumberFormat('ar-LY', { style: 'currency', currency: 'LYD', minimumFractionDigits: 2 }).format(amount).replace('LYD', currency || 'د.ل');
+    const options: Intl.NumberFormatOptions = {
+        style: 'currency',
+        currency: 'LYD',
+    };
+    if (amount % 1 === 0) {
+        options.minimumFractionDigits = 0;
+        options.maximumFractionDigits = 0;
+    } else {
+        options.minimumFractionDigits = 2;
+        options.maximumFractionDigits = 2;
+    }
+    return new Intl.NumberFormat('ar-LY', options).format(amount).replace('LYD', currency || 'د.ل');
 };
 
 type FilterValues = {

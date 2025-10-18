@@ -10,7 +10,18 @@ import {
 import type { Chart, ChartConfiguration } from 'chart.js/auto';
 
 const formatCurrency = (amount: number, currency: string = 'د.ل') => {
-    return new Intl.NumberFormat('ar-LY', { style: 'currency', currency: 'LYD' }).format(amount).replace('LYD', currency);
+    const options: Intl.NumberFormatOptions = {
+        style: 'currency',
+        currency: 'LYD',
+    };
+    if (amount % 1 === 0) {
+        options.minimumFractionDigits = 0;
+        options.maximumFractionDigits = 0;
+    } else {
+        options.minimumFractionDigits = 2;
+        options.maximumFractionDigits = 2;
+    }
+    return new Intl.NumberFormat('ar-LY', options).format(amount).replace('LYD', currency);
 };
 
 const monthLabels = [

@@ -6,7 +6,18 @@ import type { Chart, ChartConfiguration } from 'chart.js/auto';
 type FilterType = 'this_month' | 'last_month' | 'this_year' | 'all_time';
 
 const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('ar-LY', { style: 'currency', currency: 'LYD' }).format(amount).replace('LYD', 'د.ل');
+    const options: Intl.NumberFormatOptions = {
+        style: 'currency',
+        currency: 'LYD',
+    };
+    if (amount % 1 === 0) {
+        options.minimumFractionDigits = 0;
+        options.maximumFractionDigits = 0;
+    } else {
+        options.minimumFractionDigits = 2;
+        options.maximumFractionDigits = 2;
+    }
+    return new Intl.NumberFormat('ar-LY', options).format(amount).replace('LYD', 'د.ل');
 };
 
 const COLORS = [
