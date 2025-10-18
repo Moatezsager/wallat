@@ -376,20 +376,53 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
     };
 
     const handleDeleteTransaction = async () => {
-        if (!selectedTransaction || !selectedTransaction.account_id) return;
+        if (!selectedTransaction || !selectedTransaction.account_id || selectedTransaction.type === 'transfer') {
+            alert('لا يمكن حذف التحويلات من هنا.');
+            return;
+        }
         try {
-            const { error } = await supabase.rpc('delete_transaction_and_revert_balance', {
-                p_transaction_id: selectedTransaction.id,
-                p_account_id: selectedTransaction.account_id,
-                p_type: selectedTransaction.type,
-                p_amount: selectedTransaction.amount,
-            });
-
-            if (error) throw error;
+            // 1. Get the current account balance
+            const { data: account, error: accError } = await supabase
+                .from('accounts')
+                .select('balance')
+                .eq('id', selectedTransaction.account_id)
+                .single();
+    
+            if (accError || !account) throw accError || new Error("Account not found");
+    
+            // 2. Calculate the new balance
+            const balanceChange = selectedTransaction.type === 'income' 
+                ? -selectedTransaction.amount 
+                : selectedTransaction.amount;
+            const newBalance = account.balance + balanceChange;
+    
+            // 3. Update the account balance
+            const { error: updateError } = await supabase
+                .from('accounts')
+                .update({ balance: newBalance })
+                .eq('id', selectedTransaction.account_id);
+    
+            if (updateError) throw updateError;
+            
+            // 4. Delete the transaction
+            const { error: deleteError } = await supabase
+                .from('transactions')
+                .delete()
+                .eq('id', selectedTransaction.id);
+    
+            if (deleteError) {
+                // Attempt to revert the balance change
+                await supabase
+                    .from('accounts')
+                    .update({ balance: account.balance })
+                    .eq('id', selectedTransaction.account_id);
+                throw deleteError;
+            }
+    
             handleDatabaseChange(`حذف معاملة "${selectedTransaction.notes || 'غير مسجلة'}"`);
         } catch (error: any) {
             console.error('Error deleting transaction', error.message);
-            alert('حدث خطأ أثناء الحذف. تأكد من وجود دالة `delete_transaction_and_revert_balance` في قاعدة البيانات.');
+            alert('حدث خطأ أثناء الحذف.');
         } finally {
             closeAllModals();
         }

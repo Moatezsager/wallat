@@ -273,16 +273,45 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
     }
 
     const handleDelete = async () => {
-        if (!deletingTx || !deletingTx.account_id) return;
+        if (!deletingTx || !deletingTx.account_id || deletingTx.type === 'transfer') {
+            alert('لا يمكن حذف التحويلات مباشرة.');
+            closeAllModals();
+            return;
+        }
         const description = `حذف معاملة "${deletingTx.notes || 'غير مسجلة'}"`;
         try {
-            const { error } = await supabase.rpc('delete_transaction_and_revert_balance', {
-                p_transaction_id: deletingTx.id,
-                p_account_id: deletingTx.account_id,
-                p_type: deletingTx.type,
-                p_amount: deletingTx.amount,
-            });
-            if (error) throw error;
+            const { data: account, error: accError } = await supabase
+                .from('accounts')
+                .select('balance')
+                .eq('id', deletingTx.account_id)
+                .single();
+    
+            if (accError || !account) throw accError || new Error("Account not found");
+    
+            const balanceChange = deletingTx.type === 'income' ? -deletingTx.amount : deletingTx.amount;
+            const newBalance = account.balance + balanceChange;
+    
+            const { error: updateError } = await supabase
+                .from('accounts')
+                .update({ balance: newBalance })
+                .eq('id', deletingTx.account_id);
+            
+            if (updateError) throw updateError;
+    
+            const { error: deleteError } = await supabase
+                .from('transactions')
+                .delete()
+                .eq('id', deletingTx.id);
+    
+            if (deleteError) {
+                // Attempt to revert
+                await supabase
+                    .from('accounts')
+                    .update({ balance: account.balance })
+                    .eq('id', deletingTx.account_id);
+                throw deleteError;
+            }
+    
             handleDatabaseChange(description);
         } catch (error: any) {
              console.error('Error deleting transaction', error.message);
