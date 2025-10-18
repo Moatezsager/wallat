@@ -248,7 +248,7 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
             try {
                 const accountsPromise = supabase.from('accounts').select('balance');
                 const debtsPromise = supabase.from('debts').select('amount, type').eq('paid', false);
-                const lastTransactionsPromise = supabase.from('transactions').select('*, accounts:account_id(name, currency), categories(name)').order('date', { ascending: false }).limit(5);
+                const lastTransactionsPromise = supabase.from('transactions').select('*, accounts:account_id(name, currency), categories(name)').order('created_at', { ascending: false }).limit(5);
 
                 const yearStart = new Date(currentYear, 0, 1).toISOString();
                 const yearEnd = new Date(currentYear, 11, 31, 23, 59, 59, 999).toISOString();

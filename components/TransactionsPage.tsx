@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Transaction, Account, Category } from '../types';
 import { PlusIcon, PencilSquareIcon, TrashIcon, FunnelIcon, XMarkIcon } from './icons';
 import TransactionForm from './TransactionForm';
+
+const PAGE_SIZE = 15; // Number of transactions to load at a time
 
 const formatCurrency = (amount: number, currency: string | undefined) => {
     return new Intl.NumberFormat('ar-LY', { style: 'currency', currency: 'LYD', minimumFractionDigits: 2 }).format(amount).replace('LYD', currency || 'د.ل');
@@ -16,7 +18,19 @@ type FilterValues = {
     categories: string[];
 };
 
-// Filter Modal Component
+const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; }> = ({ children, title, onClose }) => (
+    <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+        <div className="bg-slate-800 rounded-lg p-6 w-full max-w-md border border-slate-700 shadow-xl animate-slide-up">
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold">{title}</h3>
+                <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors"><XMarkIcon className="w-6 h-6" /></button>
+            </div>
+            {children}
+        </div>
+    </div>
+);
+
+// Filter Modal Component (No changes needed here)
 const FilterModal: React.FC<{
     accounts: Account[];
     categories: Category[];
@@ -56,7 +70,7 @@ const FilterModal: React.FC<{
     };
 
     return (
-        <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
             <div className="bg-slate-800 rounded-lg p-6 w-full max-w-lg border border-slate-700 shadow-xl animate-slide-up">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-bold">تصفية المعاملات</h3>
@@ -115,59 +129,146 @@ const FilterModal: React.FC<{
     );
 };
 
+// New Component for Transaction Details
+const TransactionDetailContent: React.FC<{
+    transaction: Transaction;
+    onEdit: () => void;
+    onDelete: () => void;
+}> = ({ transaction, onEdit, onDelete }) => {
+    const details = [
+        { label: 'المبلغ', value: formatCurrency(transaction.amount, transaction.accounts?.currency), color: transaction.type === 'income' ? 'text-green-400' : transaction.type === 'expense' ? 'text-red-400' : 'text-slate-300' },
+        { label: 'النوع', value: {income: 'إيراد', expense: 'مصروف', transfer: 'تحويل'}[transaction.type] },
+        { label: 'الحساب', value: transaction.type === 'transfer' ? `من: ${transaction.accounts?.name || 'N/A'}` : transaction.accounts?.name || 'N/A' },
+        { label: 'إلى حساب', value: transaction.type === 'transfer' ? transaction.to_accounts?.name || 'N/A' : null },
+        { label: 'الفئة', value: transaction.categories?.name || 'غير مصنف' },
+        { label: 'التاريخ', value: new Date(transaction.date).toLocaleString('ar-LY', { day: 'numeric', month: 'long', year: 'numeric', hour: 'numeric', minute: '2-digit' }) },
+        { label: 'ملاحظات', value: transaction.notes || '-' },
+    ].filter(item => item.value !== null);
+
+    return (
+        <div className="space-y-3">
+            {details.map(item => (
+                <div key={item.label} className="flex justify-between items-center text-sm py-2 border-b border-slate-700/50">
+                    <span className="text-slate-400">{item.label}</span>
+                    <span className={`font-semibold text-right ${item.color || 'text-white'}`}>{item.value}</span>
+                </div>
+            ))}
+            {transaction.type !== 'transfer' && (
+                <div className="flex justify-end gap-3 pt-4">
+                    <button onClick={onDelete} className="py-2 px-4 bg-red-600/20 text-red-400 hover:bg-red-600/40 rounded-md transition flex items-center gap-2">
+                        <TrashIcon className="w-5 h-5"/> حذف
+                    </button>
+                    <button onClick={onEdit} className="py-2 px-4 bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/40 rounded-md transition flex items-center gap-2">
+                        <PencilSquareIcon className="w-5 h-5"/> تعديل
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
+
+
 const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (description?: string) => void }> = ({ key, handleDatabaseChange }) => {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isFetchingMore, setIsFetchingMore] = useState(false);
+
+    // Modal states
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    
     const [editingTx, setEditingTx] = useState<Transaction | undefined>(undefined);
     const [deletingTx, setDeletingTx] = useState<Transaction | null>(null);
-    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-    const [filters, setFilters] = useState<FilterValues>({
-        startDate: '',
-        endDate: '',
-        type: 'all',
-        accounts: [],
-        categories: [],
-    });
+    const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
+    
+    // Search and filter states
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filters, setFilters] = useState<FilterValues>({ startDate: '', endDate: '', type: 'all', accounts: [], categories: [] });
+
+    // Pagination states
+    const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
+
+    const fetchData = useCallback(async (currentPage: number, isNewSearch = false) => {
+        if (isNewSearch) {
+            setLoading(true);
+        } else {
+            setIsFetchingMore(true);
+        }
+
+        const from = currentPage * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+
+        let query = supabase.from('transactions').select('*, accounts:accounts!account_id(name, currency), to_accounts:accounts!to_account_id(name), categories(name)').order('date', { ascending: false });
+        
+        if (filters.startDate) query = query.gte('date', new Date(filters.startDate).toISOString());
+        if (filters.endDate) {
+            const end = new Date(filters.endDate);
+            end.setDate(end.getDate() + 1);
+            query = query.lt('date', end.toISOString().split('T')[0]);
+        }
+        if (filters.type !== 'all') query = query.eq('type', filters.type);
+        if (filters.accounts.length > 0) query = query.or(`account_id.in.(${filters.accounts.join(',')}),to_account_id.in.(${filters.accounts.join(',')})`);
+        if (filters.categories.length > 0) query = query.in('category_id', filters.categories);
+        if (searchTerm) query = query.ilike('notes', `%${searchTerm}%`);
+
+        query = query.range(from, to);
+
+        const { data: txData, error: txError } = await query;
+
+        if (txError) {
+            console.error('Error fetching transactions:', txError.message);
+        } else if (txData) {
+            setTransactions(prev => isNewSearch ? txData as unknown as Transaction[] : [...prev, ...txData as unknown as Transaction[]]);
+            if (txData.length < PAGE_SIZE) {
+                setHasMore(false);
+            } else {
+                setHasMore(true);
+            }
+        }
+        
+        if (isNewSearch) {
+             const accPromise = supabase.from('accounts').select('*');
+             const catPromise = supabase.from('categories').select('*');
+             const [{ data: accData }, { data: catData }] = await Promise.all([accPromise, catPromise]);
+             setAccounts(accData || []);
+             setCategories(catData || []);
+        }
+
+        if (isNewSearch) setLoading(false);
+        else setIsFetchingMore(false);
+
+    }, [filters, searchTerm]);
 
     useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            let query = supabase.from('transactions').select('*, accounts:accounts!account_id(name, currency), to_accounts:accounts!to_account_id(name), categories(name)').order('date', { ascending: false });
+        setTransactions([]);
+        setPage(0);
+        setHasMore(true);
+        fetchData(0, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [key, filters, searchTerm]);
 
-            if (filters.startDate) query = query.gte('date', new Date(filters.startDate).toISOString());
-            if (filters.endDate) {
-                const end = new Date(filters.endDate);
-                end.setDate(end.getDate() + 1);
-                query = query.lt('date', end.toISOString().split('T')[0]);
-            }
-            if (filters.type !== 'all') query = query.eq('type', filters.type);
-            if (filters.accounts.length > 0) query = query.or(`account_id.in.(${filters.accounts.join(',')}),to_account_id.in.(${filters.accounts.join(',')})`);
-            if (filters.categories.length > 0) query = query.in('category_id', filters.categories);
+    const loadMore = () => {
+        if (isFetchingMore) return;
+        const nextPage = page + 1;
+        setPage(nextPage);
+        fetchData(nextPage, false);
+    };
 
-            const txPromise = query;
-            const accPromise = supabase.from('accounts').select('*');
-            const catPromise = supabase.from('categories').select('*');
-            
-            const [{data: txData, error: txError}, {data: accData}, {data: catData}] = await Promise.all([txPromise, accPromise, catPromise]);
-    
-            if (txError) console.error('Error fetching transactions:', txError.message);
-            else if (txData) setTransactions(txData as unknown as Transaction[]);
-    
-            setAccounts(accData as Account[] || []);
-            setCategories(catData as Category[] || []);
-    
-            setLoading(false);
-        };
-        fetchData();
-    }, [key, filters]);
+    const closeAllModals = () => {
+        setIsFormModalOpen(false);
+        setEditingTx(undefined);
+        setDeletingTx(null);
+        setIsDetailModalOpen(false);
+        setSelectedTx(null);
+    };
     
     const handleSave = () => {
         const description = editingTx ? 'تعديل معاملة' : 'إضافة معاملة جديدة';
-        setIsFormModalOpen(false);
-        setEditingTx(undefined);
+        closeAllModals();
         handleDatabaseChange(description);
     }
 
@@ -182,11 +283,12 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
                 p_amount: deletingTx.amount,
             });
             if (error) throw error;
-            setDeletingTx(null);
             handleDatabaseChange(description);
         } catch (error: any) {
              console.error('Error deleting transaction', error.message);
              alert('حدث خطأ أثناء الحذف.');
+        } finally {
+            closeAllModals();
         }
     }
     
@@ -195,6 +297,24 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
         setIsFilterModalOpen(false);
     };
     
+    const handleOpenDetailModal = (tx: Transaction) => {
+        setSelectedTx(tx);
+        setIsDetailModalOpen(true);
+    };
+
+    const handleOpenEditFromDetail = () => {
+        if (!selectedTx) return;
+        setEditingTx(selectedTx);
+        setIsFormModalOpen(true);
+        setIsDetailModalOpen(false);
+    };
+
+    const handleOpenDeleteFromDetail = () => {
+        if (!selectedTx) return;
+        setDeletingTx(selectedTx);
+        setIsDetailModalOpen(false);
+    };
+
     const activeFilterCount = useMemo(() => {
         let count = 0;
         if (filters.startDate || filters.endDate) count++;
@@ -206,11 +326,16 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
 
     return (
         <div className="relative">
-             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">كل المعاملات</h2>
-                <button onClick={() => setIsFilterModalOpen(true)} className="relative flex items-center gap-2 bg-slate-800 py-2 px-4 rounded-lg text-slate-300 hover:bg-slate-700 transition">
+             <div className="flex gap-2 items-center mb-4">
+                 <input 
+                    type="text" 
+                    placeholder="ابحث في الملاحظات..." 
+                    value={searchTerm} 
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="flex-grow bg-slate-800 p-2 rounded-lg text-white border border-transparent focus:border-cyan-500 focus:ring-0 transition"
+                />
+                <button onClick={() => setIsFilterModalOpen(true)} className="relative flex-shrink-0 flex items-center gap-2 bg-slate-800 py-2 px-4 rounded-lg text-slate-300 hover:bg-slate-700 transition">
                     <FunnelIcon className="w-5 h-5"/>
-                    <span>تصفية</span>
                     {activeFilterCount > 0 && <span className="absolute -top-1 -right-1 h-4 w-4 bg-cyan-500 text-white text-[10px] rounded-full flex items-center justify-center">{activeFilterCount}</span>}
                 </button>
             </div>
@@ -219,7 +344,7 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
                 <div className="mt-4 animate-pulse text-center text-slate-400">جاري تحميل المعاملات...</div>
             ) : transactions.length === 0 ? (
                  <div className="text-center py-10">
-                    <p className="text-slate-400 mb-4">{activeFilterCount > 0 ? "لا توجد معاملات تطابق بحثك." : "لا يوجد معاملات مسجلة."}</p>
+                    <p className="text-slate-400 mb-4">{activeFilterCount > 0 || searchTerm ? "لا توجد معاملات تطابق بحثك." : "لا يوجد معاملات مسجلة."}</p>
                      <button onClick={() => { setEditingTx(undefined); setIsFormModalOpen(true); }} className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-4 rounded-lg inline-flex items-center">
                         <PlusIcon className="w-5 h-5 ml-2" />
                         إضافة معاملة
@@ -233,61 +358,65 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
                             : tx.accounts?.name || '';
 
                         return (
-                            <div key={tx.id} className="bg-slate-800 p-3 rounded-lg flex justify-between items-center animate-fade-in-fast">
+                            <button key={tx.id} onClick={() => handleOpenDetailModal(tx)} className="w-full text-right bg-slate-800 p-3 rounded-lg flex justify-between items-center hover:bg-slate-700/50 transition-colors animate-fade-in-fast">
                                <div>
                                     <p className="font-bold text-lg">{tx.notes || (tx.type === 'transfer' ? 'تحويل' : tx.categories?.name || 'معاملة')}</p>
                                     <p className="text-sm text-slate-400">{accountInfo}</p>
                                </div>
-                               <div className="text-right">
+                               <div className="text-left">
                                    <p className={`font-extrabold text-lg ${tx.type === 'income' ? 'text-green-400' : tx.type === 'expense' ? 'text-red-400' : 'text-slate-300'}`}>
                                         {tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''}{formatCurrency(tx.amount, tx.accounts?.currency)}
                                    </p>
-                                   <div className="flex items-center gap-2 justify-end">
-                                        <p className="text-xs text-slate-500">{new Date(tx.date).toLocaleDateString()}</p>
-                                        {tx.type !== 'transfer' && (
-                                        <>
-                                            <button onClick={() => { setEditingTx(tx); setIsFormModalOpen(true); }} className="text-slate-500 hover:text-cyan-400"><PencilSquareIcon className="w-4 h-4"/></button>
-                                            <button onClick={() => setDeletingTx(tx)} className="text-slate-500 hover:text-red-400"><TrashIcon className="w-4 h-4"/></button>
-                                        </>
-                                        )}
-                                   </div>
+                                   <p className="text-xs text-slate-500">{new Date(tx.date).toLocaleDateString()}</p>
                                </div>
-                            </div>
+                            </button>
                         );
                     })}
                 </div>
             )}
-
-            <button onClick={() => { setEditingTx(undefined); setIsFormModalOpen(true); }} className="fixed bottom-20 right-4 h-14 w-14 bg-cyan-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-cyan-500 transition-transform transform active:scale-90">
-                <PlusIcon className="w-8 h-8"/>
-            </button>
             
-            {isFormModalOpen && (
-                <div className="fixed inset-0 z-30 bg-black/60 flex items-center justify-center p-4">
-                    <div className="bg-slate-800 rounded-lg p-6 w-full max-w-sm border border-slate-700">
-                        <h3 className="text-lg font-bold mb-4">{editingTx ? 'تعديل المعاملة' : 'إضافة معاملة جديدة'}</h3>
-                        <TransactionForm
-                            transaction={editingTx}
-                            onSave={handleSave}
-                            onCancel={() => { setIsFormModalOpen(false); setEditingTx(undefined); }}
-                            accounts={accounts}
-                            categories={categories}
-                        />
-                    </div>
+            {!loading && hasMore && (
+                <div className="text-center mt-6">
+                    <button onClick={loadMore} disabled={isFetchingMore} className="bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 px-6 rounded-lg transition disabled:opacity-50">
+                        {isFetchingMore ? 'جاري التحميل...' : 'تحميل المزيد'}
+                    </button>
                 </div>
             )}
 
+            <button onClick={() => { setEditingTx(undefined); setIsFormModalOpen(true); }} className="fixed bottom-20 right-4 h-14 w-14 bg-cyan-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-cyan-500 transition-transform transform active:scale-90 z-30">
+                <PlusIcon className="w-8 h-8"/>
+            </button>
+            
+            {isDetailModalOpen && selectedTx && (
+                <Modal title="تفاصيل المعاملة" onClose={closeAllModals}>
+                    <TransactionDetailContent 
+                        transaction={selectedTx} 
+                        onEdit={handleOpenEditFromDetail} 
+                        onDelete={handleOpenDeleteFromDetail} 
+                    />
+                </Modal>
+            )}
+
+            {isFormModalOpen && (
+                 <Modal title={editingTx ? 'تعديل المعاملة' : 'إضافة معاملة جديدة'} onClose={closeAllModals}>
+                    <TransactionForm
+                        transaction={editingTx}
+                        onSave={handleSave}
+                        onCancel={closeAllModals}
+                        accounts={accounts}
+                        categories={categories}
+                    />
+                 </Modal>
+            )}
+
             {deletingTx && (
-                 <div className="fixed inset-0 z-30 bg-black/60 flex items-center justify-center p-4">
-                    <div className="bg-slate-800 rounded-lg p-6 w-full max-w-sm border border-slate-700">
-                        <h3 className="text-lg font-bold mb-2">تأكيد الحذف</h3>
-                        <p className="text-slate-300 mb-6">هل أنت متأكد من رغبتك في حذف هذه المعاملة؟ سيتم التراجع عن تأثيرها على رصيد الحساب.</p>
-                        <div className="flex justify-end gap-3">
-                            <button onClick={() => setDeletingTx(null)} className="py-2 px-4 bg-slate-600 hover:bg-slate-500 rounded-md transition">إلغاء</button>
-                            <button onClick={handleDelete} className="py-2 px-4 bg-red-600 hover:bg-red-500 rounded-md transition">تأكيد الحذف</button>
-                        </div>
+                 <Modal title="تأكيد الحذف" onClose={() => setDeletingTx(null)}>
+                    <p className="text-slate-300 mb-6">هل أنت متأكد من رغبتك في حذف هذه المعاملة؟ سيتم التراجع عن تأثيرها على رصيد الحساب.</p>
+                    <div className="flex justify-end gap-3">
+                        <button onClick={() => setDeletingTx(null)} className="py-2 px-4 bg-slate-600 hover:bg-slate-500 rounded-md transition">إلغاء</button>
+                        <button onClick={handleDelete} className="py-2 px-4 bg-red-600 hover:bg-red-500 rounded-md transition">تأكيد الحذف</button>
                     </div>
-                </div>
+                 </Modal>
             )}
 
             {isFilterModalOpen && (
