@@ -77,7 +77,7 @@ const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () =>
 );
 
 
-const AccountsPage: React.FC<{ key: number, refreshData: () => void }> = ({ key, refreshData }) => {
+const AccountsPage: React.FC<{ key: number, handleDatabaseChange: () => void }> = ({ key, handleDatabaseChange }) => {
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [loading, setLoading] = useState(true);
     const [modal, setModal] = useState<{ type: 'edit' | 'delete' | 'details' | null, account: Account | null }>({ type: null, account: null });
@@ -110,7 +110,7 @@ const AccountsPage: React.FC<{ key: number, refreshData: () => void }> = ({ key,
 
     const handleSave = () => {
         setModal({ type: null, account: null });
-        refreshData();
+        handleDatabaseChange();
     };
 
     const handleDelete = async () => {
@@ -119,8 +119,9 @@ const AccountsPage: React.FC<{ key: number, refreshData: () => void }> = ({ key,
         if (error) {
             console.error('Error deleting account', error.message);
             alert('لا يمكن حذف الحساب لارتباطه بمعاملات.');
+        } else {
+            handleSave();
         }
-        handleSave();
     };
     
     const openDetailsModal = async (account: Account) => {

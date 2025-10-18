@@ -96,7 +96,7 @@ const DebtForm: React.FC<{
 
 
 // Main Page Component
-const DebtsPage: React.FC<{ key: number, refreshData: () => void }> = ({ key, refreshData }) => {
+const DebtsPage: React.FC<{ key: number, handleDatabaseChange: () => void }> = ({ key, handleDatabaseChange }) => {
     const [debts, setDebts] = useState<Debt[]>([]);
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [loading, setLoading] = useState(true);
@@ -128,7 +128,7 @@ const DebtsPage: React.FC<{ key: number, refreshData: () => void }> = ({ key, re
     const handleSave = () => {
         setIsModalOpen(false);
         setEditingDebt(undefined);
-        refreshData();
+        handleDatabaseChange();
     };
 
     const handleDelete = async () => {
@@ -137,9 +137,10 @@ const DebtsPage: React.FC<{ key: number, refreshData: () => void }> = ({ key, re
         if (error) {
             console.error('Error deleting debt', error.message);
             alert('حدث خطأ أثناء الحذف.');
+        } else {
+            setDeletingDebt(null);
+            handleDatabaseChange();
         }
-        setDeletingDebt(null);
-        refreshData();
     };
     
     const handleTogglePaid = async (debt: Debt) => {
@@ -148,7 +149,7 @@ const DebtsPage: React.FC<{ key: number, refreshData: () => void }> = ({ key, re
             console.error('Error updating debt status', error.message);
             alert('حدث خطأ أثناء تحديث حالة الدين.');
         } else {
-            refreshData();
+            handleDatabaseChange();
         }
     };
     

@@ -113,7 +113,7 @@ const TransactionForm: React.FC<{
     );
 }
 
-const TransactionsPage: React.FC<{ key: number, refreshData: () => void }> = ({ key, refreshData }) => {
+const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: () => void }> = ({ key, handleDatabaseChange }) => {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -148,7 +148,7 @@ const TransactionsPage: React.FC<{ key: number, refreshData: () => void }> = ({ 
     const handleSave = () => {
         setIsModalOpen(false);
         setEditingTx(undefined);
-        refreshData();
+        handleDatabaseChange();
     }
 
     const handleDelete = async () => {
@@ -164,7 +164,7 @@ const TransactionsPage: React.FC<{ key: number, refreshData: () => void }> = ({ 
              // Delete transaction
             await supabase.from('transactions').delete().eq('id', deletingTx.id);
             setDeletingTx(null);
-            refreshData();
+            handleDatabaseChange();
         } catch (error) {
              console.error('Error deleting transaction', (error as any).message);
              alert('حدث خطأ أثناء الحذف');

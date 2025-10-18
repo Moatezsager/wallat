@@ -117,7 +117,7 @@ const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () =>
 );
 
 
-const CategoriesPage: React.FC<{ key: number, refreshData: () => void }> = ({ key, refreshData }) => {
+const CategoriesPage: React.FC<{ key: number, handleDatabaseChange: () => void }> = ({ key, handleDatabaseChange }) => {
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
@@ -140,7 +140,7 @@ const CategoriesPage: React.FC<{ key: number, refreshData: () => void }> = ({ ke
 
     const handleSave = () => {
         setModal({ type: null, category: null });
-        refreshData();
+        handleDatabaseChange();
     };
 
     const handleDelete = async () => {

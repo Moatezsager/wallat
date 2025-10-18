@@ -76,7 +76,7 @@ const getInitials = (name: string) => {
     return name.substring(0, 2).toUpperCase();
 };
 
-const ContactsPage: React.FC<{ key: number, refreshData: () => void }> = ({ key, refreshData }) => {
+const ContactsPage: React.FC<{ key: number, handleDatabaseChange: () => void }> = ({ key, handleDatabaseChange }) => {
     const [contactsWithDebts, setContactsWithDebts] = useState<ContactWithDebtInfo[]>([]);
     const [loading, setLoading] = useState(true);
     const [modal, setModal] = useState<{ type: 'add' | 'edit' | 'delete' | null, contact: Contact | null }>({ type: null, contact: null });
@@ -125,7 +125,7 @@ const ContactsPage: React.FC<{ key: number, refreshData: () => void }> = ({ key,
 
     const handleSave = () => {
         setModal({ type: null, contact: null });
-        refreshData();
+        handleDatabaseChange();
     };
 
     const handleDelete = async () => {
@@ -134,8 +134,9 @@ const ContactsPage: React.FC<{ key: number, refreshData: () => void }> = ({ key,
         if (error) {
             console.error('Error deleting contact', error.message);
             alert('لا يمكن حذف جهة الاتصال لارتباطها بديون.');
+        } else {
+            handleSave();
         }
-        handleSave();
     };
 
     return (
