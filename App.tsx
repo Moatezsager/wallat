@@ -77,11 +77,6 @@ function App() {
     fetchAppData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
-  
-  useEffect(() => {
-      handleDatabaseChange("تم تحديث البيانات عند فتح التطبيق");
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const handleSelectContact = async (contactId: string) => {
     setActiveContactId(contactId);
