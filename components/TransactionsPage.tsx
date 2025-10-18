@@ -115,7 +115,7 @@ const FilterModal: React.FC<{
     );
 };
 
-const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: () => void }> = ({ key, handleDatabaseChange }) => {
+const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (description?: string) => void }> = ({ key, handleDatabaseChange }) => {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -165,13 +165,15 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: () => void
     }, [key, filters]);
     
     const handleSave = () => {
+        const description = editingTx ? 'تعديل معاملة' : 'إضافة معاملة جديدة';
         setIsFormModalOpen(false);
         setEditingTx(undefined);
-        handleDatabaseChange();
+        handleDatabaseChange(description);
     }
 
     const handleDelete = async () => {
         if (!deletingTx || !deletingTx.account_id) return;
+        const description = `حذف معاملة "${deletingTx.notes || 'غير مسجلة'}"`;
         try {
             const { error } = await supabase.rpc('delete_transaction_and_revert_balance', {
                 p_transaction_id: deletingTx.id,
@@ -181,7 +183,7 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: () => void
             });
             if (error) throw error;
             setDeletingTx(null);
-            handleDatabaseChange();
+            handleDatabaseChange(description);
         } catch (error: any) {
              console.error('Error deleting transaction', error.message);
              alert('حدث خطأ أثناء الحذف.');

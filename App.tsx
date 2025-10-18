@@ -21,17 +21,29 @@ function App() {
   const [activeContactId, setActiveContactId] = useState<string | null>(null);
   const [activeContactName, setActiveContactName] = useState<string>('');
   
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(() => {
-    const savedTimestamp = localStorage.getItem('lastUpdated');
-    return savedTimestamp ? new Date(savedTimestamp) : null;
-  });
+  const handleDatabaseChange = useCallback(async (description?: string) => {
+    if (description) {
+      const now = new Date();
+      // Format date as YYYY-MM-DD
+      const activity_date = now.toISOString().split('T')[0];
+      // Format time as HH:MM:SS
+      const activity_time = now.toTimeString().split(' ')[0];
 
-  const handleDatabaseChange = useCallback(async () => {
-    const now = new Date();
-    setLastUpdated(now);
-    localStorage.setItem('lastUpdated', now.toISOString());
+      const { error } = await supabase.from('activities').upsert({
+        id: 1, // Always update the first record as requested
+        activity_date,
+        activity_time,
+        description,
+      });
+
+      if (error) {
+        console.error("Error logging activity:", error.message);
+      }
+    }
+    // This key change is what triggers re-fetching in child components
     setKey(prevKey => prevKey + 1);
   }, []);
+
 
   useEffect(() => {
     const fetchAppData = async () => {
@@ -67,7 +79,8 @@ function App() {
   }, [key]);
   
   useEffect(() => {
-      setKey(k => k + 1);
+      handleDatabaseChange("تم تحديث البيانات عند فتح التطبيق");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSelectContact = async (contactId: string) => {
@@ -85,6 +98,7 @@ function App() {
   const handleBackToContacts = () => {
     setActiveContactId(null);
     setActiveContactName('');
+    handleDatabaseChange();
   };
 
   const renderPage = () => {
@@ -99,7 +113,7 @@ function App() {
 
     switch (activePage) {
       case 'home':
-        return <HomePage key={key} handleDatabaseChange={handleDatabaseChange} lastUpdated={lastUpdated} setActivePage={setActivePage} />;
+        return <HomePage key={key} handleDatabaseChange={handleDatabaseChange} setActivePage={setActivePage} />;
       case 'accounts':
         return <AccountsPage key={key} handleDatabaseChange={handleDatabaseChange} />;
       case 'transactions':
@@ -113,7 +127,7 @@ function App() {
       case 'reports':
         return <ReportsPage key={key} />;
       default:
-        return <HomePage key={key} handleDatabaseChange={handleDatabaseChange} lastUpdated={lastUpdated} setActivePage={setActivePage}/>;
+        return <HomePage key={key} handleDatabaseChange={handleDatabaseChange} setActivePage={setActivePage}/>;
     }
   };
 

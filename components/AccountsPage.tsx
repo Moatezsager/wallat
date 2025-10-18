@@ -77,7 +77,7 @@ const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () =>
 );
 
 
-const AccountsPage: React.FC<{ key: number, handleDatabaseChange: () => void }> = ({ key, handleDatabaseChange }) => {
+const AccountsPage: React.FC<{ key: number, handleDatabaseChange: (description?: string) => void }> = ({ key, handleDatabaseChange }) => {
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [loading, setLoading] = useState(true);
     const [modal, setModal] = useState<{ type: 'edit' | 'delete' | 'details' | null, account: Account | null }>({ type: null, account: null });
@@ -109,18 +109,21 @@ const AccountsPage: React.FC<{ key: number, handleDatabaseChange: () => void }> 
     }, []);
 
     const handleSave = () => {
+        const description = modal.account ? `تم تعديل حساب "${modal.account.name}"` : 'تم إضافة حساب جديد';
         setModal({ type: null, account: null });
-        handleDatabaseChange();
+        handleDatabaseChange(description);
     };
 
     const handleDelete = async () => {
         if (!modal.account) return;
+        const description = `تم حذف حساب "${modal.account.name}"`;
         const { error } = await supabase.from('accounts').delete().eq('id', modal.account.id);
         if (error) {
             console.error('Error deleting account', error.message);
             alert('لا يمكن حذف الحساب لارتباطه بمعاملات.');
         } else {
-            handleSave();
+            setModal({ type: null, account: null });
+            handleDatabaseChange(description);
         }
     };
     

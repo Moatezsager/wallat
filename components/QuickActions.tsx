@@ -455,7 +455,7 @@ const SettleDebtWizard: React.FC<{
 }
 
 // Main Component
-const QuickActions: React.FC<{ onActionSuccess: () => void }> = ({ onActionSuccess }) => {
+const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }> = ({ onActionSuccess }) => {
     const [isFabOpen, setIsFabOpen] = useState(false);
     const [activeModal, setActiveModal] = useState<ModalType | null>(null);
     const [modalStep, setModalStep] = useState(1);
@@ -484,10 +484,19 @@ const QuickActions: React.FC<{ onActionSuccess: () => void }> = ({ onActionSucce
     }, [activeModal, fetchDataForModals]);
 
     const handleActionSuccess = () => {
+        let description = 'تم تحديث البيانات'; // Default
+        switch (activeModal) {
+            case 'expense': description = 'إضافة مصروف جديد'; break;
+            case 'income': description = 'إضافة إيراد جديد'; break;
+            case 'transfer': description = 'إجراء تحويل مالي'; break;
+            case 'add-debt': description = 'إضافة دين جديد'; break;
+            case 'settle-debt': description = 'تسوية دين'; break;
+            case 'add-account': description = 'إضافة حساب جديد'; break;
+        }
         setActiveModal(null);
         setModalStep(1);
         setIsFabOpen(false);
-        onActionSuccess();
+        onActionSuccess(description);
     };
 
     const openModal = (type: ModalType) => {

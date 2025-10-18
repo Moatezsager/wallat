@@ -117,7 +117,7 @@ const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () =>
 );
 
 
-const CategoriesPage: React.FC<{ key: number, handleDatabaseChange: () => void }> = ({ key, handleDatabaseChange }) => {
+const CategoriesPage: React.FC<{ key: number, handleDatabaseChange: (description?: string) => void }> = ({ key, handleDatabaseChange }) => {
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
@@ -139,18 +139,21 @@ const CategoriesPage: React.FC<{ key: number, handleDatabaseChange: () => void }
     }, [fetchCategories, key]);
 
     const handleSave = () => {
+        const description = modal.category ? `تم تعديل فئة "${modal.category.name}"` : 'تم إضافة فئة جديدة';
         setModal({ type: null, category: null });
-        handleDatabaseChange();
+        handleDatabaseChange(description);
     };
 
     const handleDelete = async () => {
         if (!modal.category) return;
+        const description = `تم حذف فئة "${modal.category.name}"`;
         const { error } = await supabase.from('categories').delete().eq('id', modal.category.id);
         if (error) {
             console.error('Error deleting category', error.message);
             alert('لا يمكن حذف الفئة، قد تكون مرتبطة بمعاملات.');
         } else {
-            handleSave();
+            setModal({ type: null, category: null });
+            handleDatabaseChange(description);
         }
     };
 

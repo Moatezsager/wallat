@@ -213,7 +213,7 @@ const TransactionDetailContent: React.FC<{
 };
 
 
-const HomePage: React.FC<{ key: number; handleDatabaseChange: () => void; lastUpdated: Date | null, setActivePage: (page: Page) => void; }> = ({ key, handleDatabaseChange, lastUpdated, setActivePage }) => {
+const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: string) => void; setActivePage: (page: Page) => void; }> = ({ key, handleDatabaseChange, setActivePage }) => {
     const [stats, setStats] = useState({ totalBalance: 0, debtsForYou: 0, debtsOnYou: 0 });
     const [lastTransactions, setLastTransactions] = useState<Transaction[]>([]);
     const [yearlyData, setYearlyData] = useState<{ income: number[], expense: number[] }>({ income: [], expense: [] });
@@ -228,6 +228,7 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: () => void; lastUp
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
+    const [lastActivity, setLastActivity] = useState<{ description: string; time: string; date: string } | null>(null);
 
     useEffect(() => {
         const fetchDataForForm = async () => {
@@ -257,24 +258,38 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: () => void; lastUp
                     .in('type', ['income', 'expense'])
                     .gte('date', yearStart)
                     .lte('date', yearEnd);
+                
+                const activityPromise = supabase.from('activities').select('description, activity_date, activity_time').eq('id', 1).single();
 
                 const [
                     { data: accountsData, error: accError },
                     { data: debtsData, error: debtError },
                     { data: lastTransactionsData, error: txError },
-                    { data: yearlyTransactions, error: yearlyError }
-                ] = await Promise.all([accountsPromise, debtsPromise, lastTransactionsPromise, yearlyTransactionsPromise]);
+                    { data: yearlyTransactions, error: yearlyError },
+                    { data: activityData, error: activityError }
+                ] = await Promise.all([accountsPromise, debtsPromise, lastTransactionsPromise, yearlyTransactionsPromise, activityPromise]);
 
                 if (accError) throw accError;
                 if (debtError) throw debtError;
                 if (txError) throw txError;
                 if (yearlyError) throw yearlyError;
+                if (activityError && activityError.code !== 'PGRST116') { // Ignore 'Range not satisfactory' for single()
+                     console.error("Error fetching activity", activityError.message);
+                }
 
                 const totalBalance = (accountsData || []).reduce((sum, acc) => sum + acc.balance, 0);
                 const debtsForYou = (debtsData || []).filter(d => d.type === 'for_you').reduce((sum, d) => sum + d.amount, 0);
                 const debtsOnYou = (debtsData || []).filter(d => d.type === 'on_you').reduce((sum, d) => sum + d.amount, 0);
                 setStats({ totalBalance, debtsForYou, debtsOnYou });
                 setLastTransactions(lastTransactionsData as unknown as Transaction[] || []);
+                
+                if (activityData) {
+                    setLastActivity({ 
+                        description: activityData.description, 
+                        date: activityData.activity_date,
+                        time: activityData.activity_time 
+                    });
+                }
                 
                 // Process yearly transactions for both yearly chart and monthly summary
                 const incomeByMonth = Array(12).fill(0);
@@ -357,7 +372,7 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: () => void; lastUp
 
     const handleSaveTransaction = () => {
         closeAllModals();
-        handleDatabaseChange();
+        handleDatabaseChange(isEditModalOpen ? `تعديل معاملة` : 'إضافة معاملة جديدة');
     };
 
     const handleDeleteTransaction = async () => {
@@ -371,7 +386,7 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: () => void; lastUp
             });
 
             if (error) throw error;
-            handleDatabaseChange();
+            handleDatabaseChange(`حذف معاملة "${selectedTransaction.notes || 'غير مسجلة'}"`);
         } catch (error: any) {
             console.error('Error deleting transaction', error.message);
             alert('حدث خطأ أثناء الحذف. تأكد من وجود دالة `delete_transaction_and_revert_balance` في قاعدة البيانات.');
@@ -404,9 +419,14 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: () => void; lastUp
                         <p className="text-2xl font-bold text-red-400 mt-1">{formatCurrency(stats.debtsOnYou)}</p>
                     </button>
                 </div>
-                 {lastUpdated && (
-                    <p className="text-xs text-slate-500 mt-3 flex items-center justify-center gap-1">
-                        <ClockIcon className="w-3 h-3"/> آخر تحديث: {lastUpdated.toLocaleString('ar-LY', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
+                 {lastActivity && (
+                    <p className="text-xs text-slate-500 mt-3 flex items-center justify-center gap-1 text-center">
+                        <ClockIcon className="w-3 h-3 flex-shrink-0"/>
+                        آخر تحديث: {lastActivity.description} (
+                        {new Date(lastActivity.date + 'T' + lastActivity.time).toLocaleString('ar-LY', { 
+                            day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' 
+                        })}
+                        )
                     </p>
                 )}
             </div>

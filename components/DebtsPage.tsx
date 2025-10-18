@@ -96,7 +96,7 @@ const DebtForm: React.FC<{
 
 
 // Main Page Component
-const DebtsPage: React.FC<{ key: number, handleDatabaseChange: () => void }> = ({ key, handleDatabaseChange }) => {
+const DebtsPage: React.FC<{ key: number, handleDatabaseChange: (description?: string) => void }> = ({ key, handleDatabaseChange }) => {
     const [debts, setDebts] = useState<Debt[]>([]);
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [loading, setLoading] = useState(true);
@@ -126,20 +126,22 @@ const DebtsPage: React.FC<{ key: number, handleDatabaseChange: () => void }> = (
     }, [key]);
 
     const handleSave = () => {
+        const description = editingDebt ? `تعديل دين لـ "${editingDebt.contacts?.name || ''}"` : 'إضافة دين جديد';
         setIsModalOpen(false);
         setEditingDebt(undefined);
-        handleDatabaseChange();
+        handleDatabaseChange(description);
     };
 
     const handleDelete = async () => {
         if (!deletingDebt) return;
+        const description = `حذف دين لـ "${deletingDebt.contacts?.name || ''}"`;
         const { error } = await supabase.from('debts').delete().eq('id', deletingDebt.id);
         if (error) {
             console.error('Error deleting debt', error.message);
             alert('حدث خطأ أثناء الحذف.');
         } else {
             setDeletingDebt(null);
-            handleDatabaseChange();
+            handleDatabaseChange(description);
         }
     };
     
@@ -149,7 +151,8 @@ const DebtsPage: React.FC<{ key: number, handleDatabaseChange: () => void }> = (
             console.error('Error updating debt status', error.message);
             alert('حدث خطأ أثناء تحديث حالة الدين.');
         } else {
-            handleDatabaseChange();
+            const description = `تحديث حالة دين لـ "${debt.contacts?.name || ''}" إلى ${!debt.paid ? 'مدفوع' : 'غير مدفوع'}`;
+            handleDatabaseChange(description);
         }
     };
     

@@ -11,7 +11,7 @@ interface ContactWithDebtInfo extends Contact {
 
 interface ContactsPageProps {
     key: number;
-    handleDatabaseChange: () => void;
+    handleDatabaseChange: (description?: string) => void;
     onSelectContact: (contactId: string) => void;
 }
 
@@ -130,18 +130,21 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ key, handleDatabaseChange, 
     }, [fetchData, key]);
 
     const handleSave = () => {
+        const description = modal.contact ? `تم تعديل بيانات "${modal.contact.name}"` : 'تم إضافة جهة اتصال جديدة';
         setModal({ type: null, contact: null });
-        handleDatabaseChange();
+        handleDatabaseChange(description);
     };
 
     const handleDelete = async () => {
         if (!modal.contact) return;
+        const description = `تم حذف جهة الاتصال "${modal.contact.name}"`;
         const { error } = await supabase.from('contacts').delete().eq('id', modal.contact.id);
         if (error) {
             console.error('Error deleting contact', error.message);
             alert('لا يمكن حذف جهة الاتصال لارتباطها بديون.');
         } else {
-            handleSave();
+            setModal({ type: null, contact: null });
+            handleDatabaseChange(description);
         }
     };
 
