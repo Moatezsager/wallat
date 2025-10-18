@@ -2,8 +2,10 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Account, Debt, Transaction, Page, Category } from '../types';
 import QuickActions from './QuickActions';
+import TransactionForm from './TransactionForm'; // Import the shared form
 import { 
-    WalletIcon, ArrowDownIcon, ArrowUpIcon, ClockIcon, ChevronLeftIcon, ChevronRightIcon, XMarkIcon, DocumentTextIcon
+    WalletIcon, ArrowDownIcon, ArrowUpIcon, ClockIcon, ChevronLeftIcon, ChevronRightIcon, XMarkIcon, DocumentTextIcon,
+    PencilSquareIcon, TrashIcon
 } from './icons';
 import type { Chart, ChartConfiguration } from 'chart.js/auto';
 
@@ -15,6 +17,8 @@ const monthLabels = [
     'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
     'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
 ];
+
+const numericMonthLabels = Array.from({ length: 12 }, (_, i) => String(i + 1));
 
 const CHART_COLORS = {
     expense: '#f87171', // red-400
@@ -38,7 +42,7 @@ const YearlyChart: React.FC<{ data: { income: number, expense: number }[] }> = (
         const chartConfig: ChartConfiguration<'bar'> = {
             type: 'bar',
             data: {
-                labels: monthLabels,
+                labels: numericMonthLabels,
                 datasets: [
                     {
                         label: 'الإيرادات',
@@ -65,7 +69,7 @@ const YearlyChart: React.FC<{ data: { income: number, expense: number }[] }> = (
                     legend: {
                         position: 'top',
                         labels: {
-                            color: '#94a3b8', // slate-400
+                            color: '#94a3b8',
                             font: {
                                 family: 'Cairo, sans-serif'
                             }
@@ -146,7 +150,6 @@ const DoughnutChart: React.FC<{ data: number[], labels: string[], colors: string
                                     label += ': ';
                                 }
                                 if (context.parsed !== null) {
-                                    // Use the generic formatCurrency without a specific currency symbol
                                     label += new Intl.NumberFormat('ar-LY').format(context.parsed);
                                 }
                                 return label;
@@ -163,325 +166,385 @@ const DoughnutChart: React.FC<{ data: number[], labels: string[], colors: string
     return <div className="h-full w-full"><canvas ref={canvasRef}></canvas></div>;
 };
 
-interface MonthlySummary {
-    month: number;
-    income: number;
-    expense: number;
-    expenseByCategory: { name: string; amount: number; color: string }[];
-}
+const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; }> = ({ children, title, onClose }) => (
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+        <div className="bg-slate-800 rounded-lg p-6 w-full max-w-md border border-slate-700 shadow-xl animate-slide-up">
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold">{title}</h3>
+                <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors"><XMarkIcon className="w-6 h-6" /></button>
+            </div>
+            {children}
+        </div>
+    </div>
+);
+
+const TransactionDetailContent: React.FC<{
+    transaction: Transaction;
+    onEdit: () => void;
+    onDelete: () => void;
+}> = ({ transaction, onEdit, onDelete }) => {
+    const details = [
+        { label: 'المبلغ', value: formatCurrency(transaction.amount, transaction.accounts?.currency), color: transaction.type === 'income' ? 'text-green-400' : 'text-red-400' },
+        { label: 'النوع', value: transaction.type === 'income' ? 'إيراد' : 'مصروف' },
+        { label: 'الحساب', value: transaction.accounts?.name || 'N/A' },
+        { label: 'الفئة', value: transaction.categories?.name || 'غير مصنف' },
+        { label: 'التاريخ', value: new Date(transaction.date).toLocaleDateString('ar-LY', { day: 'numeric', month: 'long', year: 'numeric' }) },
+        { label: 'ملاحظات', value: transaction.notes || '-' },
+    ];
+
+    return (
+        <div className="space-y-3">
+            {details.map(item => (
+                <div key={item.label} className="flex justify-between items-center text-sm">
+                    <span className="text-slate-400">{item.label}</span>
+                    <span className={`font-semibold ${item.color || 'text-white'}`}>{item.value}</span>
+                </div>
+            ))}
+            <div className="flex justify-end gap-3 pt-4">
+                <button onClick={onDelete} className="py-2 px-4 bg-red-600/20 text-red-400 hover:bg-red-600/40 rounded-md transition flex items-center gap-2">
+                    <TrashIcon className="w-5 h-5"/> حذف
+                </button>
+                <button onClick={onEdit} className="py-2 px-4 bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/40 rounded-md transition flex items-center gap-2">
+                    <PencilSquareIcon className="w-5 h-5"/> تعديل
+                </button>
+            </div>
+        </div>
+    );
+};
 
 
-const HomePage: React.FC<{ 
-    key: number, 
-    handleDatabaseChange: () => void, 
-    lastUpdated: Date | null,
-    setActivePage: (page: Page) => void;
-}> = ({ handleDatabaseChange, lastUpdated, setActivePage }) => {
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [loading, setLoading] = useState(true);
+const HomePage: React.FC<{ key: number; handleDatabaseChange: () => void; lastUpdated: Date | null, setActivePage: (page: Page) => void; }> = ({ key, handleDatabaseChange, lastUpdated, setActivePage }) => {
     const [stats, setStats] = useState({ totalBalance: 0, debtsForYou: 0, debtsOnYou: 0 });
-    const [loadingStats, setLoadingStats] = useState(true);
-    const [chartData, setChartData] = useState<{ income: number, expense: number }[]>([]);
-    const [loadingChart, setLoadingChart] = useState(true);
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-    const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
-    const [monthlySummaryData, setMonthlySummaryData] = useState<MonthlySummary[]>([]);
+    const [lastTransactions, setLastTransactions] = useState<Transaction[]>([]);
+    const [yearlyData, setYearlyData] = useState<{ income: number[], expense: number[] }>({ income: [], expense: [] });
+    const [loading, setLoading] = useState(true);
+    const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+    const [isSummaryModalOpen, setSummaryModalOpen] = useState(false);
+    const [monthlySummary, setMonthlySummary] = useState<any[]>([]);
 
+    const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+    const [accounts, setAccounts] = useState<Account[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
 
     useEffect(() => {
-        const fetchData = async () => {
+        const fetchDataForForm = async () => {
+            if (!isEditModalOpen) return;
+            const accPromise = supabase.from('accounts').select('*');
+            const catPromise = supabase.from('categories').select('*');
+            const [{ data: accData }, { data: catData }] = await Promise.all([accPromise, catPromise]);
+            setAccounts(accData || []);
+            setCategories(catData || []);
+        };
+        fetchDataForForm();
+    }, [isEditModalOpen]);
+
+    useEffect(() => {
+        const fetchAllData = async () => {
             setLoading(true);
-            setLoadingStats(true);
-            setLoadingChart(true);
-            
-            const transactionsPromise = supabase.from('transactions')
-                .select('*, accounts:accounts!account_id(name, currency), categories(name)')
-                .order('date', { ascending: false })
-                .limit(5);
+            try {
+                const accountsPromise = supabase.from('accounts').select('balance');
+                const debtsPromise = supabase.from('debts').select('amount, type').eq('paid', false);
+                const lastTransactionsPromise = supabase.from('transactions').select('*, accounts:account_id(name, currency), categories(name)').order('date', { ascending: false }).limit(5);
 
-            const accountsPromise = supabase.from('accounts').select('balance');
-            const debtsPromise = supabase.from('debts').select('amount, type').eq('paid', false);
+                const yearStart = new Date(currentYear, 0, 1).toISOString();
+                const yearEnd = new Date(currentYear, 11, 31, 23, 59, 59, 999).toISOString();
+                const yearlyTransactionsPromise = supabase
+                    .from('transactions')
+                    .select('amount, date, type, categories(name)')
+                    .in('type', ['income', 'expense'])
+                    .gte('date', yearStart)
+                    .lte('date', yearEnd);
 
-            const yearStart = new Date(selectedYear, 0, 1).toISOString();
-            const yearEnd = new Date(selectedYear, 11, 31, 23, 59, 59, 999).toISOString();
-            const yearlyTransactionsPromise = supabase.from('transactions')
-                .select('date, type, amount, categories(name, color)')
-                .gte('date', yearStart)
-                .lte('date', yearEnd);
+                const [
+                    { data: accountsData, error: accError },
+                    { data: debtsData, error: debtError },
+                    { data: lastTransactionsData, error: txError },
+                    { data: yearlyTransactions, error: yearlyError }
+                ] = await Promise.all([accountsPromise, debtsPromise, lastTransactionsPromise, yearlyTransactionsPromise]);
 
-            const [
-                { data: transactionsData, error: txError }, 
-                { data: accountsData, error: accError }, 
-                { data: debtsData, error: debtError },
-                { data: yearlyTxData, error: yearlyTxError }
-            ] = await Promise.all([transactionsPromise, accountsPromise, debtsPromise, yearlyTransactionsPromise]);
+                if (accError) throw accError;
+                if (debtError) throw debtError;
+                if (txError) throw txError;
+                if (yearlyError) throw yearlyError;
 
-            if (txError) console.error("Error fetching transactions:", txError.message);
-            else setTransactions(transactionsData as unknown as Transaction[]);
-
-            if (accError || debtError) {
-                console.error("Error fetching stats:", (accError || debtError)?.message);
-            } else {
-                const totalBalance = (accountsData as Account[]).reduce((sum, acc) => sum + acc.balance, 0);
-                const debtsForYou = (debtsData as Debt[]).filter(d => d.type === 'for_you').reduce((sum, d) => sum + d.amount, 0);
-                const debtsOnYou = (debtsData as Debt[]).filter(d => d.type === 'on_you').reduce((sum, d) => sum + d.amount, 0);
+                const totalBalance = (accountsData || []).reduce((sum, acc) => sum + acc.balance, 0);
+                const debtsForYou = (debtsData || []).filter(d => d.type === 'for_you').reduce((sum, d) => sum + d.amount, 0);
+                const debtsOnYou = (debtsData || []).filter(d => d.type === 'on_you').reduce((sum, d) => sum + d.amount, 0);
                 setStats({ totalBalance, debtsForYou, debtsOnYou });
-            }
+                setLastTransactions(lastTransactionsData as unknown as Transaction[] || []);
+                
+                // Process yearly transactions for both yearly chart and monthly summary
+                const incomeByMonth = Array(12).fill(0);
+                const expenseByMonth = Array(12).fill(0);
+                const summaryByMonth: { [key: number]: { total_income: number; total_expense: number; expenses_by_category: { [key: string]: number; }; } } = {};
 
-            if (yearlyTxError) {
-                console.error("Error fetching yearly transactions:", yearlyTxError.message);
-            } else {
-                 const monthsChart = Array(12).fill(0).map(() => ({ income: 0, expense: 0 }));
-                 const monthlySummaries: MonthlySummary[] = Array(12).fill(null).map((_, i) => ({
-                    month: i, income: 0, expense: 0, expenseByCategory: []
-                }));
-                const expenseCategoryMap: { [month: number]: { [categoryName: string]: { amount: number; color: string } } } = {};
+                if (yearlyTransactions) {
+                    (yearlyTransactions as any[]).forEach(tx => {
+                        const month = new Date(tx.date).getMonth(); // 0-indexed month
 
+                        if (!summaryByMonth[month]) {
+                            summaryByMonth[month] = { total_income: 0, total_expense: 0, expenses_by_category: {} };
+                        }
 
-                if (yearlyTxData) {
-                     (yearlyTxData as (Transaction & { categories: { name: string; color: string | null } | null })[]).forEach(tx => {
-                        const month = new Date(tx.date).getMonth();
                         if (tx.type === 'income') {
-                            monthsChart[month].income += tx.amount;
-                            monthlySummaries[month].income += tx.amount;
+                            incomeByMonth[month] += tx.amount;
+                            summaryByMonth[month].total_income += tx.amount;
                         } else if (tx.type === 'expense') {
-                            monthsChart[month].expense += tx.amount;
-                            monthlySummaries[month].expense += tx.amount;
+                            expenseByMonth[month] += tx.amount;
+                            summaryByMonth[month].total_expense += tx.amount;
                             
-                            if (!expenseCategoryMap[month]) {
-                                expenseCategoryMap[month] = {};
-                            }
                             const categoryName = tx.categories?.name || 'غير مصنف';
-                            const categoryColor = tx.categories?.color || '#78716c';
-
-                            if (!expenseCategoryMap[month][categoryName]) {
-                                expenseCategoryMap[month][categoryName] = { amount: 0, color: categoryColor };
+                            if (!summaryByMonth[month].expenses_by_category[categoryName]) {
+                                summaryByMonth[month].expenses_by_category[categoryName] = 0;
                             }
-                            expenseCategoryMap[month][categoryName].amount += tx.amount;
+                            summaryByMonth[month].expenses_by_category[categoryName] += tx.amount;
                         }
                     });
                 }
                 
-                for (let i = 0; i < 12; i++) {
-                    if (expenseCategoryMap[i]) {
-                        monthlySummaries[i].expenseByCategory = Object.entries(expenseCategoryMap[i])
-                            .map(([name, { amount, color }]) => ({ name, amount, color }))
-                            .sort((a, b) => b.amount - a.amount);
-                    }
-                }
+                setYearlyData({ income: incomeByMonth, expense: expenseByMonth });
 
-                setChartData(monthsChart);
-                setMonthlySummaryData(monthlySummaries);
+                const monthlySummaryData = Object.entries(summaryByMonth).map(([month, data]) => ({
+                    month: Number(month) + 1, // 1-indexed month for display
+                    total_income: data.total_income,
+                    total_expense: data.total_expense,
+                    expenses_by_category: Object.entries(data.expenses_by_category)
+                        .map(([category_name, total]) => ({ category_name, total }))
+                        .sort((a, b) => b.total - a.total),
+                }));
+                setMonthlySummary(monthlySummaryData);
+
+            } catch (error: any) {
+                console.error("Error fetching homepage data:", error.message);
+            } finally {
+                setLoading(false);
             }
-            
-            setLoading(false);
-            setLoadingStats(false);
-            setLoadingChart(false);
         };
-        fetchData();
-    }, [selectedYear]);
-    
-    const formatLastUpdated = (date: Date | null): string => {
-        if (!date) return 'جاري التحديث...';
 
-        const today = new Date();
-        const isToday = date.getDate() === today.getDate() &&
-                        date.getMonth() === today.getMonth() &&
-                        date.getFullYear() === today.getFullYear();
-        
-        const dayString = isToday ? 'اليوم' : date.toLocaleDateString('ar-LY');
-        const timeString = date.toLocaleTimeString('ar-LY', { hour: 'numeric', minute: '2-digit', hour12: true });
+        fetchAllData();
+    }, [key, currentYear]);
 
-        return `${dayString}، ${timeString}`;
+    const netWorth = useMemo(() => stats.totalBalance + stats.debtsForYou - stats.debtsOnYou, [stats]);
+
+    const openSummaryModal = () => {
+        setSummaryModalOpen(true);
     };
+    
+    const handleOpenDetailModal = (tx: Transaction) => {
+        setSelectedTransaction(tx);
+        setIsDetailModalOpen(true);
+    };
+
+    const handleOpenEditModal = () => {
+        setIsDetailModalOpen(false);
+        setIsEditModalOpen(true);
+    };
+
+    const handleOpenDeleteConfirm = () => {
+        setIsDetailModalOpen(false);
+        setIsDeleteConfirmOpen(true);
+    };
+
+    const closeAllModals = () => {
+        setSelectedTransaction(null);
+        setIsDetailModalOpen(false);
+        setIsEditModalOpen(false);
+        setIsDeleteConfirmOpen(false);
+    };
+
+    const handleSaveTransaction = () => {
+        closeAllModals();
+        handleDatabaseChange();
+    };
+
+    const handleDeleteTransaction = async () => {
+        if (!selectedTransaction || !selectedTransaction.account_id) return;
+        try {
+            const { error } = await supabase.rpc('delete_transaction_and_revert_balance', {
+                p_transaction_id: selectedTransaction.id,
+                p_account_id: selectedTransaction.account_id,
+                p_type: selectedTransaction.type,
+                p_amount: selectedTransaction.amount,
+            });
+
+            if (error) throw error;
+            handleDatabaseChange();
+        } catch (error: any) {
+            console.error('Error deleting transaction', error.message);
+            alert('حدث خطأ أثناء الحذف. تأكد من وجود دالة `delete_transaction_and_revert_balance` في قاعدة البيانات.');
+        } finally {
+            closeAllModals();
+        }
+    };
+
 
     return (
         <div className="space-y-6">
-            {/* Overview Section */}
-            <div className="bg-slate-800 p-4 rounded-xl shadow-lg">
-                <h3 className="font-bold text-lg mb-4">نظرة عامة</h3>
-                {loadingStats ? (
-                    <div className="space-y-4 animate-pulse">
-                        <div className="h-28 bg-slate-700 rounded-2xl"></div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="h-24 bg-slate-700 rounded-xl"></div>
-                            <div className="h-24 bg-slate-700 rounded-xl"></div>
+            <QuickActions onActionSuccess={handleDatabaseChange} />
+
+            <div>
+                <h2 className="text-xl font-bold mb-3">نظرة عامة</h2>
+                <div className="grid grid-cols-2 gap-4">
+                    <button onClick={() => setActivePage('accounts')} className="col-span-2 bg-slate-800 p-4 rounded-xl shadow-lg hover:bg-slate-700/50 transition-colors text-center">
+                        <div className="flex justify-center items-center gap-2">
+                            <WalletIcon className="w-6 h-6 text-cyan-400" />
+                            <h3 className="text-lg font-semibold text-slate-300">إجمالي الأرصدة</h3>
                         </div>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        <button onClick={() => setActivePage('accounts')} className="bg-gradient-to-br from-cyan-500 to-blue-600 p-5 rounded-2xl shadow-lg w-full text-right transition-transform hover:scale-105 active:scale-95">
-                            <div className="flex items-center gap-3 text-white/90">
-                                <WalletIcon className="w-7 h-7" />
-                                <span className="text-lg font-semibold">إجمالي الأرصدة</span>
-                            </div>
-                            <p className="text-4xl font-extrabold mt-2 text-white tracking-tight">{formatCurrency(stats.totalBalance)}</p>
-                        </button>
-                        <div className="grid grid-cols-2 gap-4">
-                            <button onClick={() => setActivePage('debts')} className="bg-slate-700 p-4 rounded-xl shadow text-right w-full transition-transform hover:scale-105 active:scale-95">
-                                <div className="flex items-center gap-2 text-green-400">
-                                    <ArrowDownIcon className="w-5 h-5" />
-                                    <span className="text-sm font-semibold">ديون لك</span>
-                                </div>
-                                <p className="text-2xl font-bold mt-1 text-green-400">{formatCurrency(stats.debtsForYou)}</p>
-                            </button>
-                            <button onClick={() => setActivePage('debts')} className="bg-slate-700 p-4 rounded-xl shadow text-right w-full transition-transform hover:scale-105 active:scale-95">
-                                <div className="flex items-center gap-2 text-red-400">
-                                    <ArrowUpIcon className="w-5 h-5" />
-                                    <span className="text-sm font-semibold">ديون عليك</span>
-                                </div>
-                                <p className="text-2xl font-bold mt-1 text-red-400">{formatCurrency(stats.debtsOnYou)}</p>
-                            </button>
-                        </div>
-                    </div>
-                )}
-                <div className="flex items-center justify-center gap-2 text-xs text-slate-500 mt-4">
-                    <ClockIcon className="w-4 h-4" />
-                    <span>آخر تحديث: {formatLastUpdated(lastUpdated)}</span>
-                </div>
-            </div>
-
-             {/* Yearly Overview Section */}
-            <div className="bg-slate-800 p-4 rounded-xl shadow-lg">
-                <div className="flex justify-between items-center mb-4">
-                    <div className="flex items-center gap-3">
-                        <h3 className="font-bold text-lg">نظرة عامة سنوية</h3>
-                        <button onClick={() => setIsSummaryModalOpen(true)} className="flex items-center gap-1 text-xs bg-slate-700 hover:bg-slate-600 text-cyan-400 font-semibold py-1 px-3 rounded-md transition-colors">
-                            <DocumentTextIcon className="w-4 h-4" />
-                            <span>الموجز</span>
-                        </button>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button onClick={() => setSelectedYear(y => y - 1)} className="p-1.5 rounded-full bg-slate-700 hover:bg-slate-600 transition-colors">
-                            <ChevronRightIcon className="w-5 h-5" />
-                        </button>
-                        <span className="font-bold text-lg w-16 text-center">{selectedYear}</span>
-                        <button onClick={() => setSelectedYear(y => y + 1)} disabled={selectedYear >= new Date().getFullYear()} className="p-1.5 rounded-full bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                            <ChevronLeftIcon className="w-5 h-5" />
-                        </button>
-                    </div>
-                </div>
-                {loadingChart ? (
-                    <div className="h-64 bg-slate-700 rounded-md animate-pulse"></div>
-                ) : (
-                    <YearlyChart data={chartData} />
-                )}
-            </div>
-
-
-            {/* Recent Transactions Section */}
-            <div className="bg-slate-800 p-4 rounded-xl shadow-lg">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-lg">آخر المعاملات</h3>
-                    <button onClick={() => setActivePage('transactions')} className="text-sm text-cyan-400 hover:text-cyan-300">
-                        عرض الكل
+                        <p className="text-3xl font-extrabold text-cyan-300 mt-2">{formatCurrency(stats.totalBalance)}</p>
+                    </button>
+                    <button onClick={() => setActivePage('debts')} className="bg-slate-800 p-4 rounded-xl shadow-lg hover:bg-slate-700/50 transition-colors text-center">
+                        <h3 className="text-base text-slate-400">ديون لك</h3>
+                        <p className="text-2xl font-bold text-green-400 mt-1">{formatCurrency(stats.debtsForYou)}</p>
+                    </button>
+                    <button onClick={() => setActivePage('debts')} className="bg-slate-800 p-4 rounded-xl shadow-lg hover:bg-slate-700/50 transition-colors text-center">
+                        <h3 className="text-base text-slate-400">ديون عليك</h3>
+                        <p className="text-2xl font-bold text-red-400 mt-1">{formatCurrency(stats.debtsOnYou)}</p>
                     </button>
                 </div>
-                {loading ? (
-                     <div className="space-y-3 animate-pulse">
-                        <div className="h-12 bg-slate-700 rounded-md"></div>
-                        <div className="h-12 bg-slate-700 rounded-md"></div>
-                        <div className="h-12 bg-slate-700 rounded-md"></div>
+                 {lastUpdated && (
+                    <p className="text-xs text-slate-500 mt-3 flex items-center justify-center gap-1">
+                        <ClockIcon className="w-3 h-3"/> آخر تحديث: {lastUpdated.toLocaleString('ar-LY', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
+                    </p>
+                )}
+            </div>
+
+            <div className="bg-slate-800 p-4 rounded-xl shadow-lg">
+                <div className="flex justify-between items-center mb-4">
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => setCurrentYear(y => y - 1)} className="p-1 rounded-full hover:bg-slate-700"><ChevronRightIcon className="w-5 h-5"/></button>
+                        <h2 className="text-xl font-bold">نظرة عامة سنوية {currentYear}</h2>
+                        <button onClick={() => setCurrentYear(y => y + 1)} className="p-1 rounded-full hover:bg-slate-700"><ChevronLeftIcon className="w-5 h-5"/></button>
                     </div>
-                ) : transactions.length > 0 ? (
-                    <div className="space-y-3">
-                        {transactions.map(tx => (
-                            <div key={tx.id} className="flex justify-between items-center bg-slate-900/50 p-3 rounded-lg">
+                    <button onClick={openSummaryModal} className="text-sm text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
+                        <DocumentTextIcon className="w-4 h-4"/> الموجز
+                    </button>
+                </div>
+                <YearlyChart data={Array.from({ length: 12 }, (_, i) => ({ income: yearlyData.income[i] || 0, expense: yearlyData.expense[i] || 0}))} />
+            </div>
+
+            <div className="mt-6">
+                <h2 className="text-xl font-bold mb-3">آخر المعاملات</h2>
+                {loading ? (
+                    <div className="space-y-2">
+                        {[...Array(3)].map((_, i) => <div key={i} className="h-16 bg-slate-800 rounded-lg animate-pulse"></div>)}
+                    </div>
+                ) : lastTransactions.length > 0 ? (
+                    <div className="space-y-2">
+                        {lastTransactions.map(tx => (
+                             <button key={tx.id} onClick={() => handleOpenDetailModal(tx)} className="w-full text-right bg-slate-800 p-3 rounded-lg flex justify-between items-center hover:bg-slate-700/50 transition-colors">
                                 <div className="flex items-center gap-3">
-                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.type === 'income' ? 'bg-green-500/20 text-green-400' : tx.type === 'expense' ? 'bg-red-500/20 text-red-400' : 'bg-indigo-500/20 text-indigo-400'}`}>
-                                        {tx.type === 'income' ? <ArrowDownIcon className="w-5 h-5"/> : tx.type === 'expense' ? <ArrowUpIcon className="w-5 h-5"/> : <ArrowUpIcon className="w-5 h-5"/>}
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.type === 'income' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                        {tx.type === 'income' ? <ArrowDownIcon className="w-6 h-6"/> : <ArrowUpIcon className="w-6 h-6"/>}
                                     </div>
                                     <div>
-                                        <p className="font-semibold text-white">{tx.notes || tx.categories?.name || (tx.type === 'income' ? 'إيراد' : 'مصروف')}</p>
-                                        <p className="text-xs text-slate-400">{new Date(tx.date).toLocaleDateString('ar-LY', { day: 'numeric', month: 'long' })}</p>
+                                        <p className="font-semibold">{tx.notes || (tx.categories?.name || (tx.type === 'income' ? 'إيراد' : 'مصروف'))}</p>
+                                        <p className="text-sm text-slate-400">{tx.accounts?.name || 'حساب محذوف'}</p>
                                     </div>
                                 </div>
-                                <p className={`font-bold text-lg ${tx.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
-                                    {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount, tx.accounts?.currency || 'د.ل')}
-                                </p>
-                            </div>
+                                <div className="text-left">
+                                    <p className={`font-bold text-lg ${tx.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>{formatCurrency(tx.amount, tx.accounts?.currency)}</p>
+                                    <p className="text-xs text-slate-500">{new Date(tx.date).toLocaleDateString()}</p>
+                                </div>
+                            </button>
                         ))}
                     </div>
                 ) : (
-                    <p className="text-center text-slate-400 py-4">لا توجد معاملات لعرضها.</p>
+                    <p className="text-slate-400 text-center py-4">لا توجد معاملات لعرضها.</p>
                 )}
             </div>
             
-            <QuickActions onActionSuccess={handleDatabaseChange} />
-            
             {isSummaryModalOpen && (
-                <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-                    <div className="bg-slate-900 rounded-2xl p-6 w-full max-w-4xl border border-slate-700 shadow-2xl flex flex-col h-[90vh]">
-                        <div className="flex justify-between items-center mb-6 flex-shrink-0">
-                            <h3 className="text-2xl font-bold text-white">الموجز الشهري لسنة {selectedYear}</h3>
-                            <button onClick={() => setIsSummaryModalOpen(false)} className="text-slate-400 hover:text-white transition-colors"><XMarkIcon className="w-7 h-7" /></button>
-                        </div>
-                        <div className="overflow-y-auto pr-2 -mr-4 space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                                {monthlySummaryData.map(monthData => {
-                                    const hasData = monthData.income > 0 || monthData.expense > 0;
+                 <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+                    <div className="bg-slate-800 rounded-xl p-2 w-full max-w-4xl border border-slate-700 shadow-xl">
+                        <div className="flex justify-between items-center p-4">
+                             <h3 className="text-xl font-bold">الموجز الشهري لعام {currentYear}</h3>
+                             <button onClick={() => setSummaryModalOpen(false)} className="text-slate-400 hover:text-white transition-colors"><XMarkIcon className="w-6 h-6" /></button>
+                         </div>
+                         <div className="max-h-[80vh] overflow-y-auto p-4 space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {monthLabels.map((monthName, index) => {
+                                const month = index + 1;
+                                const summary = monthlySummary.find(m => m.month === month);
+                                if (!summary || (!summary.total_income && !summary.total_expense)) {
                                     return (
-                                    <div key={monthData.month} className="bg-slate-800 p-4 rounded-xl">
-                                        <h4 className="font-bold text-lg mb-4 text-cyan-400">{monthLabels[monthData.month]}</h4>
-                                        {hasData ? (
-                                            <div className="space-y-4">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-24 h-24 flex-shrink-0">
-                                                        <DoughnutChart 
-                                                            data={[monthData.expense, monthData.income]} 
-                                                            labels={['المصروفات', 'الإيرادات']}
-                                                            colors={[CHART_COLORS.expense, CHART_COLORS.income]}
-                                                        />
-                                                    </div>
-                                                    <div className="flex-grow space-y-2">
-                                                        <div className="flex justify-between items-center text-sm">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: CHART_COLORS.income}}></span>
-                                                                <span>الإيرادات</span>
-                                                            </div>
-                                                            <span className="font-bold text-green-400">{formatCurrency(monthData.income)}</span>
-                                                        </div>
-                                                        <div className="flex justify-between items-center text-sm">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: CHART_COLORS.expense}}></span>
-                                                                <span>المصروفات</span>
-                                                            </div>
-                                                            <span className="font-bold text-red-400">{formatCurrency(monthData.expense)}</span>
-                                                        </div>
-                                                    </div>
+                                        <div key={month} className="bg-slate-900/50 p-4 rounded-lg">
+                                            <h4 className="font-bold text-lg mb-2">{monthName}</h4>
+                                            <p className="text-slate-500 text-center py-8">لا توجد بيانات</p>
+                                        </div>
+                                    );
+                                }
+                                const chartData = [summary.total_income || 0, summary.total_expense || 0];
+                                const expensesByCategory = summary.expenses_by_category || [];
+                                
+                                return (
+                                     <div key={month} className="bg-slate-900 p-4 rounded-lg">
+                                        <h4 className="font-bold text-lg mb-3">{monthName}</h4>
+                                        <div className="grid grid-cols-2 gap-4 items-center mb-4">
+                                            <div className="h-28 w-28 mx-auto">
+                                                 <DoughnutChart data={chartData} labels={['الإيرادات', 'المصروفات']} colors={[CHART_COLORS.income, CHART_COLORS.expense]} />
+                                            </div>
+                                            <div className="space-y-2 text-sm">
+                                                <div>
+                                                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-400"></div><p>الإيرادات</p></div>
+                                                    <p className="font-bold text-emerald-400">{formatCurrency(summary.total_income || 0)}</p>
                                                 </div>
-
-                                                {monthData.expense > 0 && monthData.expenseByCategory.length > 0 && (
-                                                    <div>
-                                                        <h5 className="text-sm font-semibold mb-2 text-slate-300 border-t border-slate-700 pt-3">أبرز المصروفات</h5>
-                                                        <div className="space-y-2 text-xs">
-                                                            {monthData.expenseByCategory.slice(0, 4).map(category => (
-                                                                <div key={category.name} className="flex items-center justify-between">
-                                                                    <div className="flex items-center gap-2 truncate">
-                                                                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: category.color }}></span>
-                                                                        <span className="text-slate-400 truncate">{category.name}</span>
-                                                                    </div>
-                                                                    <div className="font-semibold text-right flex-shrink-0 pl-1">
-                                                                        <span>{formatCurrency(category.amount)}</span>
-                                                                        <span className="text-slate-500 mr-1">({(category.amount / monthData.expense * 100).toFixed(0)}%)</span>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-400"></div><p>المصروفات</p></div>
+                                                     <p className="font-bold text-red-400">{formatCurrency(summary.total_expense || 0)}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <h5 className="font-semibold mb-2 text-sm">أبرز المصروفات</h5>
+                                            <div className="space-y-1 text-xs">
+                                                {expensesByCategory.length > 0 ? expensesByCategory.map((cat: any) => (
+                                                    <div key={cat.category_name} className="flex justify-between bg-slate-800/50 p-2 rounded">
+                                                        <span>{cat.category_name}</span>
+                                                        <span className="font-semibold">{formatCurrency(cat.total)} <span className="text-slate-500">({((cat.total / summary.total_expense) * 100).toFixed(0)}%)</span></span>
                                                     </div>
-                                                )}
+                                                )) : <p className="text-slate-500 text-center py-2">لا توجد مصروفات</p>}
                                             </div>
-                                        ) : (
-                                            <div className="flex items-center justify-center h-24 text-slate-500">
-                                                <p>لا توجد بيانات لهذا الشهر.</p>
-                                            </div>
-                                        )}
+                                        </div>
                                     </div>
-                                 )})}
+                                );
+                            })}
                             </div>
                         </div>
                     </div>
-                </div>
+                 </div>
+            )}
+
+            {isDetailModalOpen && selectedTransaction && (
+                <Modal title="تفاصيل المعاملة" onClose={closeAllModals}>
+                    <TransactionDetailContent
+                        transaction={selectedTransaction}
+                        onEdit={handleOpenEditModal}
+                        onDelete={handleOpenDeleteConfirm}
+                    />
+                </Modal>
+            )}
+            {isEditModalOpen && selectedTransaction && (
+                <Modal title="تعديل المعاملة" onClose={closeAllModals}>
+                    <TransactionForm
+                        transaction={selectedTransaction}
+                        onSave={handleSaveTransaction}
+                        onCancel={closeAllModals}
+                        accounts={accounts}
+                        categories={categories}
+                    />
+                </Modal>
+            )}
+            {isDeleteConfirmOpen && selectedTransaction && (
+                <Modal title="تأكيد الحذف" onClose={closeAllModals}>
+                    <p className="text-slate-300 mb-6">هل أنت متأكد من حذف هذه المعاملة؟ سيتم التراجع عن تأثيرها على رصيد الحساب.</p>
+                    <div className="flex justify-end gap-3">
+                        <button onClick={closeAllModals} className="py-2 px-4 bg-slate-600 hover:bg-slate-500 rounded-md transition">إلغاء</button>
+                        <button onClick={handleDeleteTransaction} className="py-2 px-4 bg-red-600 hover:bg-red-500 rounded-md transition">تأكيد الحذف</button>
+                    </div>
+                </Modal>
             )}
         </div>
     );

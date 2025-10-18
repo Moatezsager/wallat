@@ -9,6 +9,12 @@ interface ContactWithDebtInfo extends Contact {
     netBalance: number;
 }
 
+interface ContactsPageProps {
+    key: number;
+    handleDatabaseChange: () => void;
+    onSelectContact: (contactId: string) => void;
+}
+
 const formatCurrency = (amount: number, currency: string = 'د.ل') => {
     return new Intl.NumberFormat('ar-LY', { style: 'currency', currency: 'LYD' }).format(amount).replace('LYD', currency);
 };
@@ -70,13 +76,13 @@ const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () =>
 
 const getInitials = (name: string) => {
     const names = name.split(' ');
-    if (names.length > 1) {
+    if (names.length > 1 && names[0] && names[names.length - 1]) {
         return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
     }
     return name.substring(0, 2).toUpperCase();
 };
 
-const ContactsPage: React.FC<{ key: number, handleDatabaseChange: () => void }> = ({ key, handleDatabaseChange }) => {
+const ContactsPage: React.FC<ContactsPageProps> = ({ key, handleDatabaseChange, onSelectContact }) => {
     const [contactsWithDebts, setContactsWithDebts] = useState<ContactWithDebtInfo[]>([]);
     const [loading, setLoading] = useState(true);
     const [modal, setModal] = useState<{ type: 'add' | 'edit' | 'delete' | null, contact: Contact | null }>({ type: null, contact: null });
@@ -156,10 +162,10 @@ const ContactsPage: React.FC<{ key: number, handleDatabaseChange: () => void }> 
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {contactsWithDebts.map(contact => (
-                        <div key={contact.id} className="bg-slate-800 p-4 rounded-xl shadow-lg flex flex-col gap-4">
+                        <button key={contact.id} onClick={() => onSelectContact(contact.id)} className="w-full text-right bg-slate-800 p-4 rounded-xl shadow-lg flex flex-col gap-4 hover:bg-slate-700/50 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500">
                             <div className="flex justify-between items-start">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 bg-cyan-800 rounded-full flex items-center justify-center font-bold text-cyan-300 text-xl">
+                                    <div className="w-12 h-12 bg-cyan-800 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-cyan-300 text-xl">
                                         {getInitials(contact.name)}
                                     </div>
                                     <div>
@@ -167,7 +173,7 @@ const ContactsPage: React.FC<{ key: number, handleDatabaseChange: () => void }> 
                                         {contact.phone && <p className="text-sm text-slate-400">{contact.phone}</p>}
                                     </div>
                                 </div>
-                                 <div className="flex gap-1">
+                                 <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                                     <button onClick={() => setModal({ type: 'edit', contact })} className="text-slate-400 hover:text-cyan-400 p-1"><PencilSquareIcon className="w-5 h-5"/></button>
                                     <button onClick={() => setModal({ type: 'delete', contact })} className="text-slate-400 hover:text-red-400 p-1"><TrashIcon className="w-5 h-5"/></button>
                                 </div>
@@ -188,7 +194,7 @@ const ContactsPage: React.FC<{ key: number, handleDatabaseChange: () => void }> 
                                 <span className="text-sm font-medium">الرصيد الصافي:</span>
                                 <span className="font-bold text-lg">{formatCurrency(contact.netBalance)}</span>
                             </div>
-                        </div>
+                        </button>
                     ))}
                 </div>
             )}

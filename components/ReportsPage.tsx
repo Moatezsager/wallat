@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase';
 import { Transaction, Debt } from '../types';
 import type { Chart, ChartConfiguration } from 'chart.js/auto';
 
+type FilterType = 'this_month' | 'last_month' | 'this_year' | 'all_time';
+
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ar-LY', { style: 'currency', currency: 'LYD' }).format(amount).replace('LYD', 'د.ل');
 };
@@ -26,8 +28,6 @@ const DoughnutChart: React.FC<{ data: number[], labels: string[] }> = ({ data, l
         const ctx = canvasRef.current.getContext('2d');
         if (!ctx) return;
 
-        // Fix: In Chart.js, the 'cutout' property for a doughnut chart should be specified within the chart options.
-        // By specifying the chart type in ChartConfiguration<'doughnut'>, TypeScript correctly infers the available options.
         const chartConfig: ChartConfiguration<'doughnut'> = {
             type: 'doughnut',
             data: {
@@ -50,8 +50,8 @@ const DoughnutChart: React.FC<{ data: number[], labels: string[] }> = ({ data, l
                     },
                     tooltip: {
                         rtl: true,
-                        bodyFont: { family: 'Tajawal' },
-                        titleFont: { family: 'Tajawal' },
+                        bodyFont: { family: 'Cairo' },
+                        titleFont: { family: 'Cairo' },
                     }
                 }
             }
@@ -67,12 +67,39 @@ const DoughnutChart: React.FC<{ data: number[], labels: string[] }> = ({ data, l
     return <div className="h-48 w-48 mx-auto"><canvas ref={canvasRef}></canvas></div>;
 };
 
+const DateFilter: React.FC<{
+    activeFilter: FilterType;
+    onFilterChange: (filter: FilterType) => void;
+}> = ({ activeFilter, onFilterChange }) => {
+    const filters: { key: FilterType, label: string }[] = [
+        { key: 'this_month', label: 'هذا الشهر' },
+        { key: 'last_month', label: 'الشهر الماضي' },
+        { key: 'this_year', label: 'هذه السنة' },
+        { key: 'all_time', label: 'كل الأوقات' },
+    ];
+    return (
+        <div className="mb-4">
+            <div className="flex bg-slate-800 rounded-lg p-1 text-sm">
+                {filters.map(f => (
+                    <button
+                        key={f.key}
+                        onClick={() => onFilterChange(f.key)}
+                        className={`w-full py-2 px-1 rounded-md transition-colors font-semibold ${activeFilter === f.key ? 'bg-slate-700 text-cyan-400' : 'text-slate-400 hover:bg-slate-700/50'}`}
+                    >
+                        {f.label}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+};
 
 const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [debts, setDebts] = useState<Debt[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'expense' | 'income' | 'debt'>('expense');
+    const [filter, setFilter] = useState<FilterType>('this_month');
 
     useEffect(() => {
         const fetchData = async () => {
@@ -94,12 +121,40 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
     }, [key]);
 
     const reportData = useMemo(() => {
+        const now = new Date();
+        let startDate: Date | null = null;
+        let endDate: Date | null = null;
+    
+        switch (filter) {
+            case 'this_month':
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+                break;
+            case 'last_month':
+                startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+                break;
+            case 'this_year':
+                startDate = new Date(now.getFullYear(), 0, 1);
+                endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+                break;
+            case 'all_time':
+            default:
+                break;
+        }
+
+        const filteredTransactions = transactions.filter(tx => {
+            if (filter === 'all_time' || !startDate || !endDate) return true;
+            const txDate = new Date(tx.date);
+            return txDate >= startDate && txDate <= endDate;
+        });
+
         const expenseByCategory: { [key: string]: number } = {};
         const incomeByCategory: { [key: string]: number } = {};
         let totalExpenses = 0;
         let totalIncome = 0;
 
-        transactions.forEach(tx => {
+        filteredTransactions.forEach(tx => {
             const categoryName = tx.categories?.name || 'غير مصنف';
             if (tx.type === 'expense') {
                 expenseByCategory[categoryName] = (expenseByCategory[categoryName] || 0) + tx.amount;
@@ -133,17 +188,17 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
                 totalForYou: debtsForYou
             }
         };
-    }, [transactions, debts]);
+    }, [transactions, debts, filter]);
     
     const renderContent = () => {
         if (loading) return <div className="text-center p-8">جاري تحميل التقارير...</div>;
 
         switch (activeTab) {
             case 'expense':
-                if (reportData.expenses.data.length === 0) return <p className="text-center p-8 text-slate-400">لا توجد بيانات للمصروفات.</p>;
+                if (reportData.expenses.data.length === 0) return <p className="text-center p-8 text-slate-400">لا توجد بيانات للمصروفات في هذه الفترة.</p>;
                 return <ReportSection data={reportData.expenses.data} labels={reportData.expenses.labels} summary={reportData.expenses.summary} total={reportData.expenses.total} color="text-red-400" />;
             case 'income':
-                if (reportData.income.data.length === 0) return <p className="text-center p-8 text-slate-400">لا توجد بيانات للإيرادات.</p>;
+                if (reportData.income.data.length === 0) return <p className="text-center p-8 text-slate-400">لا توجد بيانات للإيرادات في هذه الفترة.</p>;
                 return <ReportSection data={reportData.income.data} labels={reportData.income.labels} summary={reportData.income.summary} total={reportData.income.total} color="text-green-400" />;
             case 'debt':
                  if (reportData.debts.data.every(d => d === 0)) return <p className="text-center p-8 text-slate-400">لا توجد ديون غير مسددة.</p>;
@@ -197,12 +252,15 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
 
     return (
         <div>
+            <DateFilter activeFilter={filter} onFilterChange={setFilter} />
             <div className="flex border-b border-slate-700 mb-4">
                 <button onClick={() => setActiveTab('expense')} className={`w-1/3 py-3 text-center font-semibold transition-colors ${activeTab === 'expense' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}>المصروفات</button>
                 <button onClick={() => setActiveTab('income')} className={`w-1/3 py-3 text-center font-semibold transition-colors ${activeTab === 'income' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}>الإيرادات</button>
                 <button onClick={() => setActiveTab('debt')} className={`w-1/3 py-3 text-center font-semibold transition-colors ${activeTab === 'debt' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}>الديون</button>
             </div>
-            {renderContent()}
+            <div className="animate-fade-in">
+                {renderContent()}
+            </div>
         </div>
     );
 };

@@ -7,6 +7,7 @@ import AccountsPage from './components/AccountsPage';
 import TransactionsPage from './components/TransactionsPage';
 import DebtsPage from './components/DebtsPage';
 import ContactsPage from './components/ContactsPage';
+import ContactProfilePage from './components/ContactProfilePage'; // Import the new page
 import CategoriesPage from './components/CategoriesPage';
 import ReportsPage from './components/ReportsPage';
 import BottomNav from './components/BottomNav';
@@ -17,21 +18,23 @@ function App() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [key, setKey] = useState(0);
   const [debtNotificationCount, setDebtNotificationCount] = useState(0);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [activeContactId, setActiveContactId] = useState<string | null>(null);
+  const [activeContactName, setActiveContactName] = useState<string>('');
+  
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(() => {
+    const savedTimestamp = localStorage.getItem('lastUpdated');
+    return savedTimestamp ? new Date(savedTimestamp) : null;
+  });
 
-  const handleDatabaseChange = useCallback(() => {
+  const handleDatabaseChange = useCallback(async () => {
     const now = new Date();
-    // Persist the timestamp to localStorage
-    localStorage.setItem('lastUpdatedTimestamp', now.toISOString());
-    // Update the state to reflect the change immediately
     setLastUpdated(now);
-    // Increment key to trigger a refetch of all app data
+    localStorage.setItem('lastUpdated', now.toISOString());
     setKey(prevKey => prevKey + 1);
   }, []);
 
   useEffect(() => {
     const fetchAppData = async () => {
-      // Fetch debt notifications
       const { data: debtData, error: debtError } = await supabase
         .from('debts')
         .select('due_date')
@@ -57,25 +60,43 @@ function App() {
         }).length;
         setDebtNotificationCount(count);
       }
-
-      // Fetch last updated timestamp from localStorage instead of the database
-      const storedTimestamp = localStorage.getItem('lastUpdatedTimestamp');
-      if (storedTimestamp) {
-        setLastUpdated(new Date(storedTimestamp));
-      }
     };
 
     fetchAppData();
-  // We only want this to run when the key changes. handleDatabaseChange is stable.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
   
-  // Initial data load
   useEffect(() => {
       setKey(k => k + 1);
   }, []);
 
+  const handleSelectContact = async (contactId: string) => {
+    setActiveContactId(contactId);
+    try {
+        const { data, error } = await supabase.from('contacts').select('name').eq('id', contactId).single();
+        if (error) throw error;
+        setActiveContactName(data?.name || 'ملف شخصي');
+    } catch(e) {
+        console.error("Error fetching contact name", e);
+        setActiveContactName('ملف شخصي');
+    }
+  };
+
+  const handleBackToContacts = () => {
+    setActiveContactId(null);
+    setActiveContactName('');
+  };
+
   const renderPage = () => {
+    if (activePage === 'contacts' && activeContactId) {
+        return <ContactProfilePage 
+            key={activeContactId} 
+            contactId={activeContactId} 
+            onBack={handleBackToContacts} 
+            handleDatabaseChange={handleDatabaseChange} 
+        />;
+    }
+
     switch (activePage) {
       case 'home':
         return <HomePage key={key} handleDatabaseChange={handleDatabaseChange} lastUpdated={lastUpdated} setActivePage={setActivePage} />;
@@ -86,7 +107,7 @@ function App() {
       case 'debts':
         return <DebtsPage key={key} handleDatabaseChange={handleDatabaseChange} />;
       case 'contacts':
-        return <ContactsPage key={key} handleDatabaseChange={handleDatabaseChange} />;
+        return <ContactsPage key={key} handleDatabaseChange={handleDatabaseChange} onSelectContact={handleSelectContact} />;
       case 'categories':
         return <CategoriesPage key={key} handleDatabaseChange={handleDatabaseChange} />;
       case 'reports':
@@ -98,7 +119,13 @@ function App() {
 
   return (
     <div className="bg-slate-900 text-white min-h-screen font-sans" dir="rtl">
-      <Header activePage={activePage} onMenuClick={() => setSidebarOpen(true)} />
+      <Header 
+        activePage={activePage} 
+        onMenuClick={() => setSidebarOpen(true)}
+        isProfilePage={!!activeContactId}
+        profileName={activeContactName}
+        onBack={handleBackToContacts}
+      />
       <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} activePage={activePage} setActivePage={setActivePage} />
       <main className="p-4 pb-20">
         {renderPage()}
