@@ -313,6 +313,13 @@ export const ArrowsRightLeftIcon: React.FC<IconProps> = (props) => (
   </svg>
 );
 
+export const WealthIcon: React.FC<IconProps> = (props) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25V18a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18V8.25m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v2.25m18 0h-5.25m-1.5 0h-6.25m-1.5 0H3" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a.75.75 0 01.75-.75h1.5a.75.75 0 01.75.75v1.5a.75.75 0 01-.75.75h-1.5a.75.75 0 01-.75-.75V6z" />
+  </svg>
+);
+
 export const iconMap: { [key: string]: React.FC<IconProps> } = {
     // Finance & Work
     'BriefcaseIcon': BriefcaseIcon,      

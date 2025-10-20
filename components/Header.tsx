@@ -19,7 +19,7 @@ const getPageTitle = (page: Page) => {
         case 'contacts': return 'الأسماء';
         case 'categories': return 'الفئات';
         case 'reports': return 'التقارير';
-        default: return 'مدير المال';
+        default: return 'محفظتي الاكترونية';
     }
 }
 

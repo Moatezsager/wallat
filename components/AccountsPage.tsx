@@ -1,8 +1,18 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Account, Transaction } from '../types';
-// Fix: Add missing icons and remove unused one
-import { PlusIcon, PencilSquareIcon, TrashIcon, EllipsisVerticalIcon, BanknotesIcon, CreditCardIcon, InformationCircleIcon, XMarkIcon } from './icons';
+import { 
+    PencilSquareIcon, 
+    TrashIcon, 
+    EllipsisVerticalIcon, 
+    WealthIcon, 
+    CreditCardIcon, 
+    InformationCircleIcon, 
+    XMarkIcon,
+    ArrowUpIcon,
+    ArrowDownIcon,
+    ArrowsRightLeftIcon
+} from './icons';
 
 const formatCurrency = (amount: number, currency: string = 'د.ل') => {
     const options: Intl.NumberFormatOptions = {
@@ -21,11 +31,20 @@ const formatCurrency = (amount: number, currency: string = 'د.ل') => {
 
 const AccountIcon: React.FC<{ type: string, className?: string }> = ({ type, className = "w-8 h-8" }) => {
     switch (type) {
-        case 'نقدي': return <BanknotesIcon className={className} />;
+        case 'نقدي': return <WealthIcon className={className} />;
         case 'بنكي': return <CreditCardIcon className={className} />;
         default: return <CreditCardIcon className={className} />;
     }
 }
+
+const TransactionIcon: React.FC<{ type: Transaction['type'] }> = ({ type }) => {
+    switch (type) {
+        case 'income': return <ArrowDownIcon className="w-6 h-6" />;
+        case 'expense': return <ArrowUpIcon className="w-6 h-6" />;
+        case 'transfer': return <ArrowsRightLeftIcon className="w-6 h-6" />;
+        default: return null;
+    }
+};
 
 const AccountForm: React.FC<{
     account?: Account | null;
@@ -93,6 +112,7 @@ const AccountsPage: React.FC<{ key: number, handleDatabaseChange: (description?:
     const [loading, setLoading] = useState(true);
     const [modal, setModal] = useState<{ type: 'edit' | 'delete' | 'details' | null, account: Account | null }>({ type: null, account: null });
     const [detailsTransactions, setDetailsTransactions] = useState<Transaction[]>([]);
+    const [detailsSummary, setDetailsSummary] = useState({ income: 0, expense: 0 });
     const [detailsLoading, setDetailsLoading] = useState(false);
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -141,17 +161,51 @@ const AccountsPage: React.FC<{ key: number, handleDatabaseChange: (description?:
     const openDetailsModal = async (account: Account) => {
         setModal({ type: 'details', account });
         setDetailsLoading(true);
-        const { data, error } = await supabase
+        setDetailsTransactions([]);
+        setDetailsSummary({ income: 0, expense: 0 });
+
+        const txPromise = supabase
             .from('transactions')
-            .select('*')
+            .select('*, categories(name)')
             .or(`account_id.eq.${account.id},to_account_id.eq.${account.id}`)
             .order('date', { ascending: false })
-            .limit(5);
+            .limit(20);
 
-        if(error) console.error("Error fetching details", error.message);
-        else setDetailsTransactions(data as Transaction[]);
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+        
+        const summaryPromise = supabase
+            .from('transactions')
+            .select('amount, type')
+            .eq('account_id', account.id)
+            .in('type', ['income', 'expense'])
+            .gte('date', monthStart)
+            .lte('date', monthEnd);
+
+        const [{ data: txData, error: txError }, { data: summaryData, error: summaryError }] = await Promise.all([txPromise, summaryPromise]);
+
+        if(txError) console.error("Error fetching details transactions", txError.message);
+        else setDetailsTransactions((txData as any) || []);
+
+        if(summaryError) console.error("Error fetching details summary", summaryError.message);
+        else {
+            const income = summaryData?.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0) || 0;
+            const expense = summaryData?.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0) || 0;
+            setDetailsSummary({ income, expense });
+        }
+
         setDetailsLoading(false);
     }
+    
+    const getAccountTypeColor = (type: string) => {
+        switch (type) {
+            case 'نقدي': return 'bg-amber-500';
+            case 'بنكي': return 'bg-sky-500';
+            case 'مخصص': return 'bg-violet-500';
+            default: return 'bg-slate-600';
+        }
+    };
 
     return (
         <div className="relative">
@@ -160,28 +214,36 @@ const AccountsPage: React.FC<{ key: number, handleDatabaseChange: (description?:
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {accounts.map(account => (
-                        <div key={account.id} className="bg-gradient-to-tr from-slate-800 to-slate-800/50 p-4 rounded-xl shadow-lg flex flex-col justify-between">
-                            <div className="flex justify-between items-start">
-                                <div className="flex items-center gap-3">
-                                    <div className="bg-slate-700 p-2 rounded-full"><AccountIcon type={account.type} className="w-6 h-6 text-cyan-400"/></div>
-                                    <div>
-                                        <h3 className="font-bold text-xl text-white">{account.name}</h3>
-                                        <p className="text-sm text-slate-400">{account.type}</p>
+                        <div key={account.id} className="bg-slate-800 rounded-xl shadow-lg flex flex-col justify-between overflow-hidden relative border border-slate-700/50 group hover:border-cyan-500/50 transition-colors duration-300">
+                            <div className={`absolute top-0 left-0 right-0 h-1 ${getAccountTypeColor(account.type)}`}></div>
+                            <div className="p-4 flex flex-col justify-between h-full">
+                                <div className="flex justify-between items-start">
+                                    <div className="flex items-center gap-4">
+                                        <div className="bg-slate-700 p-3 rounded-full">
+                                            <AccountIcon type={account.type} className="w-6 h-6 text-cyan-400"/>
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-xl text-white">{account.name}</h3>
+                                            <p className="text-sm font-medium text-slate-400">{account.type}</p>
+                                        </div>
+                                    </div>
+                                    <div className="relative" ref={openMenuId === account.id ? menuRef : null}>
+                                        <button onClick={() => setOpenMenuId(openMenuId === account.id ? null : account.id)} className="text-slate-500 hover:text-white p-1 rounded-full group-hover:text-slate-300 transition-colors">
+                                            <EllipsisVerticalIcon className="w-6 h-6"/>
+                                        </button>
+                                        {openMenuId === account.id && (
+                                            <div className="absolute left-0 mt-2 w-40 bg-slate-900 border border-slate-700 rounded-md shadow-lg z-10 animate-fade-in-fast">
+                                               <button onClick={() => { openDetailsModal(account); setOpenMenuId(null); }} className="flex items-center gap-2 w-full text-right px-4 py-2 text-sm text-slate-300 hover:bg-slate-700"><InformationCircleIcon className="w-4 h-4"/> تفاصيل</button>
+                                               <button onClick={() => { setModal({ type: 'edit', account }); setOpenMenuId(null); }} className="flex items-center gap-2 w-full text-right px-4 py-2 text-sm text-slate-300 hover:bg-slate-700"><PencilSquareIcon className="w-4 h-4"/> تعديل</button>
+                                               <button onClick={() => { setModal({ type: 'delete', account }); setOpenMenuId(null); }} className="flex items-center gap-2 w-full text-right px-4 py-2 text-sm text-red-400 hover:bg-slate-700"><TrashIcon className="w-4 h-4"/> حذف</button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
-                                <div className="relative" ref={openMenuId === account.id ? menuRef : null}>
-                                    <button onClick={() => setOpenMenuId(openMenuId === account.id ? null : account.id)} className="text-slate-400 hover:text-white"><EllipsisVerticalIcon className="w-6 h-6"/></button>
-                                    {openMenuId === account.id && (
-                                        <div className="absolute left-0 mt-2 w-40 bg-slate-900 border border-slate-700 rounded-md shadow-lg z-10 animate-fade-in-fast">
-                                           <button onClick={() => { openDetailsModal(account); setOpenMenuId(null); }} className="flex items-center gap-2 w-full text-right px-4 py-2 text-sm text-slate-300 hover:bg-slate-700"><InformationCircleIcon className="w-4 h-4"/> تفاصيل</button>
-                                           <button onClick={() => { setModal({ type: 'edit', account }); setOpenMenuId(null); }} className="flex items-center gap-2 w-full text-right px-4 py-2 text-sm text-slate-300 hover:bg-slate-700"><PencilSquareIcon className="w-4 h-4"/> تعديل</button>
-                                           <button onClick={() => { setModal({ type: 'delete', account }); setOpenMenuId(null); }} className="flex items-center gap-2 w-full text-right px-4 py-2 text-sm text-red-400 hover:bg-slate-700"><TrashIcon className="w-4 h-4"/> حذف</button>
-                                        </div>
-                                    )}
+                                <div className="mt-6 text-left">
+                                    <p className="text-sm text-slate-500">الرصيد الحالي</p>
+                                    <p className="text-3xl font-extrabold text-cyan-300 tracking-tight">{formatCurrency(account.balance, account.currency)}</p>
                                 </div>
-                            </div>
-                            <div className="mt-4 text-left">
-                                <p className="text-2xl font-bold text-cyan-300">{formatCurrency(account.balance, account.currency)}</p>
                             </div>
                         </div>
                     ))}
@@ -200,28 +262,79 @@ const AccountsPage: React.FC<{ key: number, handleDatabaseChange: (description?:
                 </Modal>
             )}
             {modal.type === 'details' && modal.account && (
-                <Modal title={`تفاصيل ${modal.account.name}`} onClose={() => setModal({ type: null, account: null })}>
-                    <div className="space-y-4">
-                        <div className="bg-slate-700/50 p-3 rounded-lg text-center">
-                            <p className="text-sm text-slate-400">الرصيد الحالي</p>
-                            <p className="text-2xl font-bold text-cyan-300">{formatCurrency(modal.account.balance, modal.account.currency)}</p>
+                <Modal title="" onClose={() => setModal({ type: null, account: null })}>
+                    <div className="flex flex-col -mt-4">
+                        <div className="flex flex-col items-center border-b border-slate-700 pb-4 mb-4">
+                            <div className="bg-slate-700 p-3 rounded-full mb-2">
+                                <AccountIcon type={modal.account.type} className="w-8 h-8 text-cyan-400"/>
+                            </div>
+                            <h3 className="text-xl font-bold">{modal.account.name}</h3>
+                            <p className="text-sm text-slate-400">{modal.account.type}</p>
+                            <p className="text-3xl font-extrabold text-cyan-300 mt-2">{formatCurrency(modal.account.balance, modal.account.currency)}</p>
+                            <p className="text-sm text-slate-500">الرصيد الحالي</p>
                         </div>
-                        <h4 className="font-bold">آخر 5 معاملات</h4>
-                        {detailsLoading ? <p>جاري تحميل المعاملات...</p> : detailsTransactions.length > 0 ? (
-                             <div className="space-y-2 text-sm">
-                                {detailsTransactions.map(tx => (
-                                    <div key={tx.id} className="flex justify-between items-center bg-slate-900/50 p-2 rounded">
-                                        <div>
-                                            <p>{tx.notes || tx.type}</p>
-                                            <p className="text-xs text-slate-400">{new Date(tx.date).toLocaleDateString()}</p>
+
+                        <div className="grid grid-cols-2 gap-4 mb-4 text-center">
+                            <div>
+                                <p className="text-sm text-slate-400">الدخل هذا الشهر</p>
+                                <p className="text-lg font-bold text-green-400">{formatCurrency(detailsSummary.income, modal.account.currency)}</p>
+                            </div>
+                            <div>
+                                <p className="text-sm text-slate-400">المصروف هذا الشهر</p>
+                                <p className="text-lg font-bold text-red-400">{formatCurrency(detailsSummary.expense, modal.account.currency)}</p>
+                            </div>
+                        </div>
+
+                        <h4 className="font-bold mb-2">آخر المعاملات</h4>
+                        {detailsLoading ? (
+                            <div className="space-y-2">
+                                {[...Array(3)].map((_, i) => (
+                                    <div key={i} className="flex items-center justify-between bg-slate-700/50 p-3 rounded-lg animate-pulse">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-slate-600"></div>
+                                            <div>
+                                                <div className="h-4 w-24 bg-slate-600 rounded"></div>
+                                                <div className="h-3 w-16 bg-slate-600 rounded mt-1"></div>
+                                            </div>
                                         </div>
-                                        <p className={`${tx.type === 'income' ? 'text-green-400' : tx.type === 'expense' ? 'text-red-400' : 'text-slate-300'}`}>
-                                            {tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''} {formatCurrency(tx.amount)}
-                                        </p>
+                                        <div className="h-5 w-20 bg-slate-600 rounded"></div>
                                     </div>
                                 ))}
                             </div>
-                        ): <p className="text-slate-400 text-center py-2">لا توجد معاملات.</p>}
+                        ) : detailsTransactions.length > 0 ? (
+                            <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
+                                {detailsTransactions.map(tx => {
+                                    const isIncome = tx.type === 'income' || (tx.type === 'transfer' && tx.to_account_id === modal.account?.id);
+                                    const isExpense = tx.type === 'expense' || (tx.type === 'transfer' && tx.account_id === modal.account?.id);
+
+                                    return (
+                                        <div key={tx.id} className="flex items-center justify-between bg-slate-900/50 p-3 rounded-lg">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center ${
+                                                    isIncome ? 'bg-green-500/20 text-green-400' : 
+                                                    isExpense ? 'bg-red-500/20 text-red-400' : 
+                                                    'bg-indigo-500/20 text-indigo-400'
+                                                }`}>
+                                                    <TransactionIcon type={tx.type} />
+                                                </div>
+                                                <div>
+                                                    <p className="font-semibold">{tx.notes || (tx as any).categories?.name || (tx.type === 'transfer' ? 'تحويل' : 'معاملة')}</p>
+                                                    <p className="text-sm text-slate-400">{new Date(tx.date).toLocaleDateString('ar-LY', {day: '2-digit', month: 'short'})}</p>
+                                                </div>
+                                            </div>
+                                            <p className={`font-bold text-lg whitespace-nowrap ${
+                                                isIncome ? 'text-green-400' :
+                                                isExpense ? 'text-red-400' : 'text-slate-300'
+                                            }`}>
+                                                {isIncome ? '+' : isExpense ? '-' : ''}{formatCurrency(tx.amount, modal.account.currency)}
+                                            </p>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        ) : (
+                            <p className="text-slate-400 text-center py-4">لا توجد معاملات لهذا الحساب.</p>
+                        )}
                     </div>
                 </Modal>
             )}
