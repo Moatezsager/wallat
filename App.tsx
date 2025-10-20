@@ -10,6 +10,8 @@ import ContactsPage from './components/ContactsPage';
 import ContactProfilePage from './components/ContactProfilePage'; // Import the new page
 import CategoriesPage from './components/CategoriesPage';
 import ReportsPage from './components/ReportsPage';
+// Fix: Correctly import the NotesPage component.
+import NotesPage from './components/NotesPage';
 import BottomNav from './components/BottomNav';
 import { supabase } from './lib/supabase';
 
@@ -121,6 +123,8 @@ function App() {
         return <CategoriesPage key={key} handleDatabaseChange={handleDatabaseChange} />;
       case 'reports':
         return <ReportsPage key={key} />;
+      case 'notes':
+        return <NotesPage key={key} handleDatabaseChange={handleDatabaseChange} />;
       default:
         return <HomePage key={key} handleDatabaseChange={handleDatabaseChange} setActivePage={setActivePage}/>;
     }

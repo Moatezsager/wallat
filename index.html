@@ -8,6 +8,30 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        .masonry-grid {
+            column-gap: 1rem; /* gap between columns */
+        }
+        @media (min-width: 640px) { .masonry-grid { column-count: 2; } }
+        @media (min-width: 768px) { .masonry-grid { column-count: 3; } }
+        @media (min-width: 1024px) { .masonry-grid { column-count: 4; } }
+
+        .masonry-item {
+            display: inline-block;
+            width: 100%;
+            margin-bottom: 1rem; /* gap between rows */
+            break-inside: avoid;
+        }
+        
+        /* Stop Firefox from adding a scrollbar to contentEditable */
+        [contenteditable] {
+          scrollbar-width: none;
+        }
+        [contenteditable]::-webkit-scrollbar {
+          display: none;
+        }
+
+    </style>
     <script>
         tailwind.config = {
           theme: {

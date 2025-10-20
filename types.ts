@@ -1,5 +1,5 @@
 // Fix: Define the Page type as a union of string literals to avoid circular dependency.
-export type Page = 'home' | 'accounts' | 'transactions' | 'debts' | 'contacts' | 'categories' | 'reports';
+export type Page = 'home' | 'accounts' | 'transactions' | 'debts' | 'contacts' | 'categories' | 'reports' | 'notes';
 
 // From user prompt:
 // accounts: id(uuid), name(text), type(text), balance(numeric), currency(text)
@@ -55,4 +55,16 @@ export interface Category {
   color: string | null;
   icon: string | null;
   type: 'income' | 'expense';
+}
+
+// notes: id(uuid), note_text(text), color(varchar), is_pinned(bool), is_code(bool), language(varchar), created_at(timestamptz), updated_at(timestamptz)
+export interface Note {
+  id: string;
+  note_text: string;
+  color: string;
+  is_pinned: boolean;
+  is_code: boolean;
+  language: string | null;
+  created_at: string;
+  updated_at: string;
 }

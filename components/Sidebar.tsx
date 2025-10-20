@@ -1,6 +1,6 @@
 import React from 'react';
 import { Page } from '../types';
-import { HomeIcon, AccountsIcon, TransactionsIcon, DebtsIcon, ContactsIcon, CategoriesIcon, ReportsIcon } from './icons';
+import { HomeIcon, AccountsIcon, TransactionsIcon, DebtsIcon, ContactsIcon, CategoriesIcon, ReportsIcon, ClipboardDocumentIcon } from './icons';
 
 interface SidebarProps {
     isOpen: boolean;
@@ -45,6 +45,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActiv
     const secondaryNavItems = [
         { page: 'categories', label: 'الفئات', icon: <CategoriesIcon className="w-6 h-6" /> },
         { page: 'reports', label: 'التقارير', icon: <ReportsIcon className="w-6 h-6" /> },
+        { page: 'notes', label: 'الملاحظات', icon: <ClipboardDocumentIcon className="w-6 h-6" /> },
     ];
 
     return (
