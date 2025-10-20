@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Account, Category, Contact, Debt } from '../types';
 // Fix: Add missing icon imports
 import { 
-    PlusIcon, XMarkIcon, ArrowUpIcon, ArrowDownIcon, HandRaisedIcon, ArrowPathRoundedSquareIcon, CurrencyDollarIcon, UserPlusIcon, ArrowLeftIcon, AccountsIcon 
+    PlusIcon, XMarkIcon, ArrowUpIcon, ArrowDownIcon, HandRaisedIcon, UserPlusIcon, ArrowLeftIcon, AccountsIcon, ScaleIcon, ArrowsRightLeftIcon 
 } from './icons';
 
 type ModalType = 'expense' | 'income' | 'transfer' | 'add-debt' | 'settle-debt' | 'add-account';
@@ -510,12 +510,15 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
     }
 
     const fabActions = [
+        // Core Transactions
         { label: 'إضافة مصروف', icon: <ArrowUpIcon className="w-6 h-6"/>, action: () => openModal('expense'), color: 'bg-red-500' },
         { label: 'إضافة إيراد', icon: <ArrowDownIcon className="w-6 h-6"/>, action: () => openModal('income'), color: 'bg-green-500' },
-        { label: 'إضافة حساب', icon: <AccountsIcon className="w-6 h-6"/>, action: () => openModal('add-account'), color: 'bg-blue-500' },
+        { label: 'تحويل', icon: <ArrowsRightLeftIcon className="w-6 h-6"/>, action: () => openModal('transfer'), color: 'bg-indigo-500' },
+        // Debt Management
         { label: 'إضافة دين', icon: <HandRaisedIcon className="w-6 h-6"/>, action: () => openModal('add-debt'), color: 'bg-amber-500' },
-        { label: 'تحويل', icon: <ArrowPathRoundedSquareIcon className="w-6 h-6"/>, action: () => openModal('transfer'), color: 'bg-indigo-500' },
-        { label: 'تسديد دين', icon: <CurrencyDollarIcon className="w-6 h-6"/>, action: () => openModal('settle-debt'), color: 'bg-sky-500' },
+        { label: 'تسديد دين', icon: <ScaleIcon className="w-6 h-6"/>, action: () => openModal('settle-debt'), color: 'bg-sky-500' },
+        // Entity Creation
+        { label: 'إضافة حساب', icon: <AccountsIcon className="w-6 h-6"/>, action: () => openModal('add-account'), color: 'bg-blue-500' },
     ];
     
     const modalTitles: Record<ModalType, string> = {
@@ -548,21 +551,40 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
 
     return (
         <>
-            <div className="fixed bottom-20 right-4 z-20 flex flex-col items-center gap-3">
-                 {isFabOpen && (
-                    <div className="flex flex-col-reverse items-end gap-3 animate-fade-in-fast">
-                        {fabActions.map((action, index) => (
-                             <div key={index} className="flex items-center gap-3 w-full justify-end">
-                                <span className="bg-slate-800 text-white text-sm py-1 px-3 rounded-md shadow-lg">{action.label}</span>
-                                <button onClick={action.action} className={`${action.color} h-12 w-12 rounded-full text-white flex items-center justify-center shadow-lg hover:opacity-90 transition`}>
-                                    {action.icon}
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                )}
-                <button onClick={() => setIsFabOpen(!isFabOpen)} className="h-16 w-16 bg-cyan-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-cyan-500 transition-transform transform active:scale-90 z-10">
-                    {isFabOpen ? <XMarkIcon className="w-8 h-8"/> : <PlusIcon className="w-8 h-8"/>}
+            {/* Scrim Overlay */}
+            <div
+                className={`fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-10 transition-opacity duration-300 ease-in-out ${isFabOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                onClick={() => setIsFabOpen(false)}
+                aria-hidden="true"
+            />
+            
+            {/* FAB and Actions Container */}
+            <div className="fixed bottom-20 right-4 z-20 flex flex-col items-end gap-4">
+                {/* Actions List */}
+                <div className={`flex flex-col-reverse items-end gap-4 transition-all duration-300 ${isFabOpen ? 'visible' : 'invisible'}`}>
+                    {fabActions.map((action, index) => (
+                        <div
+                            key={index}
+                            className={`flex items-center gap-3 transition-all duration-300 ease-out ${isFabOpen ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'}`}
+                            style={{ transitionDelay: `${index * 40}ms` }}
+                        >
+                            <span className="bg-slate-800 text-white text-sm py-1 px-3 rounded-md shadow-lg whitespace-nowrap">{action.label}</span>
+                            <button onClick={action.action} className={`${action.color} h-12 w-12 rounded-full text-white flex items-center justify-center flex-shrink-0 shadow-lg hover:opacity-90 transition-transform hover:scale-105 active:scale-95`}>
+                                {action.icon}
+                            </button>
+                        </div>
+                    ))}
+                </div>
+
+                {/* FAB Button */}
+                <button
+                    onClick={() => setIsFabOpen(!isFabOpen)}
+                    className="h-16 w-16 bg-cyan-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-cyan-500 transition-all duration-300 transform hover:scale-105 active:scale-95 z-10"
+                    aria-haspopup="true"
+                    aria-expanded={isFabOpen}
+                    aria-label={isFabOpen ? 'إغلاق الإجراءات السريعة' : 'فتح الإجراءات السريعة'}
+                >
+                    <PlusIcon className={`w-8 h-8 transition-transform duration-300 ease-in-out ${isFabOpen ? 'rotate-45' : ''}`} />
                 </button>
             </div>
             
