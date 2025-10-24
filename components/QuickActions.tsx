@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Account, Category, Contact, Debt } from '../types';
 // Fix: Add missing icon imports
 import { 
-    PlusIcon, XMarkIcon, ArrowUpIcon, ArrowDownIcon, HandRaisedIcon, UserPlusIcon, ArrowLeftIcon, AccountsIcon, ScaleIcon, ArrowsRightLeftIcon 
+    PlusIcon, XMarkIcon, ArrowUpIcon, ArrowDownIcon, HandRaisedIcon, UserPlusIcon, ArrowLeftIcon, AccountsIcon, ScaleIcon, ArrowsRightLeftIcon, CurrencyDollarIcon 
 } from './icons';
 
 type ModalType = 'expense' | 'income' | 'transfer' | 'add-debt' | 'settle-debt' | 'add-account';
@@ -245,11 +245,12 @@ const TransferModal: React.FC<{
 const AddDebtWizard: React.FC<{
     contacts: Contact[];
     accounts: Account[];
+    categories: Category[];
     onSuccess: () => void;
     onCancel: () => void;
     step: number;
     setStep: (step: number) => void;
-}> = ({ contacts, accounts, onSuccess, step, setStep }) => {
+}> = ({ contacts, accounts, categories, onSuccess, onCancel, step, setStep }) => {
     // Shared state
     const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
     const [debtType, setDebtType] = useState<'on_you' | 'for_you'>('on_you');
@@ -281,30 +282,64 @@ const AddDebtWizard: React.FC<{
     };
     
     const handleSaveDebt = async () => {
-        if(!selectedContact || !amount) return;
-        
+        if (!selectedContact || !amount) return;
+    
         try {
+            let linkedTxId: string | null = null;
             // If it's a loan ("for_you") and linked to an account, create an expense transaction
             if (debtType === 'for_you' && linkedAccountId) {
+                let debtCategoryId: string | null = null;
+                const debtCategoryName = 'ديون وقروض'; // "Debts and Loans"
+                let debtCategory = categories.find(c => c.name === debtCategoryName && c.type === 'expense');
+    
+                if (!debtCategory) {
+                    const { data: newCategory, error: catError } = await supabase
+                        .from('categories').insert({ name: debtCategoryName, type: 'expense', icon: 'ScaleIcon', color: '#78716c' }).select().single();
+                    if (catError) {
+                        console.error('Error creating debt category:', catError.message);
+                    } else {
+                        debtCategoryId = newCategory.id;
+                    }
+                } else {
+                    debtCategoryId = debtCategory.id;
+                }
+    
                 const numericAmount = Number(amount);
                 const { data: account, error: accError } = await supabase.from('accounts').select('balance').eq('id', linkedAccountId).single();
                 if (accError || !account) throw accError;
-                
+    
                 await supabase.from('accounts').update({ balance: account.balance - numericAmount }).eq('id', linkedAccountId);
-                await supabase.from('transactions').insert({
-                    amount: numericAmount, type: 'expense', account_id: linkedAccountId,
-                    notes: `إقراض إلى ${selectedContact.name}`, date: new Date().toISOString()
-                });
+    
+                const { data: newTransaction, error: txError } = await supabase.from('transactions').insert({
+                    amount: numericAmount,
+                    type: 'expense',
+                    account_id: linkedAccountId,
+                    notes: `إقراض إلى ${selectedContact.name}`,
+                    date: new Date().toISOString(),
+                    category_id: debtCategoryId
+                }).select('id').single();
+    
+                if (txError || !newTransaction) throw txError || new Error("Failed to create transaction");
+                linkedTxId = newTransaction.id;
             }
-
+    
+            // Insert the debt record, including the linked transaction ID and account ID if it exists
             await supabase.from('debts').insert({
-                contact_id: selectedContact.id, type: debtType, amount: Number(amount),
-                due_date: dueDate || null, description: description, paid: false,
+                contact_id: selectedContact.id,
+                type: debtType,
+                amount: Number(amount),
+                due_date: dueDate || null,
+                description: description,
+                paid: false,
+                linked_transaction_id: linkedTxId,
+                account_id: (debtType === 'for_you' && linkedAccountId) ? linkedAccountId : null,
             });
-
+    
             onSuccess();
-        } catch(err: any) {
+        } catch (err: any) {
             console.error('Error saving debt:', err.message);
+            // Optionally, show an alert to the user
+            alert('حدث خطأ أثناء حفظ الدين. يرجى المحاولة مرة أخرى.');
         }
     };
 
@@ -354,10 +389,11 @@ const SettleDebtWizard: React.FC<{
     unpaidDebts: Debt[];
     contacts: Contact[];
     accounts: Account[];
+    categories: Category[];
     onSuccess: () => void;
     step: number;
     setStep: (step: number) => void;
-}> = ({ unpaidDebts, contacts, accounts, onSuccess, step, setStep }) => {
+}> = ({ unpaidDebts, contacts, accounts, categories, onSuccess, step, setStep }) => {
     const [selectedInfo, setSelectedInfo] = useState<{ contact: Contact, type: 'on_you' | 'for_you', total: number, debts: Debt[] } | null>(null);
     const [paymentAmount, setPaymentAmount] = useState('');
     const [paymentAccountId, setPaymentAccountId] = useState('');
@@ -405,13 +441,33 @@ const SettleDebtWizard: React.FC<{
             
             const incomeOrExpense = selectedInfo.type === 'for_you' ? 'income' : 'expense';
             const sign = incomeOrExpense === 'income' ? 1 : -1;
+            
+            let debtCategoryId: string | null = null;
+            const categoryType = incomeOrExpense;
+            const categoryName = categoryType === 'income' ? 'تحصيل ديون' : 'ديون وقروض';
+            const categoryIcon = categoryType === 'income' ? 'CurrencyDollarIcon' : 'ScaleIcon';
+            const categoryColor = categoryType === 'income' ? '#34d399' : '#78716c';
+
+            let debtCategory = categories.find(c => c.name === categoryName && c.type === categoryType);
+            
+            if (!debtCategory) {
+                const { data: newCategory, error: catError } = await supabase
+                    .from('categories')
+                    .insert({ name: categoryName, type: categoryType, icon: categoryIcon, color: categoryColor }).select().single();
+                if (catError) { console.error(`Error creating ${categoryType} debt category:`, catError.message); } 
+                else { debtCategoryId = newCategory.id; }
+            } else {
+                debtCategoryId = debtCategory.id;
+            }
+
             const { data: account } = await supabase.from('accounts').select('balance').eq('id', paymentAccountId).single();
             if(!account) throw new Error("Account not found");
             await supabase.from('accounts').update({ balance: account.balance + (numericPayment * sign) }).eq('id', paymentAccountId);
             
             await supabase.from('transactions').insert({
                 amount: numericPayment, type: incomeOrExpense, account_id: paymentAccountId,
-                notes: `تسديد دين لـ ${selectedInfo.contact.name}`, date: new Date().toISOString()
+                notes: `تسوية دين مع ${selectedInfo.contact.name}`, date: new Date().toISOString(),
+                category_id: debtCategoryId
             });
 
             onSuccess();
@@ -437,7 +493,7 @@ const SettleDebtWizard: React.FC<{
     if(step === 2 && selectedInfo) {
          return (
              <div className="space-y-4">
-                 <p className="text-center text-slate-400">تسديد دين لـ <span className="font-bold text-white">{selectedInfo.contact.name}</span></p>
+                 <p className="text-center text-slate-400">تسوية دين مع <span className="font-bold text-white">{selectedInfo.contact.name}</span></p>
                  <div className="bg-slate-700/50 p-2 rounded text-center">
                     <span className="text-sm">إجمالي المستحق: </span>
                     <span className={`font-bold text-lg ${selectedInfo.type === 'on_you' ? 'text-red-400' : 'text-green-400'}`}>{selectedInfo.total} د.ل</span>
@@ -447,7 +503,7 @@ const SettleDebtWizard: React.FC<{
                     <option value="" disabled>اختر حساب الدفع</option>
                     {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
                 </select>
-                <button onClick={handleSettle} className="w-full py-2 px-4 bg-cyan-600 hover:bg-cyan-500 rounded-md transition">تأكيد التسديد</button>
+                <button onClick={handleSettle} className="w-full py-2 px-4 bg-cyan-600 hover:bg-cyan-500 rounded-md transition">تأكيد التسوية</button>
              </div>
          );
     }
@@ -516,7 +572,7 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
         { label: 'تحويل', icon: <ArrowsRightLeftIcon className="w-6 h-6"/>, action: () => openModal('transfer'), color: 'bg-indigo-500' },
         // Debt Management
         { label: 'إضافة دين', icon: <HandRaisedIcon className="w-6 h-6"/>, action: () => openModal('add-debt'), color: 'bg-amber-500' },
-        { label: 'تسديد دين', icon: <ScaleIcon className="w-6 h-6"/>, action: () => openModal('settle-debt'), color: 'bg-sky-500' },
+        { label: 'تسوية دين', icon: <ScaleIcon className="w-6 h-6"/>, action: () => openModal('settle-debt'), color: 'bg-sky-500' },
         // Entity Creation
         { label: 'إضافة حساب', icon: <AccountsIcon className="w-6 h-6"/>, action: () => openModal('add-account'), color: 'bg-blue-500' },
     ];
@@ -526,7 +582,7 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
         income: 'إضافة إيراد جديد',
         transfer: 'تحويل أموال',
         'add-debt': 'إضافة دين جديد',
-        'settle-debt': 'تسديد دين',
+        'settle-debt': 'تسوية دين',
         'add-account': 'إضافة حساب جديد'
     };
 
@@ -538,9 +594,9 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
             case 'transfer':
                  return <TransferModal accounts={accounts} onSuccess={handleActionSuccess} onCancel={closeModal} />;
             case 'add-debt':
-                return <AddDebtWizard contacts={contacts} accounts={accounts} onSuccess={handleActionSuccess} onCancel={closeModal} step={modalStep} setStep={setModalStep} />;
+                return <AddDebtWizard contacts={contacts} accounts={accounts} categories={categories} onSuccess={handleActionSuccess} onCancel={closeModal} step={modalStep} setStep={setModalStep} />;
             case 'settle-debt':
-                return <SettleDebtWizard unpaidDebts={unpaidDebts} contacts={contacts} accounts={accounts} onSuccess={handleActionSuccess} step={modalStep} setStep={setModalStep} />
+                return <SettleDebtWizard unpaidDebts={unpaidDebts} contacts={contacts} accounts={accounts} categories={categories} onSuccess={handleActionSuccess} step={modalStep} setStep={setModalStep} />
             case 'add-account':
                 return <AddAccountModal onSuccess={handleActionSuccess} onCancel={closeModal} />;
             default:

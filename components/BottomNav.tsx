@@ -1,6 +1,6 @@
 import React from 'react';
 import { Page } from '../types';
-import { HomeIcon, TransactionsIcon, DebtsIcon, AccountsIcon } from './icons';
+import { HomeIcon, ClipboardDocumentIcon, CurrencyDollarIcon, WalletIcon } from './icons';
 
 interface BottomNavProps {
     activePage: Page;
@@ -17,7 +17,7 @@ const NavButton: React.FC<{
 }> = ({ label, icon, isActive, onClick, notificationCount }) => (
     <button onClick={onClick} className={`relative flex flex-col items-center justify-center w-full pt-2 pb-1 transition-colors duration-200 ${isActive ? 'text-cyan-400' : 'text-slate-400 hover:text-cyan-400'}`}>
         {icon}
-        <span className="text-xs mt-1">{label}</span>
+        <span className={`text-xs mt-1 ${isActive ? 'font-bold' : 'font-normal'}`}>{label}</span>
         {notificationCount > 0 && (
             <span className="absolute top-1 right-1/2 translate-x-3/4 h-4 w-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-slate-800">
                 {notificationCount}
@@ -30,9 +30,9 @@ const NavButton: React.FC<{
 const BottomNav: React.FC<BottomNavProps> = ({ activePage, setActivePage, debtNotificationCount }) => {
     const navItems = [
         { page: 'home', label: 'الرئيسية', icon: <HomeIcon className="w-6 h-6" /> },
-        { page: 'transactions', label: 'المعاملات', icon: <TransactionsIcon className="w-6 h-6" /> },
-        { page: 'debts', label: 'الديون', icon: <DebtsIcon className="w-6 h-6" /> },
-        { page: 'accounts', label: 'الحسابات', icon: <AccountsIcon className="w-6 h-6" /> },
+        { page: 'transactions', label: 'المعاملات', icon: <ClipboardDocumentIcon className="w-6 h-6" /> },
+        { page: 'debts', label: 'الديون', icon: <CurrencyDollarIcon className="w-6 h-6" /> },
+        { page: 'accounts', label: 'الحسابات', icon: <WalletIcon className="w-6 h-6" /> },
     ];
 
     return (

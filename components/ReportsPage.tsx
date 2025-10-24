@@ -1,9 +1,22 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { GoogleGenAI, Type } from "@google/genai";
 import { supabase } from '../lib/supabase';
 import { Transaction, Debt } from '../types';
 import type { Chart, ChartConfiguration } from 'chart.js/auto';
+import { SparklesIcon, InformationCircleIcon, ArrowUpIcon, ArrowDownIcon, CheckCircleIcon } from './icons';
 
 type FilterType = 'this_month' | 'last_month' | 'this_year' | 'all_time';
+
+interface AiSummary {
+    greeting: string;
+    overallStatus: string;
+    statusColor: 'green' | 'amber' | 'red';
+    keyInsight: string;
+    incomeAnalysis: string;
+    spendingAnalysis: string;
+    recommendations: string[];
+}
+
 
 const formatCurrency = (amount: number) => {
     const options: Intl.NumberFormatOptions = {
@@ -105,12 +118,73 @@ const DateFilter: React.FC<{
     );
 };
 
+const AIAnalysis: React.FC<{
+    summary: AiSummary | null,
+    isAnalyzing: boolean,
+    error: string,
+}> = ({ summary, isAnalyzing, error }) => {
+    if (!summary && !isAnalyzing && !error) {
+        return null; // Don't show anything until analysis is requested
+    }
+
+    if (isAnalyzing) {
+        return (
+            <div className="text-center p-4 bg-slate-800 rounded-lg animate-pulse">
+                <p>جاري تحليل بياناتك المالية...</p>
+                <p className="text-sm text-slate-400">قد يستغرق هذا بضع ثوان.</p>
+            </div>
+        );
+    }
+    
+    if (error) {
+        return <div className="text-center p-4 bg-red-900/50 text-red-400 rounded-lg">{error}</div>;
+    }
+    
+    if (!summary) return null;
+
+    const statusClasses = {
+        green: 'bg-green-500/10 text-green-400',
+        amber: 'bg-amber-500/10 text-amber-400',
+        red: 'bg-red-500/10 text-red-400',
+    }
+
+    return (
+        <div className="bg-slate-800 p-4 rounded-lg space-y-4 border border-violet-500/50 animate-fade-in">
+            <h3 className="font-bold text-lg text-violet-400">{summary.greeting}</h3>
+            
+            <div className={`inline-block px-3 py-1 text-sm font-semibold rounded-full ${statusClasses[summary.statusColor]}`}>
+                {summary.overallStatus}
+            </div>
+
+            <p><span className="font-semibold">أهم ملاحظة:</span> {summary.keyInsight}</p>
+            <p><span className="font-semibold">تحليل الدخل:</span> {summary.incomeAnalysis}</p>
+            <p><span className="font-semibold">تحليل المصروفات:</span> {summary.spendingAnalysis}</p>
+
+            <div>
+                <h4 className="font-semibold mb-2">توصيات نبيه لك:</h4>
+                <ul className="list-none space-y-2">
+                    {summary.recommendations.map((rec, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                            <CheckCircleIcon className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5"/>
+                            <span>{rec}</span>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        </div>
+    );
+};
+
+
 const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [debts, setDebts] = useState<Debt[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'expense' | 'income' | 'debt'>('expense');
     const [filter, setFilter] = useState<FilterType>('this_month');
+    const [aiSummary, setAiSummary] = useState<AiSummary | null>(null);
+    const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+    const [analysisError, setAnalysisError] = useState<string>('');
 
     useEffect(() => {
         const fetchData = async () => {
@@ -176,20 +250,23 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
             }
         });
 
+        const expenseSummary = Object.entries(expenseByCategory).sort(([, a], [, b]) => b - a);
+        const incomeSummary = Object.entries(incomeByCategory).sort(([, a], [, b]) => b - a);
+
         const debtsOnYou = debts.filter(d => d.type === 'on_you').reduce((sum, d) => sum + d.amount, 0);
         const debtsForYou = debts.filter(d => d.type === 'for_you').reduce((sum, d) => sum + d.amount, 0);
 
         return {
             expenses: {
-                labels: Object.keys(expenseByCategory),
-                data: Object.values(expenseByCategory),
-                summary: Object.entries(expenseByCategory).sort(([, a], [, b]) => b - a),
+                labels: expenseSummary.map(([label, _]) => label),
+                data: expenseSummary.map(([_, amount]) => amount),
+                summary: expenseSummary,
                 total: totalExpenses
             },
             income: {
-                labels: Object.keys(incomeByCategory),
-                data: Object.values(incomeByCategory),
-                summary: Object.entries(incomeByCategory).sort(([, a], [, b]) => b - a),
+                labels: incomeSummary.map(([label, _]) => label),
+                data: incomeSummary.map(([_, amount]) => amount),
+                summary: incomeSummary,
                 total: totalIncome
             },
             debts: {
@@ -201,6 +278,76 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
         };
     }, [transactions, debts, filter]);
     
+    const handleAiAnalysis = async () => {
+        setIsAnalyzing(true);
+        setAiSummary(null);
+        setAnalysisError('');
+
+        try {
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+            const { expenses, income } = reportData;
+            const netResult = income.total - expenses.total;
+            
+            const filterLabels = {
+                'this_month': 'هذا الشهر',
+                'last_month': 'الشهر الماضي',
+                'this_year': 'هذه السنة',
+                'all_time': 'كل الأوقات'
+            };
+            const periodName = filterLabels[filter];
+
+            const prompt = `
+أنت مستشار مالي شخصي وودود اسمك 'نبيه'. قم بتحليل البيانات المالية للمستخدم عن فترة "${periodName}" وقدم ملخصًا موجزًا ومفيدًا باللغة العربية.
+
+البيانات:
+- إجمالي الدخل: ${formatCurrency(income.total)}
+- إجمالي المصروفات: ${formatCurrency(expenses.total)}
+- صافي النتيجة: ${formatCurrency(netResult)}
+- تفاصيل المصروفات: ${JSON.stringify(expenses.summary.slice(0, 5))}
+- تفاصيل الدخل: ${JSON.stringify(income.summary.slice(0, 5))}
+
+مهمتك هي ملء كائن JSON بالكامل بناءً على هذه البيانات. يجب أن يكون التحليل واضحًا وعصريًا ومختصرًا.
+`;
+            
+             const responseSchema = {
+                type: Type.OBJECT,
+                properties: {
+                    greeting: { type: Type.STRING, description: "تحية ودية وموجزة للمستخدم تبدأ بـ 'أهلاً بك! أنا نبيه...'." },
+                    overallStatus: { type: Type.STRING, description: "تقييم عام للحالة المالية بكلمة واحدة أو كلمتين (مثل 'ممتاز', 'جيد جدًا', 'يحتاج لتحسين')." },
+                    statusColor: { type: Type.STRING, description: "لون يمثل الحالة: 'green' للممتاز/الجيد، 'amber' للمتوسط، 'red' للسيء.", enum: ['green', 'amber', 'red'] },
+                    keyInsight: { type: Type.STRING, description: "أهم ملاحظة أو استنتاج رئيسي يمكن للمستخدم استخلاصه." },
+                    incomeAnalysis: { type: Type.STRING, description: "تحليل موجز لمصادر الدخل." },
+                    spendingAnalysis: { type: Type.STRING, description: "تحليل موجز لعادات الإنفاق، مع التركيز على الفئات الأعلى." },
+                    recommendations: {
+                        type: Type.ARRAY,
+                        description: "قائمة من 2 إلى 3 نصائح عملية وقابلة للتنفيذ.",
+                        items: { type: Type.STRING }
+                    }
+                },
+                required: ["greeting", "overallStatus", "statusColor", "keyInsight", "incomeAnalysis", "spendingAnalysis", "recommendations"]
+            };
+
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: responseSchema,
+                },
+            });
+            
+            const summaryObject = JSON.parse(response.text);
+            setAiSummary(summaryObject);
+
+        } catch (error) {
+            console.error("Error generating AI summary:", error);
+            setAnalysisError("عذرًا، حدث خطأ أثناء محاولة تحليل بياناتك. يرجى المحاولة مرة أخرى.");
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
     const renderContent = () => {
         if (loading) return <div className="text-center p-8">جاري تحميل التقارير...</div>;
 
@@ -264,14 +411,37 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
     return (
         <div>
             <DateFilter activeFilter={filter} onFilterChange={setFilter} />
-            <div className="flex border-b border-slate-700 mb-4">
-                <button onClick={() => setActiveTab('expense')} className={`w-1/3 py-3 text-center font-semibold transition-colors ${activeTab === 'expense' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}>المصروفات</button>
-                <button onClick={() => setActiveTab('income')} className={`w-1/3 py-3 text-center font-semibold transition-colors ${activeTab === 'income' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}>الإيرادات</button>
-                <button onClick={() => setActiveTab('debt')} className={`w-1/3 py-3 text-center font-semibold transition-colors ${activeTab === 'debt' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}>الديون</button>
+            
+            <div className="my-4">
+                <button 
+                    onClick={handleAiAnalysis} 
+                    disabled={isAnalyzing || loading}
+                    className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-violet-600 text-white font-bold rounded-lg shadow-lg hover:bg-violet-500 transition-all duration-300 disabled:bg-violet-800 disabled:cursor-not-allowed transform hover:scale-105"
+                >
+                    <SparklesIcon className="w-6 h-6" />
+                    {isAnalyzing ? 'جاري التحليل...' : 'تحليل مالي بالذكاء الاصطناعي'}
+                </button>
             </div>
-            <div className="animate-fade-in">
-                {renderContent()}
+
+            <AIAnalysis
+                summary={aiSummary}
+                isAnalyzing={isAnalyzing}
+                error={analysisError}
+            />
+
+            <div className="flex border-b border-slate-700 mt-6 mb-4">
+                <button onClick={() => setActiveTab('expense')} className={`w-1/3 py-3 text-center font-semibold transition-colors ${activeTab === 'expense' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}>
+                    المصروفات
+                </button>
+                <button onClick={() => setActiveTab('income')} className={`w-1/3 py-3 text-center font-semibold transition-colors ${activeTab === 'income' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}>
+                    الإيرادات
+                </button>
+                <button onClick={() => setActiveTab('debt')} className={`w-1/3 py-3 text-center font-semibold transition-colors ${activeTab === 'debt' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}>
+                    الديون
+                </button>
             </div>
+
+            {renderContent()}
         </div>
     );
 };

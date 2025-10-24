@@ -1,6 +1,6 @@
 import React from 'react';
 import { Page } from '../types';
-import { HomeIcon, AccountsIcon, TransactionsIcon, DebtsIcon, ContactsIcon, CategoriesIcon, ReportsIcon, ClipboardDocumentIcon } from './icons';
+import { HomeIcon, AccountsIcon, TransactionsIcon, CurrencyDollarIcon, ContactsIcon, CategoriesIcon, ReportsIcon, ClipboardDocumentIcon, ChartPieIcon } from './icons';
 
 interface SidebarProps {
     isOpen: boolean;
@@ -38,13 +38,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActiv
         { page: 'home', label: 'الرئيسية', icon: <HomeIcon className="w-6 h-6" /> },
         { page: 'accounts', label: 'الحسابات', icon: <AccountsIcon className="w-6 h-6" /> },
         { page: 'transactions', label: 'المعاملات', icon: <TransactionsIcon className="w-6 h-6" /> },
-        { page: 'debts', label: 'الديون', icon: <DebtsIcon className="w-6 h-6" /> },
+        { page: 'debts', label: 'الديون', icon: <CurrencyDollarIcon className="w-6 h-6" /> },
         { page: 'contacts', label: 'الأسماء', icon: <ContactsIcon className="w-6 h-6" /> },
     ];
     
     const secondaryNavItems = [
         { page: 'categories', label: 'الفئات', icon: <CategoriesIcon className="w-6 h-6" /> },
-        { page: 'reports', label: 'التقارير', icon: <ReportsIcon className="w-6 h-6" /> },
+        { page: 'reports', label: 'التقارير', icon: <ChartPieIcon className="w-6 h-6" /> },
         { page: 'notes', label: 'الملاحظات', icon: <ClipboardDocumentIcon className="w-6 h-6" /> },
     ];
 
@@ -84,8 +84,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActiv
                             />
                         ))}
                     </nav>
-                     <div className="mt-auto text-center text-xs text-slate-500 pb-2">
-                        By GreenBox 2025
+                     <div className="mt-auto text-center text-xs text-slate-500 pb-2 transition-colors duration-300 hover:text-cyan-400 cursor-default">
+                        جميع الحقوق محفوظة © GreenBox 2025
                     </div>
                 </div>
             </div>

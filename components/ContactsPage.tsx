@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Contact, Debt } from '../types';
-import { PlusIcon, PencilSquareIcon, TrashIcon, XMarkIcon, ScaleIcon } from './icons';
+import { PlusIcon, PencilSquareIcon, TrashIcon, XMarkIcon, ScaleIcon, MagnifyingGlassIcon, EllipsisVerticalIcon } from './icons';
 
 interface ContactWithDebtInfo extends Contact {
     forYou: number;
@@ -94,9 +94,12 @@ const getInitials = (name: string) => {
 };
 
 const ContactsPage: React.FC<ContactsPageProps> = ({ key, handleDatabaseChange, onSelectContact }) => {
-    const [contactsWithDebts, setContactsWithDebts] = useState<ContactWithDebtInfo[]>([]);
+    const [allContactsWithDebts, setAllContactsWithDebts] = useState<ContactWithDebtInfo[]>([]);
     const [loading, setLoading] = useState(true);
     const [modal, setModal] = useState<{ type: 'add' | 'edit' | 'delete' | null, contact: Contact | null }>({ type: null, contact: null });
+    const [searchTerm, setSearchTerm] = useState('');
+    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -132,13 +135,33 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ key, handleDatabaseChange, 
             };
         }).sort((a, b) => a.name.localeCompare(b.name));
 
-        setContactsWithDebts(combinedData);
+        setAllContactsWithDebts(combinedData);
         setLoading(false);
+    }, []);
+    
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setOpenMenuId(null);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
     useEffect(() => {
         fetchData();
     }, [fetchData, key]);
+
+    const filteredContacts = useMemo(() => {
+        if (!searchTerm) return allContactsWithDebts;
+        const lowercasedFilter = searchTerm.toLowerCase();
+        return allContactsWithDebts.filter(contact =>
+            contact.name.toLowerCase().includes(lowercasedFilter) ||
+            contact.phone?.includes(lowercasedFilter)
+        );
+    }, [allContactsWithDebts, searchTerm]);
+
 
     const handleSave = () => {
         const description = modal.contact ? `تم تعديل بيانات "${modal.contact.name}"` : 'تم إضافة جهة اتصال جديدة';
@@ -161,13 +184,23 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ key, handleDatabaseChange, 
 
     return (
         <div className="relative">
-            {loading && contactsWithDebts.length === 0 ? (
+            <div className="relative mb-4">
+                <MagnifyingGlassIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input
+                    type="text"
+                    placeholder="ابحث بالاسم أو رقم الهاتف..."
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 pr-10 pl-4 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+            </div>
+            {loading && allContactsWithDebts.length === 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {[...Array(4)].map((_, i) => <div key={i} className="h-44 bg-slate-800 rounded-xl animate-pulse"></div>)}
                 </div>
-            ) : contactsWithDebts.length === 0 ? (
+            ) : filteredContacts.length === 0 ? (
                 <div className="text-center py-10">
-                    <p className="text-slate-400 mb-4">لم تقم بإضافة أي أسماء بعد.</p>
+                    <p className="text-slate-400 mb-4">{searchTerm ? "لا يوجد أسماء تطابق بحثك." : "لم تقم بإضافة أي أسماء بعد."}</p>
                      <button onClick={() => setModal({ type: 'add', contact: null })} className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-4 rounded-lg inline-flex items-center">
                         <PlusIcon className="w-5 h-5 ml-2" />
                         إضافة اسم جديد
@@ -175,9 +208,9 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ key, handleDatabaseChange, 
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {contactsWithDebts.map(contact => (
-                        <button key={contact.id} onClick={() => onSelectContact(contact.id)} className="w-full text-right bg-slate-800 p-4 rounded-xl shadow-lg flex flex-col gap-4 hover:bg-slate-700/50 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500">
-                            <div className="flex justify-between items-start">
+                    {filteredContacts.map(contact => (
+                        <div key={contact.id} className="relative bg-slate-800 rounded-xl shadow-lg transition-colors border border-slate-700/50 group hover:border-cyan-500/50">
+                             <button onClick={() => onSelectContact(contact.id)} className="w-full text-right p-4 flex flex-col gap-4 focus:outline-none">
                                 <div className="flex items-center gap-3">
                                     <div className="w-12 h-12 bg-cyan-800 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-cyan-300 text-xl">
                                         {getInitials(contact.name)}
@@ -187,28 +220,24 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ key, handleDatabaseChange, 
                                         {contact.phone && <p className="text-sm text-slate-400">{contact.phone}</p>}
                                     </div>
                                 </div>
-                                 <div className="flex gap-1" onClick={e => e.stopPropagation()}>
-                                    <button onClick={() => setModal({ type: 'edit', contact })} className="text-slate-400 hover:text-cyan-400 p-1"><PencilSquareIcon className="w-5 h-5"/></button>
-                                    <button onClick={() => setModal({ type: 'delete', contact })} className="text-slate-400 hover:text-red-400 p-1"><TrashIcon className="w-5 h-5"/></button>
+                                <div className={`flex items-center justify-center gap-2 p-3 rounded-lg ${contact.netBalance > 0 ? 'bg-green-500/10 text-green-400' : contact.netBalance < 0 ? 'bg-red-500/10 text-red-400' : 'bg-slate-700 text-slate-400'}`}>
+                                    <ScaleIcon className="w-5 h-5"/>
+                                    <span className="text-sm font-medium">الرصيد الصافي:</span>
+                                    <span className="font-bold text-lg">{formatCurrency(contact.netBalance)}</span>
                                 </div>
+                            </button>
+                            <div className="absolute top-2 left-2" ref={openMenuId === contact.id ? menuRef : null}>
+                                <button onClick={() => setOpenMenuId(openMenuId === contact.id ? null : contact.id)} className="text-slate-500 hover:text-white p-2 rounded-full group-hover:text-slate-300 transition-colors">
+                                    <EllipsisVerticalIcon className="w-5 h-5"/>
+                                </button>
+                                {openMenuId === contact.id && (
+                                    <div className="absolute left-0 mt-2 w-32 bg-slate-900 border border-slate-700 rounded-md shadow-lg z-10 animate-fade-in-fast">
+                                       <button onClick={() => { setModal({ type: 'edit', contact }); setOpenMenuId(null); }} className="flex items-center gap-2 w-full text-right px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 rounded-t-md"><PencilSquareIcon className="w-4 h-4"/> تعديل</button>
+                                       <button onClick={() => { setModal({ type: 'delete', contact }); setOpenMenuId(null); }} className="flex items-center gap-2 w-full text-right px-4 py-2 text-sm text-red-400 hover:bg-slate-700 rounded-b-md"><TrashIcon className="w-4 h-4"/> حذف</button>
+                                    </div>
+                                )}
                             </div>
-
-                            <div className="grid grid-cols-2 gap-3 text-center">
-                                <div className="bg-slate-900/50 p-2 rounded-lg">
-                                    <p className="text-xs text-green-400">مستحق لك</p>
-                                    <p className="font-bold text-lg">{formatCurrency(contact.forYou)}</p>
-                                </div>
-                                <div className="bg-slate-900/50 p-2 rounded-lg">
-                                    <p className="text-xs text-red-400">مستحق عليك</p>
-                                    <p className="font-bold text-lg">{formatCurrency(contact.onYou)}</p>
-                                </div>
-                            </div>
-                            <div className={`flex items-center justify-center gap-2 p-2 rounded-lg ${contact.netBalance > 0 ? 'bg-green-500/10 text-green-400' : contact.netBalance < 0 ? 'bg-red-500/10 text-red-400' : 'bg-slate-700 text-slate-400'}`}>
-                                <ScaleIcon className="w-5 h-5"/>
-                                <span className="text-sm font-medium">الرصيد الصافي:</span>
-                                <span className="font-bold text-lg">{formatCurrency(contact.netBalance)}</span>
-                            </div>
-                        </button>
+                        </div>
                     ))}
                 </div>
             )}

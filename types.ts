@@ -35,17 +35,22 @@ export interface Contact {
   address: string | null;
 }
 
-// debts: id(uuid), contact_id(uuid), amount(numeric), due_date(date), paid(boolean), type('for_you' | 'on_you'), description(text)
+// debts: id(uuid), contact_id(uuid), amount(numeric), due_date(date), paid(boolean), type('for_you' | 'on_you'), description(text), linked_transaction_id(uuid), created_at(timestamptz), paid_at(timestamptz)
 export interface Debt {
   id: string;
   contact_id: string | null;
   amount: number;
   due_date: string | null; // Date string
   paid: boolean;
+  paid_at: string | null;
   type: 'for_you' | 'on_you';
   description: string | null;
+  linked_transaction_id: string | null;
+  created_at: string;
+  account_id: string | null;
   // For display
   contacts?: { name: string } | null;
+  accounts?: { name: string } | null;
 }
 
 // categories: id(uuid), name(text), color(text), icon(text), type('income' | 'expense')
