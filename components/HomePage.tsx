@@ -5,7 +5,7 @@ import QuickActions from './QuickActions';
 import TransactionForm from './TransactionForm'; // Import the shared form
 import { 
     WalletIcon, ArrowDownIcon, ArrowUpIcon, ClockIcon, ChevronLeftIcon, ChevronRightIcon, XMarkIcon, DocumentTextIcon,
-    PencilSquareIcon, TrashIcon, ExclamationTriangleIcon
+    PencilSquareIcon, TrashIcon, ExclamationTriangleIcon, CheckCircleIcon
 } from './icons';
 import type { Chart, ChartConfiguration } from 'chart.js/auto';
 
@@ -224,7 +224,7 @@ const TransactionDetailContent: React.FC<{
 };
 
 const getDueDateInfo = (dueDate: string | null): { text: string; colorClass: string; isUrgent: boolean } => {
-    if (!dueDate) return { text: '', colorClass: 'text-slate-500', isUrgent: false };
+    if (!dueDate) return { text: 'غير محدد', colorClass: 'text-slate-500', isUrgent: false };
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const due = new Date(dueDate);
@@ -246,6 +246,70 @@ const getDueDateInfo = (dueDate: string | null): { text: string; colorClass: str
     return { text: `في ${due.toLocaleDateString('ar-LY', {day: '2-digit', month: 'short'})}`, colorClass: 'text-slate-500', isUrgent: false };
 };
 
+const getInitials = (name: string = '') => {
+    if (!name) return '?';
+    const names = name.split(' ');
+    if (names.length > 1 && names[0] && names[names.length - 1]) {
+        return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+};
+
+const DebtDetailContent: React.FC<{
+    debt: Debt;
+    onMarkAsPaid: () => void;
+}> = ({ debt, onMarkAsPaid }) => {
+    const dueDateInfo = getDueDateInfo(debt.due_date);
+
+    return (
+        <div className="space-y-4">
+            <div className="flex flex-col items-center border-b border-slate-700 pb-4">
+                <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center font-bold text-cyan-300 text-xl mb-2">
+                    {getInitials(debt.contacts?.name)}
+                </div>
+                <h3 className="text-xl font-bold">{debt.contacts?.name || 'دين غير مرتبط'}</h3>
+                <p className="text-sm text-slate-400">{debt.description || 'لا يوجد وصف'}</p>
+            </div>
+            
+            <div className="text-center">
+                <p className="text-sm text-slate-500">المبلغ</p>
+                <p className={`text-5xl font-extrabold ${debt.type === 'on_you' ? 'text-red-400' : 'text-green-400'}`}>
+                    {formatCurrency(debt.amount)}
+                </p>
+            </div>
+            
+            <div className="space-y-2 text-sm">
+                <div className="flex justify-between p-2 bg-slate-900/50 rounded">
+                    <span className="text-slate-400">نوع الدين</span>
+                    <span className={`font-semibold ${debt.type === 'on_you' ? 'text-red-400' : 'text-green-400'}`}>
+                        {debt.type === 'on_you' ? 'دين عليك' : 'دين لك'}
+                    </span>
+                </div>
+                <div className="flex justify-between p-2 bg-slate-900/50 rounded">
+                    <span className="text-slate-400">تاريخ الاستحقاق</span>
+                    <span className={`font-semibold ${dueDateInfo.colorClass}`}>
+                        {debt.due_date ? new Date(debt.due_date).toLocaleDateString('ar-LY', { day: 'numeric', month: 'long', year: 'numeric' }) : 'غير محدد'}
+                    </span>
+                </div>
+                 <div className="flex justify-between p-2 bg-slate-900/50 rounded">
+                    <span className="text-slate-400">الحالة</span>
+                    <span className={`font-semibold ${dueDateInfo.colorClass}`}>
+                        {dueDateInfo.text}
+                    </span>
+                </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+                <button 
+                    onClick={onMarkAsPaid} 
+                    className="w-full py-3 px-4 bg-green-600/20 text-green-400 hover:bg-green-600/40 rounded-md transition flex items-center justify-center gap-2 font-bold">
+                    <CheckCircleIcon className="w-6 h-6"/> تعليم كمدفوع
+                </button>
+            </div>
+        </div>
+    );
+};
+
 
 const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: string) => void; setActivePage: (page: Page) => void; }> = ({ key, handleDatabaseChange, setActivePage }) => {
     const [stats, setStats] = useState({ totalBalance: 0, debtsForYou: 0, debtsOnYou: 0 });
@@ -264,6 +328,11 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [lastActivity, setLastActivity] = useState<{ description: string; time: string; date: string } | null>(null);
+
+    // State for Debt Detail Modal
+    const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
+    const [isDebtDetailModalOpen, setIsDebtDetailModalOpen] = useState(false);
+    const [isMarkAsPaidConfirmOpen, setIsMarkAsPaidConfirmOpen] = useState(false);
 
     useEffect(() => {
         const fetchDataForForm = async () => {
@@ -415,6 +484,36 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
         setIsEditModalOpen(false);
         setIsDeleteConfirmOpen(false);
     };
+    
+    // Handlers for Debt Modals
+    const handleOpenDebtDetailModal = (debt: Debt) => {
+        setSelectedDebt(debt);
+        setIsDebtDetailModalOpen(true);
+    };
+
+    const closeDebtModals = () => {
+        setSelectedDebt(null);
+        setIsDebtDetailModalOpen(false);
+        setIsMarkAsPaidConfirmOpen(false);
+    };
+
+    const handleMarkDebtAsPaid = async () => {
+        if (!selectedDebt) return;
+
+        const { error } = await supabase
+            .from('debts')
+            .update({ paid: true })
+            .eq('id', selectedDebt.id);
+
+        if (error) {
+            console.error('Error marking debt as paid', error.message);
+            alert('حدث خطأ أثناء تحديث حالة الدين.');
+        } else {
+            handleDatabaseChange(`تم تسديد دين لـ "${selectedDebt.contacts?.name || 'شخص ما'}"`);
+        }
+        closeDebtModals();
+    };
+
 
     const handleSaveTransaction = () => {
         closeAllModals();
@@ -571,7 +670,7 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
                         {dueDebts.map(debt => {
                             const dueDateInfo = getDueDateInfo(debt.due_date);
                             return (
-                                <button key={debt.id} onClick={() => setActivePage('debts')} className="w-full text-right bg-slate-800 p-3 rounded-lg flex justify-between items-center hover:bg-slate-700/50 transition-colors">
+                                <button key={debt.id} onClick={() => handleOpenDebtDetailModal(debt)} className="w-full text-right bg-slate-800 p-3 rounded-lg flex justify-between items-center hover:bg-slate-700/50 transition-colors">
                                     <div className="flex items-center gap-3">
                                         <div className={`w-10 h-10 rounded-full flex items-center justify-center ${debt.type === 'for_you' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                                             {dueDateInfo.isUrgent ? <ExclamationTriangleIcon className="w-6 h-6"/> : (debt.type === 'for_you' ? <ArrowDownIcon className="w-6 h-6"/> : <ArrowUpIcon className="w-6 h-6"/>)}
@@ -685,6 +784,27 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
                     <div className="flex justify-end gap-3">
                         <button onClick={closeAllModals} className="py-2 px-4 bg-slate-600 hover:bg-slate-500 rounded-md transition">إلغاء</button>
                         <button onClick={handleDeleteTransaction} className="py-2 px-4 bg-red-600 hover:bg-red-500 rounded-md transition">تأكيد الحذف</button>
+                    </div>
+                </Modal>
+            )}
+
+            {isDebtDetailModalOpen && selectedDebt && (
+                <Modal title="تفاصيل الدين" onClose={closeDebtModals}>
+                    <DebtDetailContent
+                        debt={selectedDebt}
+                        onMarkAsPaid={() => {
+                            setIsDebtDetailModalOpen(false);
+                            setIsMarkAsPaidConfirmOpen(true);
+                        }}
+                    />
+                </Modal>
+            )}
+            {isMarkAsPaidConfirmOpen && selectedDebt && (
+                <Modal title="تأكيد الدفع" onClose={closeDebtModals}>
+                    <p className="text-slate-300 mb-6">هل أنت متأكد من تعليم هذا الدين كـ "مدفوع"؟</p>
+                    <div className="flex justify-end gap-3">
+                        <button onClick={closeDebtModals} className="py-2 px-4 bg-slate-600 hover:bg-slate-500 rounded-md transition">إلغاء</button>
+                        <button onClick={handleMarkDebtAsPaid} className="py-2 px-4 bg-green-600 hover:bg-green-500 rounded-md transition">تأكيد</button>
                     </div>
                 </Modal>
             )}
