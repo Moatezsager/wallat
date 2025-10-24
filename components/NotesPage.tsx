@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase';
 import { Note } from '../types';
 import { 
     MagnifyingGlassIcon, XMarkIcon, PinIcon, SolidPinIcon, PaintBrushIcon,
-    TrashIcon, EllipsisHorizontalIcon
+    TrashIcon, BoldIcon, ItalicIcon, UnderlineIcon, StrikethroughIcon,
+    ListBulletIcon, QueueListIcon, ChatBubbleLeftQuoteIcon, PlusIcon, EllipsisVerticalIcon, ClipboardDocumentIcon
 } from './icons';
 
 // A more vibrant and modern color palette
@@ -39,90 +40,62 @@ const useClickOutside = (ref: React.RefObject<HTMLElement>, handler: (event: Mou
   }, [ref, handler]);
 };
 
-// New AddNote component inspired by Google Keep
-const AddNote: React.FC<{ onSave: (newNote: Omit<Note, 'id' | 'created_at' | 'updated_at'>) => void }> = ({ onSave }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
-    const [title, setTitle] = useState('');
-    const [content, setContent] = useState('');
-    const [color, setColor] = useState(NOTE_COLORS[0]);
-    
-    const containerRef = useRef<HTMLDivElement>(null);
+// Helper function to execute rich text commands
+const formatDoc = (cmd: string, value: string | null = null) => {
+    document.execCommand(cmd, false, value);
+};
 
-    const resetForm = () => {
-        setIsExpanded(false);
-        setTitle('');
-        setContent('');
-        setColor(NOTE_COLORS[0]);
-    };
+// Reusable Editor Toolbar
+const EditorToolbar: React.FC = () => {
+    const commands = [
+        { cmd: 'bold', icon: BoldIcon, title: 'عريض' },
+        { cmd: 'italic', icon: ItalicIcon, title: 'مائل' },
+        { cmd: 'underline', icon: UnderlineIcon, title: 'تحته خط' },
+        { cmd: 'strikeThrough', icon: StrikethroughIcon, title: 'يتوسطه خط' },
+        { cmd: 'insertUnorderedList', icon: ListBulletIcon, title: 'قائمة نقطية' },
+        { cmd: 'insertOrderedList', icon: QueueListIcon, title: 'قائمة رقمية' },
+        { cmd: 'formatBlock', value: 'BLOCKQUOTE', icon: ChatBubbleLeftQuoteIcon, title: 'اقتباس' },
+    ];
 
-    const handleSave = useCallback(() => {
-        if (title.trim() || content.trim()) {
-            const fullNoteText = `<h2>${title.trim()}</h2>${content}`;
-            onSave({
-                note_text: fullNoteText,
-                color: color,
-                is_pinned: false,
-                is_code: false,
-                language: null,
-            });
-        }
-        resetForm();
-    }, [title, content, color, onSave]);
-    
-    useClickOutside(containerRef, handleSave);
-    
     return (
-        <div ref={containerRef} className="max-w-xl mx-auto mb-8">
-            <div className="bg-slate-800 rounded-lg shadow-lg border border-slate-700 transition-all duration-300" style={{ backgroundColor: color }}>
-                {isExpanded && (
-                    <input 
-                        type="text"
-                        placeholder="العنوان"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        className="w-full bg-transparent p-3 text-lg font-bold placeholder-slate-400 focus:outline-none"
-                    />
-                )}
-                <textarea
-                    placeholder="اكتب ملاحظة جديدة..."
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    onFocus={() => setIsExpanded(true)}
-                    rows={isExpanded ? 4 : 1}
-                    className="w-full bg-transparent p-3 placeholder-slate-400 focus:outline-none resize-none"
-                />
-                 {isExpanded && (
-                    <div className="flex justify-between items-center p-2">
-                        <ColorPickerPopover selectedColor={color} onSelect={setColor} />
-                        <button onClick={handleSave} className="py-2 px-5 bg-black/20 hover:bg-black/40 rounded-md transition text-sm">
-                            تم
-                        </button>
-                    </div>
-                )}
-            </div>
+        <div className="flex items-center gap-1">
+            {commands.map(({ cmd, value, icon: Icon, title }) => (
+                <button
+                    key={cmd + (value || '')}
+                    type="button"
+                    onMouseDown={e => {
+                        e.preventDefault(); // Prevent losing focus from the editor
+                        formatDoc(cmd, value || null);
+                    }}
+                    title={title}
+                    className="p-2 rounded-full hover:bg-black/30 transition-colors"
+                >
+                    <Icon className="w-5 h-5" />
+                </button>
+            ))}
         </div>
     );
 };
 
-// A small popover for color selection
-const ColorPickerPopover: React.FC<{ selectedColor: string; onSelect: (color: string) => void }> = ({ selectedColor, onSelect }) => {
+// A small popover for color selection, used in multiple places
+const ColorPickerPopover: React.FC<{ onSelect: (color: string) => void; children: React.ReactNode; }> = ({ onSelect, children }) => {
     const [isOpen, setIsOpen] = useState(false);
     const popoverRef = useRef<HTMLDivElement>(null);
     useClickOutside(popoverRef, () => setIsOpen(false));
 
     return (
         <div ref={popoverRef} className="relative">
-            <button onClick={() => setIsOpen(!isOpen)} title="تغيير اللون" className="p-2 rounded-full hover:bg-black/30 transition-colors">
-                <PaintBrushIcon className="w-5 h-5" />
+            <button onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }} className="p-2 rounded-full hover:bg-black/30 transition-colors">
+                {children}
             </button>
             {isOpen && (
-                 <div className="absolute bottom-full mb-2 bg-slate-900 p-2 rounded-lg grid grid-cols-6 gap-2 border border-slate-700 shadow-lg animate-fade-in-fast">
+                 <div className="absolute bottom-full mb-2 bg-slate-900 p-2 rounded-lg grid grid-cols-6 gap-2 border border-slate-700 shadow-lg animate-fade-in-fast z-10">
                     {NOTE_COLORS.map(color => (
                         <button 
                             key={color} 
                             style={{backgroundColor: color}} 
-                            onClick={() => { onSelect(color); setIsOpen(false); }} 
-                            className={`w-6 h-6 rounded-full transition-transform hover:scale-110 ${selectedColor === color ? 'ring-2 ring-white' : ''}`}
+                            onClick={(e) => { e.stopPropagation(); onSelect(color); setIsOpen(false); }} 
+                            className={'w-6 h-6 rounded-full transition-transform hover:scale-110 ring-white ring-offset-slate-900 focus:ring-2'}
                         />
                     ))}
                 </div>
@@ -136,7 +109,8 @@ const NotesPage: React.FC<{ key: number; handleDatabaseChange: (description?: st
     const [notes, setNotes] = useState<Note[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [editingNote, setEditingNote] = useState<Note | null>(null);
+    const [editorState, setEditorState] = useState<{ mode: 'closed' | 'adding'; note: null } | { mode: 'editing'; note: Note }>({ mode: 'closed', note: null });
+
 
     const fetchNotes = useCallback(async () => {
         setLoading(true);
@@ -180,7 +154,7 @@ const NotesPage: React.FC<{ key: number; handleDatabaseChange: (description?: st
             console.error("Error saving note:", error.message);
         } else {
             handleDatabaseChange(isUpdate ? "تحديث ملاحظة" : "إضافة ملاحظة جديدة");
-            setEditingNote(null);
+            setEditorState({ mode: 'closed', note: null });
         }
     };
 
@@ -190,6 +164,7 @@ const NotesPage: React.FC<{ key: number; handleDatabaseChange: (description?: st
             console.error("Error deleting note:", error.message);
         } else {
             handleDatabaseChange("حذف ملاحظة");
+            setEditorState({ mode: 'closed', note: null });
         }
     };
     
@@ -217,17 +192,21 @@ const NotesPage: React.FC<{ key: number; handleDatabaseChange: (description?: st
                 </div>
             </div>
 
-            <AddNote onSave={handleSaveNote} />
-
             {loading ? (
                 <p className="text-center text-slate-400 py-8">جاري تحميل الملاحظات...</p>
+            ) : notes.length === 0 && !searchTerm ? (
+                <div className="text-center py-16 flex flex-col items-center gap-4 text-slate-500">
+                    <ClipboardDocumentIcon className="w-16 h-16"/>
+                    <h3 className="text-xl font-semibold text-slate-300">ملاحظاتك ستظهر هنا</h3>
+                    <p>اضغط على زر + لبدء تدوين أفكارك.</p>
+                </div>
             ) : (
                 <>
                     {pinnedNotes.length > 0 && (
                         <NotesSection 
                             title="المثبتة"
                             notes={pinnedNotes}
-                            onEdit={setEditingNote}
+                            onEdit={(note) => setEditorState({ mode: 'editing', note })}
                             onDelete={handleDeleteNote}
                             onUpdateField={handleUpdateNoteField}
                         />
@@ -236,21 +215,26 @@ const NotesPage: React.FC<{ key: number; handleDatabaseChange: (description?: st
                          <NotesSection 
                             title={pinnedNotes.length > 0 ? "الأخرى" : undefined}
                             notes={otherNotes}
-                            onEdit={setEditingNote}
+                            onEdit={(note) => setEditorState({ mode: 'editing', note })}
                             onDelete={handleDeleteNote}
                             onUpdateField={handleUpdateNoteField}
                         />
                     )}
-                    {notes.length === 0 && <p className="text-center text-slate-400 py-8">لا توجد ملاحظات لعرضها. هيا بنا نكتب أول ملاحظة!</p>}
+                    {filteredNotes.length === 0 && searchTerm && <p className="text-center text-slate-400 py-8">لم يتم العثور على ملاحظات تطابق بحثك.</p>}
                 </>
             )}
 
-            {editingNote && (
+            <button onClick={() => setEditorState({ mode: 'adding', note: null })} className="fixed bottom-20 right-4 h-14 w-14 bg-cyan-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-cyan-500 transition-transform transform active:scale-90 z-10">
+                <PlusIcon className="w-8 h-8"/>
+            </button>
+
+            {editorState.mode !== 'closed' && (
                 <NoteEditorModal 
-                    note={editingNote}
+                    key={editorState.note?.id || 'new-note'}
+                    note={editorState.note}
                     onSave={handleSaveNote}
                     onDelete={handleDeleteNote}
-                    onCancel={() => setEditingNote(null)}
+                    onCancel={() => setEditorState({ mode: 'closed', note: null })}
                 />
             )}
         </div>
@@ -286,7 +270,10 @@ const NoteCard: React.FC<{
     onDelete: () => void;
     onUpdateField: (updates: Partial<Note>) => void;
 }> = ({ note, onEdit, onDelete, onUpdateField }) => {
-    const contentRef = useRef<HTMLDivElement>(null);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+    useClickOutside(menuRef, () => setIsMenuOpen(false));
+
     const [title, content] = useMemo(() => {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = note.note_text;
@@ -300,24 +287,47 @@ const NoteCard: React.FC<{
     return (
         <div className="masonry-item group">
             <div 
-                className="relative border border-slate-700 rounded-lg p-4 cursor-pointer break-inside-avoid-column hover:border-slate-500 transition-colors shadow-md"
+                className="relative border border-slate-700 rounded-lg cursor-pointer break-inside-avoid-column hover:border-cyan-500/60 hover:shadow-lg hover:shadow-cyan-900/20 hover:-translate-y-1 transition-all duration-300 shadow-md h-full flex flex-col"
                 style={{ backgroundColor: note.color }}
-                onClick={onEdit}
             >
-                {note.is_pinned && <SolidPinIcon className="absolute top-2 left-2 w-5 h-5 text-cyan-300" />}
-
-                <div className="flex flex-col h-full">
-                    {title && <h3 className="font-bold text-lg mb-2 break-words">{title}</h3>}
-                    <div ref={contentRef} className="text-slate-200 break-words prose prose-invert prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: content }} />
-                    
-                    <div className="mt-4 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <ColorPickerPopover selectedColor={note.color} onSelect={(color) => onUpdateField({ color })} />
-                         <button onClick={e => { e.stopPropagation(); onUpdateField({ is_pinned: !note.is_pinned }); }} title={note.is_pinned ? "إلغاء التثبيت" : "تثبيت"} className="p-2 rounded-full hover:bg-black/30 transition-colors">
-                            <PinIcon className="w-5 h-5"/>
+                <div onClick={onEdit} className="flex-grow p-4 pb-2">
+                    <div className="note-card-content">
+                        {title && <h3 className="font-bold text-lg mb-2 break-words">{title}</h3>}
+                        <div className="text-slate-200 break-words prose prose-invert prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: content }} />
+                    </div>
+                </div>
+                
+                <div className="flex items-center justify-end p-1">
+                    <div ref={menuRef} className="relative">
+                        <button onClick={(e) => { e.stopPropagation(); setIsMenuOpen(v => !v); }} title="المزيد من الإجراءات" className="p-2 rounded-full hover:bg-black/30 transition-colors opacity-60 group-hover:opacity-100">
+                            <EllipsisVerticalIcon className="w-5 h-5"/>
                         </button>
-                        <button onClick={e => { e.stopPropagation(); onDelete(); }} title="حذف" className="p-2 rounded-full hover:bg-black/30 transition-colors">
-                            <TrashIcon className="w-5 h-5"/>
-                        </button>
+                        {isMenuOpen && (
+                             <div className="note-action-menu absolute left-0 bottom-full mb-1 w-56 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-20 animate-fade-in-fast p-1">
+                                <button onClick={(e) => { e.stopPropagation(); onUpdateField({ is_pinned: !note.is_pinned }); setIsMenuOpen(false); }}>
+                                    {note.is_pinned ? <SolidPinIcon className="w-5 h-5 text-cyan-300" /> : <PinIcon className="w-5 h-5" />}
+                                    <span>{note.is_pinned ? "إلغاء التثبيت" : "تثبيت الملاحظة"}</span>
+                                </button>
+                                <div className="color-picker-container">
+                                     <p className="text-xs text-slate-400 mb-2 px-1">اللون</p>
+                                     <div className="grid grid-cols-6 gap-2">
+                                         {NOTE_COLORS.map(color => (
+                                            <button 
+                                                key={color} 
+                                                style={{backgroundColor: color}} 
+                                                onClick={(e) => { e.stopPropagation(); onUpdateField({ color }); setIsMenuOpen(false); }} 
+                                                className={`w-6 h-6 rounded-full transition-transform hover:scale-110 ring-white ring-offset-slate-900 focus:ring-2`}
+                                            />
+                                        ))}
+                                     </div>
+                                </div>
+                                 <div className="border-t border-slate-700 my-1"></div>
+                                 <button onClick={(e) => { e.stopPropagation(); onDelete(); setIsMenuOpen(false); }} className="delete-btn">
+                                    <TrashIcon className="w-5 h-5"/>
+                                    <span>حذف الملاحظة</span>
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -325,14 +335,21 @@ const NoteCard: React.FC<{
     );
 };
 
-// Editor Modal is now a centered modal for focused editing
 const NoteEditorModal: React.FC<{
-    note: Note;
-    onSave: (note: Note) => void;
+    note: Note | null;
+    onSave: (note: Note | Omit<Note, 'id' | 'created_at' | 'updated_at'>) => void;
     onDelete: (id: string) => void;
     onCancel: () => void;
 }> = ({ note: initialNote, onSave, onDelete, onCancel }) => {
-    const [note, setNote] = useState(initialNote);
+    const defaultNewNote = useMemo(() => ({ 
+        note_text: '', 
+        color: NOTE_COLORS[0], 
+        is_pinned: false, 
+        is_code: false, 
+        language: null 
+    }), []);
+    
+    const [note, setNote] = useState(initialNote || defaultNewNote);
     const contentRef = useRef<HTMLDivElement>(null);
     const titleRef = useRef<HTMLTextAreaElement>(null);
 
@@ -346,21 +363,27 @@ const NoteEditorModal: React.FC<{
         return [titleText, contentText];
     }, [note.note_text]);
 
-    const handleSave = () => {
-        const newTitle = titleRef.current?.value || '';
-        const newContent = contentRef.current?.innerHTML || '';
+    const handleSave = useCallback(() => {
+        const newTitle = titleRef.current?.value.trim() || '';
+        const newContent = contentRef.current?.innerHTML.trim() || '';
         const newNoteText = newTitle ? `<h2>${newTitle}</h2>${newContent}` : newContent;
-        onSave({ ...note, note_text: newNoteText });
-    };
+        
+        if (!initialNote && !newTitle && !newContent) {
+            onCancel();
+            return;
+        }
 
-    const handleNoteUpdate = (updates: Partial<Note>) => {
-        setNote(prev => ({ ...prev, ...updates }));
+        const finalNoteData = { ...note, note_text: newNoteText };
+        onSave(finalNoteData);
+    }, [initialNote, note, onSave, onCancel]);
+
+    const handleColorSelect = (color: string) => {
+        setNote(prev => ({ ...prev, color }));
     };
 
     const modalRef = useRef<HTMLDivElement>(null);
     useClickOutside(modalRef, handleSave);
     
-    // Auto-resize textarea for title
     useEffect(() => {
         if (titleRef.current) {
             titleRef.current.style.height = 'auto';
@@ -369,8 +392,8 @@ const NoteEditorModal: React.FC<{
     }, [title]);
 
     return (
-        <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-            <div ref={modalRef} className="rounded-lg w-full max-w-2xl border border-slate-700 shadow-xl animate-slide-up max-h-[80vh] flex flex-col" style={{ backgroundColor: note.color }}>
+        <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center p-0 animate-fade-in">
+            <div ref={modalRef} className="bg-slate-800 w-full h-full flex flex-col" style={{ backgroundColor: note.color }}>
                 <div className="p-4 flex-grow flex flex-col overflow-y-auto">
                     <textarea
                         ref={titleRef}
@@ -378,29 +401,41 @@ const NoteEditorModal: React.FC<{
                         placeholder="العنوان"
                         className="bg-transparent text-xl font-bold placeholder-slate-400/70 focus:outline-none resize-none overflow-hidden mb-2"
                         rows={1}
+                        onInput={(e) => {
+                             const target = e.currentTarget;
+                             target.style.height = 'auto';
+                             target.style.height = `${target.scrollHeight}px`;
+                        }}
                     />
                     <div
                         ref={contentRef}
                         contentEditable
                         suppressContentEditableWarning
                         dangerouslySetInnerHTML={{ __html: content }}
-                        className="flex-grow outline-none prose prose-invert max-w-none prose-p:my-2"
-                        placeholder="اكتب ملاحظتك..."
+                        className="flex-grow outline-none prose prose-invert max-w-none"
+                        data-placeholder="اكتب ملاحظتك..."
                     />
                 </div>
-                <div className="flex justify-between items-center p-2 border-t border-white/10">
+                <div className="flex justify-between items-center p-2 border-t border-white/10 flex-wrap">
+                    <EditorToolbar />
                     <div className="flex items-center gap-1">
-                        <ColorPickerPopover selectedColor={note.color} onSelect={(color) => handleNoteUpdate({ color })} />
-                        <button onClick={() => handleNoteUpdate({ is_pinned: !note.is_pinned })} title={note.is_pinned ? "إلغاء التثبيت" : "تثبيت"} className="p-2 rounded-full hover:bg-black/30 transition-colors">
-                            {note.is_pinned ? <SolidPinIcon className="w-5 h-5 text-cyan-300" /> : <PinIcon className="w-5 h-5" />}
-                        </button>
-                        <button onClick={() => { onDelete(note.id); onCancel(); }} title="حذف" className="p-2 rounded-full hover:bg-black/30 transition-colors">
-                            <TrashIcon className="w-5 h-5"/>
+                        <ColorPickerPopover onSelect={handleColorSelect}>
+                             <PaintBrushIcon className="w-5 h-5" />
+                        </ColorPickerPopover>
+                        {initialNote && (
+                            <>
+                                <button onClick={() => onSave({ ...note, is_pinned: !note.is_pinned })} title={note.is_pinned ? "إلغاء التثبيت" : "تثبيت"} className="p-2 rounded-full hover:bg-black/30 transition-colors">
+                                    {note.is_pinned ? <SolidPinIcon className="w-5 h-5 text-cyan-300" /> : <PinIcon className="w-5 h-5" />}
+                                </button>
+                                <button onClick={() => onDelete(initialNote.id)} title="حذف" className="p-2 rounded-full hover:bg-black/30 transition-colors">
+                                    <TrashIcon className="w-5 h-5"/>
+                                </button>
+                            </>
+                        )}
+                         <button onClick={handleSave} className="py-2 px-5 bg-black/20 hover:bg-black/40 rounded-md transition text-sm">
+                            تم
                         </button>
                     </div>
-                    <button onClick={handleSave} className="py-2 px-5 bg-black/20 hover:bg-black/40 rounded-md transition text-sm">
-                        إغلاق
-                    </button>
                 </div>
             </div>
         </div>
