@@ -5,7 +5,7 @@ import QuickActions from './QuickActions';
 import TransactionForm from './TransactionForm'; // Import the shared form
 import { 
     WalletIcon, ArrowDownIcon, ArrowUpIcon, ClockIcon, ChevronLeftIcon, ChevronRightIcon, XMarkIcon, DocumentTextIcon,
-    PencilSquareIcon, TrashIcon
+    PencilSquareIcon, TrashIcon, ExclamationTriangleIcon
 } from './icons';
 import type { Chart, ChartConfiguration } from 'chart.js/auto';
 
@@ -223,10 +223,34 @@ const TransactionDetailContent: React.FC<{
     );
 };
 
+const getDueDateInfo = (dueDate: string | null): { text: string; colorClass: string; isUrgent: boolean } => {
+    if (!dueDate) return { text: '', colorClass: 'text-slate-500', isUrgent: false };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(dueDate);
+    due.setHours(0, 0, 0, 0);
+
+    const diffTime = due.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+        const days = Math.abs(diffDays);
+        return { text: `متأخر منذ ${days} ${days === 1 ? 'يوم' : 'أيام'}`, colorClass: 'text-red-400', isUrgent: true };
+    }
+    if (diffDays === 0) {
+        return { text: 'مستحق اليوم', colorClass: 'text-amber-400 font-bold', isUrgent: true };
+    }
+    if (diffDays <= 7) {
+        return { text: `بعد ${diffDays} ${diffDays === 1 ? 'يوم' : 'أيام'}`, colorClass: 'text-amber-400', isUrgent: true };
+    }
+    return { text: `في ${due.toLocaleDateString('ar-LY', {day: '2-digit', month: 'short'})}`, colorClass: 'text-slate-500', isUrgent: false };
+};
+
 
 const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: string) => void; setActivePage: (page: Page) => void; }> = ({ key, handleDatabaseChange, setActivePage }) => {
     const [stats, setStats] = useState({ totalBalance: 0, debtsForYou: 0, debtsOnYou: 0 });
     const [lastTransactions, setLastTransactions] = useState<Transaction[]>([]);
+    const [dueDebts, setDueDebts] = useState<Debt[]>([]);
     const [yearlyData, setYearlyData] = useState<{ income: number[], expense: number[] }>({ income: [], expense: [] });
     const [loading, setLoading] = useState(true);
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
@@ -272,18 +296,28 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
                 
                 const activityPromise = supabase.from('activities').select('description, activity_date, activity_time').eq('id', 1).single();
 
+                const upcomingDebtsPromise = supabase
+                    .from('debts')
+                    .select('*, contacts(name)')
+                    .eq('paid', false)
+                    .not('due_date', 'is', null)
+                    .order('due_date', { ascending: true })
+                    .limit(3);
+
                 const [
                     { data: accountsData, error: accError },
                     { data: debtsData, error: debtError },
                     { data: lastTransactionsData, error: txError },
                     { data: yearlyTransactions, error: yearlyError },
-                    { data: activityData, error: activityError }
-                ] = await Promise.all([accountsPromise, debtsPromise, lastTransactionsPromise, yearlyTransactionsPromise, activityPromise]);
+                    { data: activityData, error: activityError },
+                    { data: upcomingDebtsData, error: upcomingDebtsError }
+                ] = await Promise.all([accountsPromise, debtsPromise, lastTransactionsPromise, yearlyTransactionsPromise, activityPromise, upcomingDebtsPromise]);
 
                 if (accError) throw accError;
                 if (debtError) throw debtError;
                 if (txError) throw txError;
                 if (yearlyError) throw yearlyError;
+                if (upcomingDebtsError) throw upcomingDebtsError;
                 if (activityError && activityError.code !== 'PGRST116') { // Ignore 'Range not satisfactory' for single()
                      console.error("Error fetching activity", activityError.message);
                 }
@@ -293,6 +327,7 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
                 const debtsOnYou = (debtsData || []).filter(d => d.type === 'on_you').reduce((sum, d) => sum + d.amount, 0);
                 setStats({ totalBalance, debtsForYou, debtsOnYou });
                 setLastTransactions(lastTransactionsData as unknown as Transaction[] || []);
+                setDueDebts((upcomingDebtsData as unknown as Debt[]) || []);
                 
                 if (activityData) {
                     setLastActivity({ 
@@ -517,6 +552,49 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
                     </div>
                 ) : (
                     <p className="text-slate-400 text-center py-4">لا توجد معاملات لعرضها.</p>
+                )}
+            </div>
+
+            <div className="mt-6">
+                <div className="flex justify-between items-center mb-3">
+                    <h2 className="text-xl font-bold">الديون المستحقة قريباً</h2>
+                    <button onClick={() => setActivePage('debts')} className="text-sm text-cyan-400 hover:text-cyan-300">
+                        عرض الكل
+                    </button>
+                </div>
+                {loading ? (
+                    <div className="space-y-2">
+                        {[...Array(2)].map((_, i) => <div key={i} className="h-16 bg-slate-800 rounded-lg animate-pulse"></div>)}
+                    </div>
+                ) : dueDebts.length > 0 ? (
+                    <div className="space-y-2">
+                        {dueDebts.map(debt => {
+                            const dueDateInfo = getDueDateInfo(debt.due_date);
+                            return (
+                                <button key={debt.id} onClick={() => setActivePage('debts')} className="w-full text-right bg-slate-800 p-3 rounded-lg flex justify-between items-center hover:bg-slate-700/50 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${debt.type === 'for_you' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                            {dueDateInfo.isUrgent ? <ExclamationTriangleIcon className="w-6 h-6"/> : (debt.type === 'for_you' ? <ArrowDownIcon className="w-6 h-6"/> : <ArrowUpIcon className="w-6 h-6"/>)}
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold">{debt.contacts?.name || debt.description || 'دين'}</p>
+                                            <p className={`text-sm ${debt.type === 'for_you' ? 'text-green-400' : 'text-red-400'}`}>
+                                                {debt.type === 'for_you' ? 'دين لك' : 'دين عليك'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="font-bold text-lg text-white">{formatCurrency(debt.amount)}</p>
+                                        <p className={`text-xs font-medium ${dueDateInfo.colorClass}`}>{dueDateInfo.text}</p>
+                                    </div>
+                                </button>
+                            )
+                        })}
+                    </div>
+                ) : (
+                    <div className="bg-slate-800 p-4 rounded-lg text-center">
+                        <p className="text-slate-400">لا توجد ديون مستحقة قريباً. عمل رائع!</p>
+                    </div>
                 )}
             </div>
             
