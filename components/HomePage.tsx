@@ -610,15 +610,37 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
             </div>
 
             <div className="bg-slate-800 p-4 rounded-xl shadow-lg">
-                <div className="flex justify-between items-center mb-4">
-                    <div className="flex items-center gap-2">
-                        <button onClick={() => setCurrentYear(y => y - 1)} className="p-1 rounded-full hover:bg-slate-700"><ChevronRightIcon className="w-5 h-5"/></button>
-                        <h2 className="text-xl font-bold">نظرة عامة سنوية {currentYear}</h2>
-                        <button onClick={() => setCurrentYear(y => y + 1)} className="p-1 rounded-full hover:bg-slate-700"><ChevronLeftIcon className="w-5 h-5"/></button>
+                <div className="md:flex md:items-center md:justify-between mb-4">
+                    <div className="flex items-center justify-between mb-3 md:mb-0">
+                        <h2 className="text-xl font-bold text-white">نظرة عامة سنوية</h2>
+                        <button onClick={openSummaryModal} className="text-sm text-cyan-400 hover:text-cyan-300 flex items-center gap-1 md:hidden">
+                            <DocumentTextIcon className="w-4 h-4"/> الموجز
+                        </button>
                     </div>
-                    <button onClick={openSummaryModal} className="text-sm text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
-                        <DocumentTextIcon className="w-4 h-4"/> الموجز
-                    </button>
+                    
+                    <div className="flex items-center justify-center md:justify-end md:gap-4">
+                        <div className="flex items-center gap-1 bg-slate-700/60 rounded-full p-1 shadow-inner">
+                            <button 
+                                onClick={() => setCurrentYear(y => y + 1)} 
+                                className="p-1.5 rounded-full text-slate-300 hover:bg-slate-600/80 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                                aria-label="السنة التالية"
+                            >
+                                <ChevronRightIcon className="w-5 h-5"/>
+                            </button>
+                            <span className="font-bold text-lg w-16 text-center tabular-nums select-none text-white">{currentYear}</span>
+                            <button 
+                                onClick={() => setCurrentYear(y => y - 1)} 
+                                className="p-1.5 rounded-full text-slate-300 hover:bg-slate-600/80 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                                aria-label="السنة السابقة"
+                            >
+                                <ChevronLeftIcon className="w-5 h-5"/>
+                            </button>
+                        </div>
+                        
+                        <button onClick={openSummaryModal} className="hidden md:flex text-sm text-cyan-400 hover:text-cyan-300 items-center gap-1 whitespace-nowrap">
+                            <DocumentTextIcon className="w-4 h-4"/> الموجز
+                        </button>
+                    </div>
                 </div>
                 <YearlyChart data={Array.from({ length: 12 }, (_, i) => ({ income: yearlyData.income[i] || 0, expense: yearlyData.expense[i] || 0}))} />
             </div>
