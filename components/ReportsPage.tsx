@@ -207,7 +207,13 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
         setAiAnalysisResult('');
     
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            // Per environment requirements, check for and prompt for an API key if not present.
+            if (!(window as any).aistudio || !(await (window as any).aistudio.hasSelectedApiKey())) {
+                await (window as any).aistudio.openSelectKey();
+            }
+
+            // Create a new instance right before the call to ensure the latest key is used.
+            const ai = new GoogleGenAI({ apiKey: (process.env as any).API_KEY });
     
             const { startDate, endDate } = getDatesForPeriod('this_month');
             const currentTxs = transactions.filter(tx => {
@@ -270,9 +276,17 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
     
             setAiAnalysisResult(response.text);
     
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error generating AI analysis:", error);
-            setAiAnalysisResult("[ERROR]صارت مشكلة في الاتصال بالذكاء الاصطناعي. عاود مرة تانية.[/ERROR]");
+            if (error.message?.includes("API Key must be set")) {
+                 setAiAnalysisResult("[ERROR]لم يتم اختيار مفتاح الواجهة البرمجية (API Key). يرجى تحديده والمحاولة مرة أخرى.[/ERROR]");
+            } else if (error.message?.includes("Requested entity was not found")) {
+                 setAiAnalysisResult("[ERROR]مفتاح الواجهة البرمجية المحدد غير صالح. يرجى اختيار مفتاح آخر.[/ERROR]");
+                 await (window as any).aistudio.openSelectKey();
+            }
+            else {
+                setAiAnalysisResult("[ERROR]صارت مشكلة في الاتصال بالذكاء الاصطناعي. عاود مرة تانية.[/ERROR]");
+            }
         } finally {
             setIsAiLoading(false);
         }
