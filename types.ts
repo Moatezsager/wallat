@@ -21,6 +21,7 @@ export interface Transaction {
   type: 'income' | 'expense' | 'transfer';
   notes: string | null;
   to_account_id: string | null;
+  created_at?: string;
   // For display purposes after joining
   accounts?: { name: string; currency: string } | null;
   categories?: { name: string } | null;

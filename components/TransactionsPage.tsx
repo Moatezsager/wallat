@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Transaction, Account, Category } from '../types';
 import { PlusIcon, PencilSquareIcon, TrashIcon, FunnelIcon, XMarkIcon } from './icons';
@@ -203,6 +203,9 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
     const [page, setPage] = useState(0);
     const [hasMore, setHasMore] = useState(true);
 
+    // Intersection Observer for infinite scrolling
+    const observer = useRef<IntersectionObserver | null>(null);
+
     const fetchData = useCallback(async (currentPage: number, isNewSearch = false) => {
         if (isNewSearch) {
             setLoading(true);
@@ -213,7 +216,7 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
         const from = currentPage * PAGE_SIZE;
         const to = from + PAGE_SIZE - 1;
 
-        let query = supabase.from('transactions').select('*, accounts:accounts!account_id(name, currency), to_accounts:accounts!to_account_id(name), categories(name)').order('date', { ascending: false });
+        let query = supabase.from('transactions').select('*, accounts:accounts!account_id(name, currency), to_accounts:accounts!to_account_id(name), categories(name)').order('date', { ascending: false }).order('created_at', { ascending: false });
         
         if (filters.startDate) query = query.gte('date', new Date(filters.startDate).toISOString());
         if (filters.endDate) {
@@ -261,13 +264,24 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
         fetchData(0, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [key, filters, searchTerm]);
-
-    const loadMore = () => {
-        if (isFetchingMore) return;
+    
+    const loadMore = useCallback(() => {
         const nextPage = page + 1;
         setPage(nextPage);
         fetchData(nextPage, false);
-    };
+    }, [page, fetchData]);
+
+    const lastTransactionElementRef = useCallback((node: HTMLButtonElement | null) => {
+        if (loading || isFetchingMore) return;
+        if (observer.current) observer.current.disconnect();
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && hasMore) {
+                loadMore();
+            }
+        });
+        if (node) observer.current.observe(node);
+    }, [loading, isFetchingMore, hasMore, loadMore]);
+
 
     const closeAllModals = () => {
         setIsFormModalOpen(false);
@@ -392,13 +406,36 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {transactions.map(tx => {
+                    {transactions.map((tx, index) => {
                         const accountInfo = tx.type === 'transfer'
                             ? `${tx.accounts?.name || 'حساب محذوف'} ← ${tx.to_accounts?.name || 'حساب محذوف'}`
                             : tx.accounts?.name || '';
 
+                        const buttonProps = {
+                            key: tx.id,
+                            onClick: () => handleOpenDetailModal(tx),
+                            className: "w-full text-right bg-slate-800 p-3 rounded-lg flex justify-between items-center hover:bg-slate-700/50 transition-colors animate-fade-in-fast"
+                        };
+                        
+                        if (transactions.length === index + 1) {
+                           return (
+                                <button ref={lastTransactionElementRef} {...buttonProps}>
+                                    <div>
+                                        <p className="font-bold text-lg">{tx.notes || (tx.type === 'transfer' ? 'تحويل' : tx.categories?.name || 'معاملة')}</p>
+                                        <p className="text-sm text-slate-400">{accountInfo}</p>
+                                    </div>
+                                    <div className="text-left">
+                                        <p className={`font-extrabold text-lg ${tx.type === 'income' ? 'text-green-400' : tx.type === 'expense' ? 'text-red-400' : 'text-slate-300'}`}>
+                                                {tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''}{formatCurrency(tx.amount, tx.accounts?.currency)}
+                                        </p>
+                                        <p className="text-xs text-slate-500">{new Date(tx.date).toLocaleDateString()}</p>
+                                    </div>
+                                </button>
+                           );
+                        }
+
                         return (
-                            <button key={tx.id} onClick={() => handleOpenDetailModal(tx)} className="w-full text-right bg-slate-800 p-3 rounded-lg flex justify-between items-center hover:bg-slate-700/50 transition-colors animate-fade-in-fast">
+                             <button {...buttonProps}>
                                <div>
                                     <p className="font-bold text-lg">{tx.notes || (tx.type === 'transfer' ? 'تحويل' : tx.categories?.name || 'معاملة')}</p>
                                     <p className="text-sm text-slate-400">{accountInfo}</p>
@@ -415,11 +452,10 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
                 </div>
             )}
             
-            {!loading && hasMore && (
-                <div className="text-center mt-6">
-                    <button onClick={loadMore} disabled={isFetchingMore} className="bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 px-6 rounded-lg transition disabled:opacity-50">
-                        {isFetchingMore ? 'جاري التحميل...' : 'تحميل المزيد'}
-                    </button>
+            {isFetchingMore && (
+                <div className="text-center mt-6 flex justify-center items-center gap-2 text-slate-400">
+                    <div className="w-5 h-5 border-2 border-slate-600 border-t-cyan-400 rounded-full animate-spin"></div>
+                    <span>جاري تحميل المزيد...</span>
                 </div>
             )}
 
