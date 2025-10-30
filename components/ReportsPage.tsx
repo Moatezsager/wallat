@@ -315,7 +315,7 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
                 properties: {
                     greeting: { type: Type.STRING, description: "تحية ودية وموجزة للمستخدم تبدأ بـ 'أهلاً بك! أنا نبيه...'." },
                     overallStatus: { type: Type.STRING, description: "تقييم عام للحالة المالية بكلمة واحدة أو كلمتين (مثل 'ممتاز', 'جيد جدًا', 'يحتاج لتحسين')." },
-                    statusColor: { type: Type.STRING, description: "لون يمثل الحالة: 'green' للممتاز/الجيد، 'amber' للمتوسط، 'red' للسيء.", enum: ['green', 'amber', 'red'] },
+                    statusColor: { type: Type.STRING, description: "لون يمثل الحالة. يجب أن تكون القيمة واحدة مما يلي: 'green' للممتاز/الجيد، 'amber' للمتوسط، 'red' للسيء." },
                     keyInsight: { type: Type.STRING, description: "أهم ملاحظة أو استنتاج رئيسي يمكن للمستخدم استخلاصه." },
                     incomeAnalysis: { type: Type.STRING, description: "تحليل موجز لمصادر الدخل." },
                     spendingAnalysis: { type: Type.STRING, description: "تحليل موجز لعادات الإنفاق، مع التركيز على الفئات الأعلى." },
