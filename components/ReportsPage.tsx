@@ -202,29 +202,12 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
     }, [key]);
 
     const handleGenerateAnalysis = async () => {
-        // Check if the API key selection functionality is available
-        if (typeof (window as any).aistudio?.openSelectKey !== 'function' || typeof (window as any).aistudio?.hasSelectedApiKey !== 'function') {
-            alert('وظيفة تحديد مفتاح API غير متاحة في هذه البيئة.');
-            return;
-        }
-
-        // Ensure an API key is selected before proceeding
-        let hasKey = await (window as any).aistudio.hasSelectedApiKey();
-        if (!hasKey) {
-            await (window as any).aistudio.openSelectKey();
-            hasKey = await (window as any).aistudio.hasSelectedApiKey();
-            if (!hasKey) {
-                alert('يجب تحديد مفتاح API للمتابعة.');
-                return;
-            }
-        }
-
         setIsAiModalOpen(true);
         setIsAiLoading(true);
         setAiAnalysisResult('');
     
         try {
-            // Create a new GoogleGenAI instance right before the call to ensure the latest key is used.
+            // API key is assumed to be available from process.env.API_KEY
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
             const { startDate, endDate } = getDatesForPeriod('this_month');
@@ -310,25 +293,12 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
     
         } catch (error: any) {
             console.error('Error generating AI analysis:', error);
-            let errorMessage: string;
-
-            // Handle specific API key errors by prompting the user to select a new key
-            if (error.message && (error.message.includes("PERMISSION_DENIED") || error.message.includes("CONSUMER_SUSPENDED"))) {
-                await (window as any).aistudio.openSelectKey();
-                errorMessage = `
-                [HEADER]مشكلة في مفتاح API[/HEADER]
-                [OVERVIEW]يبدو أن مفتاح API المحدد غير صالح أو تم تعليقه. تم فتح مربع حوار لتحديد مفتاح جديد. يرجى إغلاق هذا التحليل والمحاولة مرة أخرى بمفتاح صالح.[/OVERVIEW]
-                [NEGATIVE]تفاصيل الخطأ[/NEGATIVE]
-                [ITEM]${error.message}[/ITEM]
-                `;
-            } else {
-                errorMessage = `
-                [HEADER]حدث خطأ[/HEADER]
-                [OVERVIEW]عذراً، لم نتمكن من إنشاء التحليل. يرجى المحاولة مرة أخرى لاحقاً.[/OVERVIEW]
-                [NEGATIVE]تفاصيل الخطأ[/NEGATIVE]
-                [ITEM]${error.message}[/ITEM]
-                `;
-            }
+            const errorMessage = `
+            [HEADER]حدث خطأ[/HEADER]
+            [OVERVIEW]عذراً، لم نتمكن من إنشاء التحليل. يرجى المحاولة مرة أخرى لاحقاً.[/OVERVIEW]
+            [NEGATIVE]تفاصيل الخطأ[/NEGATIVE]
+            [ITEM]${error.message}[/ITEM]
+            `;
             setAiAnalysisResult(errorMessage);
         } finally {
             setIsAiLoading(false);
