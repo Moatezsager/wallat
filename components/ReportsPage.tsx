@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { Transaction, Debt } from '../types';
+import { Transaction, Debt, Category } from '../types';
 import type { Chart, ChartConfiguration } from 'chart.js/auto';
+import { GoogleGenAI } from '@google/genai';
+import { SparklesIcon, ExclamationTriangleIcon, CheckCircleIcon, XMarkIcon } from './icons';
+
 
 type Period = 'this_month' | 'last_month' | 'this_year';
 type ActiveTab = 'expense' | 'income' | 'debt';
@@ -172,9 +175,13 @@ const DebtReportView: React.FC<{ data: any }> = ({ data }) => {
 const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [debts, setDebts] = useState<Debt[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
     const [period, setPeriod] = useState<Period>('this_month');
     const [activeTab, setActiveTab] = useState<ActiveTab>('expense');
+    const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+    const [isAiLoading, setIsAiLoading] = useState(false);
+    const [aiAnalysisResult, setAiAnalysisResult] = useState('');
 
 
     useEffect(() => {
@@ -182,15 +189,94 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
             setLoading(true);
             const txPromise = supabase.from('transactions').select('*, categories(name, color)');
             const debtPromise = supabase.from('debts').select('*');
+            const catPromise = supabase.from('categories').select('*');
 
-            const [{ data: txData }, { data: debtData }] = await Promise.all([txPromise, debtPromise]);
+            const [{ data: txData }, { data: debtData }, {data: catData}] = await Promise.all([txPromise, debtPromise, catPromise]);
             
             setTransactions(txData as any[] || []);
             setDebts(debtData || []);
+            setCategories(catData || []);
             setLoading(false);
         };
         fetchData();
     }, [key]);
+
+    const handleGenerateAnalysis = async () => {
+        setIsAiModalOpen(true);
+        setIsAiLoading(true);
+        setAiAnalysisResult('');
+    
+        try {
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+            const { startDate, endDate } = getDatesForPeriod('this_month');
+            const currentTxs = transactions.filter(tx => {
+                const txDate = new Date(tx.date);
+                return txDate >= startDate && txDate <= endDate;
+            });
+    
+            const totalIncome = currentTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+            const totalExpense = currentTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+            
+            const expensesByCategory: { [key: string]: number } = {};
+            currentTxs.filter(tx => tx.type === 'expense').forEach(tx => {
+                const categoryName = (tx as any).categories?.name || 'غير مصنف';
+                expensesByCategory[categoryName] = (expensesByCategory[categoryName] || 0) + tx.amount;
+            });
+            const expensesString = Object.entries(expensesByCategory).map(([name, amount]) => `- ${name}: ${formatCurrency(amount)}`).join('\n');
+
+            const allExpenseCategories = categories.filter(c => c.type === 'expense').map(c => c.name).join('، ');
+    
+            const debtsForYou = debts.filter(d => d.type === 'for_you' && !d.paid).reduce((sum, d) => sum + d.amount, 0);
+            const debtsOnYou = debts.filter(d => d.type === 'on_you' && !d.paid).reduce((sum, d) => sum + d.amount, 0);
+    
+            const prompt = `
+            حلل البيانات المالية التالية للشهر الحالي وقدم تحليل بسيط وواضح، مع ملاحظات وخطة مقترحة.
+            استخدم فهمك للفئات المالية لتقديم تحليل أعمق. على سبيل المثال، ميز بين المصاريف الأساسية (مثل الإيجار، الفواتير) والمصاريف الكمالية (مثل الترفيه، المطاعم).
+
+            البيانات المالية للشهر الحالي:
+            - إجمالي الإيرادات: ${formatCurrency(totalIncome)}
+            - إجمالي المصروفات: ${formatCurrency(totalExpense)}
+            - إجمالي الديون اللي ليك (مستحقة): ${formatCurrency(debtsForYou)}
+            - إجمالي الديون اللي عليك (مستحقة): ${formatCurrency(debtsOnYou)}
+            
+            قائمة بكل فئات المصروفات المتاحة في التطبيق:
+            ${allExpenseCategories || 'لا توجد فئات مصروفات معرفة.'}
+
+            تفصيل المصروفات لهذا الشهر:
+            ${expensesString || 'لا يوجد مصروفات هذا الشهر.'}
+
+            الرجاء تقديم التحليل بالتنسيق التالي بالضبط، بدون أي نص إضافي خارجه:
+            [HEADER]عنوان رئيسي جذاب للتحليل[/HEADER]
+            [OVERVIEW]فقرة قصيرة كنظرة عامة على الوضع المالي للشهر، مع الإشارة إلى نسبة المصروفات من الدخل.[/OVERVIEW]
+            [POSITIVE]عنوان لنقاط إيجابية (مثال: حاجات باهية درتها)[/POSITIVE]
+            [ITEM]نص النقطة الإيجابية الأولى.[/ITEM]
+            [ITEM]نص النقطة الإيجابية الثانية (إذا وجدت).[/ITEM]
+            [NEGATIVE]عنوان لنقاط تحتاج انتباه (مثال: حاجات ركز عليها)[/NEGATIVE]
+            [ITEM]نص نقطة الانتباه الأولى، مع تحليل نوع المصاريف (أساسية أو كمالية).[/ITEM]
+            [ITEM]نص نقطة الانتباه الثانية (إذا وجدت).[/ITEM]
+            [PLAN]عنوان للخطة المقترحة (مثال: خطة بسيطة للشهر الجاي)[/PLAN]
+            [ITEM]نص الخطوة الأولى في الخطة.[/ITEM]
+            [ITEM]نص الخطوة الثانية في الخطة.[/ITEM]
+            `;
+    
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+                config: {
+                    systemInstruction: "أنت مستشار مالي خبير من ليبيا. لهجتك ليبية بسيطة وودودة. هدفك هو مساعدة المستخدم على فهم وضعه المالي وتقديم نصائح عملية ومُشجعة.",
+                }
+            });
+    
+            setAiAnalysisResult(response.text);
+    
+        } catch (error) {
+            console.error("Error generating AI analysis:", error);
+            setAiAnalysisResult("[ERROR]صارت مشكلة في الاتصال بالذكاء الاصطناعي. عاود مرة تانية.[/ERROR]");
+        } finally {
+            setIsAiLoading(false);
+        }
+    };
 
     const processedData = useMemo(() => {
         const { startDate, endDate } = getDatesForPeriod(period);
@@ -246,6 +332,10 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
             <div className="bg-slate-800 p-4 rounded-xl shadow-lg space-y-4">
                 <div className="flex justify-between items-center">
                     <h2 className="text-xl font-bold">التقارير المالية</h2>
+                    <button onClick={handleGenerateAnalysis} className="flex items-center gap-2 bg-cyan-600/10 text-cyan-400 font-semibold py-2 px-4 rounded-lg hover:bg-cyan-600/20 transition-colors">
+                        <SparklesIcon className="w-5 h-5"/>
+                        تحليل بالذكاء الاصطناعي
+                    </button>
                 </div>
                 <div className="flex bg-slate-700/50 rounded-lg p-1 text-sm">
                     {(['this_month', 'last_month', 'this_year'] as Period[]).map(p => (
@@ -292,9 +382,127 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
                     <DebtReportView data={processedData.debtData} />
                 )}
             </div>
-
+            
+            <AiAnalysisModal
+                isOpen={isAiModalOpen}
+                isLoading={isAiLoading}
+                result={aiAnalysisResult}
+                onClose={() => setIsAiModalOpen(false)}
+            />
         </div>
     );
 };
+
+
+const AiAnalysisModal: React.FC<{
+    isOpen: boolean;
+    isLoading: boolean;
+    result: string;
+    onClose: () => void;
+}> = ({ isOpen, isLoading, result, onClose }) => {
+    
+    const parseAndRenderAnalysis = (text: string) => {
+        if (!text) return null;
+
+        if (text.startsWith('[ERROR]')) {
+             return (
+                <div className="text-center text-red-400 space-y-4">
+                    <ExclamationTriangleIcon className="w-16 h-16 mx-auto" />
+                    <p className="font-semibold">{text.replace(/\[ERROR\]|\[\/ERROR\]/g, '')}</p>
+                </div>
+            );
+        }
+
+        const getSection = (tag: string) => text.match(new RegExp(`\\[${tag}\\](.*?)\\[\\/${tag}\\]`, 's'))?.[1]?.trim() || '';
+        
+        const positiveSection = text.split('[POSITIVE]')[1]?.split('[NEGATIVE]')[0] || '';
+        const positiveTitle = positiveSection.split('[/POSITIVE]')[0].trim();
+        const positiveItems = (positiveSection.split('[/POSITIVE]')[1] || '').match(/\[ITEM\](.*?)\[\/ITEM\]/gs)?.map(item => item.replace(/\[\/?ITEM\]/g, '').trim()).filter(Boolean) || [];
+
+        const negativeSection = text.split('[NEGATIVE]')[1]?.split('[PLAN]')[0] || '';
+        const negativeTitle = negativeSection.split('[/NEGATIVE]')[0].trim();
+        const negativeItems = (negativeSection.split('[/NEGATIVE]')[1] || '').match(/\[ITEM\](.*?)\[\/ITEM\]/gs)?.map(item => item.replace(/\[\/?ITEM\]/g, '').trim()).filter(Boolean) || [];
+
+        const planSection = text.split('[PLAN]')[1] || '';
+        const planTitle = planSection.split('[/PLAN]')[0].trim();
+        const planItems = (planSection.split('[/PLAN]')[1] || '').match(/\[ITEM\](.*?)\[\/ITEM\]/gs)?.map(item => item.replace(/\[\/?ITEM\]/g, '').trim()).filter(Boolean) || [];
+
+
+        return (
+            <div className="space-y-6 text-right">
+                <p className="text-slate-300 leading-relaxed">{getSection('OVERVIEW')}</p>
+                
+                {positiveTitle && positiveItems.length > 0 && (
+                    <div className="bg-green-500/10 border-r-4 border-green-500 p-4 rounded-r-lg">
+                        <h4 className="font-bold text-green-400 mb-2">{positiveTitle}</h4>
+                        <ul className="space-y-2 list-none">
+                            {positiveItems.map((item, i) => (
+                                <li key={i} className="flex items-start gap-3">
+                                    <CheckCircleIcon className="w-5 h-5 mt-1 text-green-500 flex-shrink-0" />
+                                    <span>{item}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+                
+                {negativeTitle && negativeItems.length > 0 && (
+                    <div className="bg-amber-500/10 border-r-4 border-amber-500 p-4 rounded-r-lg">
+                        <h4 className="font-bold text-amber-400 mb-2">{negativeTitle}</h4>
+                        <ul className="space-y-2 list-none">
+                            {negativeItems.map((item, i) => (
+                                <li key={i} className="flex items-start gap-3">
+                                    <ExclamationTriangleIcon className="w-5 h-5 mt-1 text-amber-500 flex-shrink-0" />
+                                    <span>{item}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                {planTitle && planItems.length > 0 && (
+                     <div className="bg-cyan-500/10 border-r-4 border-cyan-500 p-4 rounded-r-lg">
+                        <h4 className="font-bold text-cyan-400 mb-2">{planTitle}</h4>
+                        <ul className="space-y-2 list-none">
+                            {planItems.map((item, i) => (
+                                <li key={i} className="flex items-start gap-3">
+                                    <div className="w-5 h-5 mt-1 bg-cyan-500 text-slate-900 rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0">{i+1}</div>
+                                    <span>{item}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+            </div>
+        );
+    };
+    
+    const header = result.match(/\[HEADER\](.*?)\[\/HEADER\]/)?.[1] || 'التحليل المالي';
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-slate-800 rounded-xl p-2 w-full max-w-2xl border border-slate-700 shadow-xl max-h-[90vh] flex flex-col">
+                <div className="flex justify-between items-center p-4 border-b border-slate-700">
+                    <div className="flex items-center gap-2">
+                         <SparklesIcon className="w-6 h-6 text-cyan-400"/>
+                         <h3 className="text-xl font-bold">{isLoading ? 'جاري التحليل...' : header}</h3>
+                    </div>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors"><XMarkIcon className="w-6 h-6" /></button>
+                </div>
+                <div className="overflow-y-auto p-6">
+                    {isLoading ? (
+                         <div className="flex flex-col items-center justify-center gap-4 py-16 text-slate-400">
+                            <div className="w-12 h-12 border-4 border-slate-600 border-t-cyan-400 rounded-full animate-spin"></div>
+                            <p>لحظات... الذكاء الاصطناعي يحلل بياناتك المالية</p>
+                         </div>
+                    ) : parseAndRenderAnalysis(result)}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 export default ReportsPage;
