@@ -243,39 +243,62 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
             });
             const expensesString = Object.entries(expensesByCategory).map(([name, amount]) => `- ${name}: ${formatCurrency(amount)}`).join('\n');
 
+            const incomeByCategory: { [key: string]: number } = {};
+            currentTxs.filter(tx => tx.type === 'income').forEach(tx => {
+                const categoryName = (tx as any).categories?.name || 'غير مصنف';
+                incomeByCategory[categoryName] = (incomeByCategory[categoryName] || 0) + tx.amount;
+            });
+            const incomeString = Object.entries(incomeByCategory).map(([name, amount]) => `- ${name}: ${formatCurrency(amount)}`).join('\n');
+
             const allExpenseCategories = categories.filter(c => c.type === 'expense').map(c => c.name).join('، ');
+            const allIncomeCategories = categories.filter(c => c.type === 'income').map(c => c.name).join('، ');
     
             const debtsForYou = debts.filter(d => d.type === 'for_you' && !d.paid).reduce((sum, d) => sum + d.amount, 0);
             const debtsOnYou = debts.filter(d => d.type === 'on_you' && !d.paid).reduce((sum, d) => sum + d.amount, 0);
     
             const prompt = `
-            حلل البيانات المالية التالية للشهر الحالي وقدم تحليل بسيط وواضح، مع ملاحظات وخطة مقترحة.
-            استخدم فهمك للفئات المالية لتقديم تحليل أعمق. على سبيل المثال، ميز بين المصاريف الأساسية (مثل الإيجار، الفواتير) والمصاريف الكمالية (مثل الترفيه، المطاعم).
+            أنت مستشار مالي شخصي خبير. مهمتك هي تحليل البيانات المالية للمستخدم باللغة العربية وتقديم رؤى عميقة ونصائح عملية لتحسين وضعه المالي.
 
-            البيانات المالية للشهر الحالي:
-            - إجمالي الإيرادات: ${formatCurrency(totalIncome)}
+            **البيانات المالية للشهر الحالي:**
+            - إجمالي الدخل: ${formatCurrency(totalIncome)}
             - إجمالي المصروفات: ${formatCurrency(totalExpense)}
-            - إجمالي الديون اللي ليك (مستحقة): ${formatCurrency(debtsForYou)}
-            - إجمالي الديون اللي عليك (مستحقة): ${formatCurrency(debtsOnYou)}
-            
-            قائمة بكل فئات المصروفات المتاحة في التطبيق:
-            ${allExpenseCategories || 'لا توجد فئات مصروفات معرفة.'}
+            - صافي التوفير (الدخل - المصروفات): ${formatCurrency(totalIncome - totalExpense)}
+            - ديون لك (مستحقة): ${formatCurrency(debtsForYou)}
+            - ديون عليك (مستحقة): ${formatCurrency(debtsOnYou)}
 
-            تفصيل المصروفات لهذا الشهر:
+            **تفاصيل الدخل حسب الفئة:**
+            ${incomeString || 'لا يوجد دخل مسجل هذا الشهر.'}
+
+            **تفاصيل المصروفات حسب الفئة:**
             ${expensesString || 'لا يوجد مصروفات هذا الشهر.'}
 
-            الرجاء تقديم التحليل بالتنسيق التالي بالضبط، بدون أي نص إضافي خارجه:
-            [HEADER]عنوان رئيسي جذاب للتحليل[/HEADER]
-            [OVERVIEW]فقرة قصيرة كنظرة عامة على الوضع المالي للشهر، مع الإشارة إلى نسبة المصروفات من الدخل.[/OVERVIEW]
-            [POSITIVE]عنوان لنقاط إيجابية (مثال: حاجات باهية درتها)[/POSITIVE]
-            [ITEM]نص النقطة الإيجابية الأولى.[/ITEM]
-            [ITEM]نص النقطة الإيجابية الثانية (إذا وجدت).[/ITEM]
-            [NEGATIVE]عنوان لنقاط تحتاج انتباه (مثال: حاجات ركز عليها)[/NEGATIVE]
-            [ITEM]نص نقطة الانتباه الأولى، مع تحليل نوع المصاريف (أساسية أو كمالية).[/ITEM]
-            [ITEM]نص نقطة الانتباه الثانية (إذا وجدت).[/ITEM]
-            [PLAN]عنوان للخطة المقترحة (مثال: خطة بسيطة للشهر الجاي)[/PLAN]
-            [ITEM]نص الخطوة الأولى في الخطة.[/ITEM]
-            [ITEM]نص الخطوة الثانية في الخطة.[/ITEM]
+            **معلومات إضافية عن الفئات المتاحة للمستخدم:**
+            - كل فئات الدخل المتاحة: ${allIncomeCategories || 'لا يوجد'}
+            - كل فئات المصروفات المتاحة: ${allExpenseCategories || 'لا يوجد'}
+
+            **التعليمات:**
+            1.  ابدأ بنظرة عامة سريعة على الوضع المالي للشهر.
+            2.  حلل المصروفات بعمق:
+                - ميّز بين المصاريف **الأساسية** (مثل: إيجار, فواتير, مواصلات) والمصاريف **الكمالية** (مثل: مطاعم, ترفيه, تسوق). استخدم قائمة الفئات المتاحة كدليل.
+                - حدد أكبر 3 فئات إنفاق وعلق عليها. هل هي ضرورية؟ هل يمكن تقليلها؟
+            3.  قدم ملاحظات إيجابية بناءً على البيانات (مثال: توفير جيد, سيطرة على مصاريف الترفيه).
+            4.  قدم ملاحظات تحتاج إلى انتباه، مع التركيز على الإنفاق الزائد في الفئات الكمالية.
+            5.  اختتم بخطة عمل من 2-3 خطوات واضحة وقابلة للتنفيذ للشهر القادم.
+
+            **تنسيق الإخراج (مهم جداً):**
+            استخدم التنسيق التالي بالضبط. لا تضف أي نص خارج هذه العلامات.
+
+            [HEADER]عنوان جذاب ومختصر للتحليل[/HEADER]
+            [OVERVIEW]فقرة موجزة تلخص الوضع المالي للشهر، بما في ذلك نسبة المصروفات إلى الدخل.[/OVERVIEW]
+            [POSITIVE]عنوان للقسم الإيجابي (مثال: نقاط القوة هذا الشهر)[/POSITIVE]
+            [ITEM]نقطة إيجابية أولى واضحة ومبنية على البيانات.[/ITEM]
+            [ITEM]نقطة إيجابية ثانية (إن وجدت).[/ITEM]
+            [NEGATIVE]عنوان لقسم التحسين (مثال: فرص للتحسين)[/NEGATIVE]
+            [ITEM]أول ملاحظة للتحسين، مع الإشارة لنوع المصروف (أساسي/كمالي) وتحليل أكبر فئات الإنفاق.[/ITEM]
+            [ITEM]ملاحظة ثانية للتحسين (إن وجدت).[/ITEM]
+            [PLAN]عنوان للخطة المقترحة (مثال: خطتك للشهر القادم)[/PLAN]
+            [ITEM]خطوة عملية أولى يمكن للمستخدم اتخاذها.[/ITEM]
+            [ITEM]خطوة عملية ثانية.[/ITEM]
             `;
     
             const response = await ai.models.generateContent({
