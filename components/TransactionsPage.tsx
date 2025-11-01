@@ -262,7 +262,8 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
         if (txError) {
             console.error('Error fetching transactions:', txError.message);
         } else if (txData) {
-            setTransactions(prev => isNewSearch ? txData as unknown as Transaction[] : [...prev, ...txData as unknown as Transaction[]]);
+            // FIX: The 'as unknown' cast can break type inference. A direct cast is safer.
+            setTransactions(prev => isNewSearch ? txData as Transaction[] : [...prev, ...txData as Transaction[]]);
             if (txData.length < PAGE_SIZE) {
                 setHasMore(false);
             } else {

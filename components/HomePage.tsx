@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Account, Debt, Transaction, Page, Category } from '../types';
 import QuickActions from './QuickActions';
 import TransactionForm from './TransactionForm'; // Import the shared form
 import { 
     WalletIcon, ArrowDownIcon, ArrowUpIcon, ClockIcon, ChevronLeftIcon, ChevronRightIcon, XMarkIcon, DocumentTextIcon,
-    PencilSquareIcon, TrashIcon, ExclamationTriangleIcon, CheckCircleIcon
+    PencilSquareIcon, TrashIcon, ExclamationTriangleIcon, CheckCircleIcon, ArrowTrendingUp, ArrowTrendingDown, iconMap
 } from './icons';
 import type { Chart, ChartConfiguration } from 'chart.js/auto';
 
@@ -330,8 +330,13 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
     const [yearlyData, setYearlyData] = useState<{ income: number[], expense: number[] }>({ income: [], expense: [] });
     const [loading, setLoading] = useState(true);
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+    
+    // Summary Modal State
     const [isSummaryModalOpen, setSummaryModalOpen] = useState(false);
     const [monthlySummary, setMonthlySummary] = useState<any[]>([]);
+    const [isFullSummaryModalOpen, setFullSummaryModalOpen] = useState(false);
+    const [selectedMonthData, setSelectedMonthData] = useState<{summary: any, initialTab: 'expense' | 'income'} | null>(null);
+
 
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -421,28 +426,34 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
                 // Process yearly transactions for both yearly chart and monthly summary
                 const incomeByMonth = Array(12).fill(0);
                 const expenseByMonth = Array(12).fill(0);
-                const summaryByMonth: { [key: number]: { total_income: number; total_expense: number; expenses_by_category: { [key: string]: number; }; } } = {};
+                const summaryByMonth: { [key: number]: { total_income: number; total_expense: number; expenses_by_category: { [key: string]: {total: number, count: number}; }; incomes_by_category: { [key: string]: {total: number, count: number}; }; } } = {};
 
                 if (yearlyTransactions) {
                     (yearlyTransactions as any[]).forEach(tx => {
                         const month = new Date(tx.date).getMonth(); // 0-indexed month
 
                         if (!summaryByMonth[month]) {
-                            summaryByMonth[month] = { total_income: 0, total_expense: 0, expenses_by_category: {} };
+                            summaryByMonth[month] = { total_income: 0, total_expense: 0, expenses_by_category: {}, incomes_by_category: {} };
                         }
+                        const categoryName = tx.categories?.name || 'غير مصنف';
 
                         if (tx.type === 'income') {
                             incomeByMonth[month] += tx.amount;
                             summaryByMonth[month].total_income += tx.amount;
+                            if (!summaryByMonth[month].incomes_by_category[categoryName]) {
+                                summaryByMonth[month].incomes_by_category[categoryName] = { total: 0, count: 0 };
+                            }
+                            summaryByMonth[month].incomes_by_category[categoryName].total += tx.amount;
+                            summaryByMonth[month].incomes_by_category[categoryName].count += 1;
+
                         } else if (tx.type === 'expense') {
                             expenseByMonth[month] += tx.amount;
                             summaryByMonth[month].total_expense += tx.amount;
-                            
-                            const categoryName = tx.categories?.name || 'غير مصنف';
                             if (!summaryByMonth[month].expenses_by_category[categoryName]) {
-                                summaryByMonth[month].expenses_by_category[categoryName] = 0;
+                                summaryByMonth[month].expenses_by_category[categoryName] = { total: 0, count: 0 };
                             }
-                            summaryByMonth[month].expenses_by_category[categoryName] += tx.amount;
+                            summaryByMonth[month].expenses_by_category[categoryName].total += tx.amount;
+                            summaryByMonth[month].expenses_by_category[categoryName].count += 1;
                         }
                     });
                 }
@@ -454,7 +465,10 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
                     total_income: data.total_income,
                     total_expense: data.total_expense,
                     expenses_by_category: Object.entries(data.expenses_by_category)
-                        .map(([category_name, total]) => ({ category_name, total }))
+                        .map(([category_name, values]) => ({ category_name, total: values.total, count: values.count }))
+                        .sort((a, b) => b.total - a.total),
+                    incomes_by_category: Object.entries(data.incomes_by_category)
+                        .map(([category_name, values]) => ({ category_name, total: values.total, count: values.count }))
                         .sort((a, b) => b.total - a.total),
                 }));
                 setMonthlySummary(monthlySummaryData);
@@ -474,7 +488,7 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
     const openSummaryModal = () => {
         setSummaryModalOpen(true);
     };
-    
+
     const handleOpenDetailModal = (tx: Transaction) => {
         setSelectedTransaction(tx);
         setIsDetailModalOpen(true);
@@ -488,6 +502,12 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
     const handleOpenDeleteConfirm = () => {
         setIsDetailModalOpen(false);
         setIsDeleteConfirmOpen(true);
+    };
+    
+    const handleShowMore = (summary: any, initialTab: 'expense' | 'income') => {
+        setSelectedMonthData({ summary, initialTab });
+        setFullSummaryModalOpen(true);
+        setSummaryModalOpen(false);
     };
 
     const closeAllModals = () => {
@@ -751,45 +771,30 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
                                         </div>
                                     );
                                 }
-                                const chartData = [summary.total_income || 0, summary.total_expense || 0];
-                                const expensesByCategory = summary.expenses_by_category || [];
-                                
                                 return (
-                                     <div key={month} className="bg-slate-900 p-4 rounded-lg">
-                                        <h4 className="font-bold text-lg mb-3">{monthName}</h4>
-                                        <div className="grid grid-cols-2 gap-4 items-center mb-4">
-                                            <div className="h-28 w-28 mx-auto">
-                                                 <DoughnutChart data={chartData} labels={['الإيرادات', 'المصروفات']} colors={[CHART_COLORS.income, CHART_COLORS.expense]} />
-                                            </div>
-                                            <div className="space-y-2 text-sm">
-                                                <div>
-                                                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-400"></div><p>الإيرادات</p></div>
-                                                    <p className="font-bold text-emerald-400">{formatCurrency(summary.total_income || 0)}</p>
-                                                </div>
-                                                <div>
-                                                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-400"></div><p>المصروفات</p></div>
-                                                     <p className="font-bold text-red-400">{formatCurrency(summary.total_expense || 0)}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <h5 className="font-semibold mb-2 text-sm">أبرز المصروفات</h5>
-                                            <div className="space-y-1 text-xs">
-                                                {expensesByCategory.length > 0 ? expensesByCategory.map((cat: any) => (
-                                                    <div key={cat.category_name} className="flex justify-between bg-slate-800/50 p-2 rounded">
-                                                        <span>{cat.category_name}</span>
-                                                        <span className="font-semibold">{formatCurrency(cat.total)} <span className="text-slate-500">({((cat.total / summary.total_expense) * 100).toFixed(0)}%)</span></span>
-                                                    </div>
-                                                )) : <p className="text-slate-500 text-center py-2">لا توجد مصروفات</p>}
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <MonthSummaryCard 
+                                        key={month} 
+                                        summary={summary} 
+                                        monthName={monthName}
+                                        onShowMore={handleShowMore}
+                                    />
                                 );
                             })}
                             </div>
                         </div>
                     </div>
                  </div>
+            )}
+            
+            {isFullSummaryModalOpen && selectedMonthData && (
+                <FullSummaryModal
+                    monthData={selectedMonthData.summary}
+                    monthName={monthLabels[selectedMonthData.summary.month - 1]}
+                    year={currentYear}
+                    initialTab={selectedMonthData.initialTab}
+                    onClose={() => { setFullSummaryModalOpen(false); setSummaryModalOpen(true); }}
+                    allCategories={categories}
+                />
             )}
 
             {isDetailModalOpen && selectedTransaction && (
@@ -842,6 +847,138 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
                     </div>
                 </Modal>
             )}
+        </div>
+    );
+};
+
+const MonthSummaryCard: React.FC<{
+    summary: any;
+    monthName: string;
+    onShowMore: (summary: any, initialTab: 'expense' | 'income') => void;
+}> = ({ summary, monthName, onShowMore }) => {
+    const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
+    const topExpenses = summary.expenses_by_category.slice(0, 5);
+    const topIncomes = summary.incomes_by_category.slice(0, 5);
+
+    return (
+        <div className="bg-slate-900 p-4 rounded-lg flex flex-col">
+            <h4 className="font-bold text-lg mb-3">{monthName}</h4>
+            <div className="grid grid-cols-2 gap-4 items-center mb-4">
+                <div className="h-28 w-28 mx-auto">
+                    <DoughnutChart data={[summary.total_income || 0, summary.total_expense || 0]} labels={['الإيرادات', 'المصروفات']} colors={[CHART_COLORS.income, CHART_COLORS.expense]} />
+                </div>
+                <div className="space-y-2 text-sm">
+                    <div>
+                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-400"></div><p>الإيرادات</p></div>
+                        <p className="font-bold text-emerald-400">{formatCurrency(summary.total_income || 0)}</p>
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-400"></div><p>المصروفات</p></div>
+                        <p className="font-bold text-red-400">{formatCurrency(summary.total_expense || 0)}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div className="flex border-b border-slate-700/50 mb-2">
+                <button onClick={() => setActiveTab('expense')} className={`flex-1 text-sm pb-2 font-semibold ${activeTab === 'expense' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}>أبرز المصروفات</button>
+                <button onClick={() => setActiveTab('income')} className={`flex-1 text-sm pb-2 font-semibold ${activeTab === 'income' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}>أبرز الإيرادات</button>
+            </div>
+
+            <div className="space-y-1 text-xs flex-grow">
+                {activeTab === 'expense' ? (
+                    topExpenses.length > 0 ? topExpenses.map((cat: any) => (
+                        <div key={cat.category_name} className="flex justify-between bg-slate-800/50 p-2 rounded">
+                            <span>{cat.category_name}</span>
+                            <span className="font-semibold">{formatCurrency(cat.total)}</span>
+                        </div>
+                    )) : <p className="text-slate-500 text-center py-4 text-sm">لا توجد مصروفات</p>
+                ) : (
+                    topIncomes.length > 0 ? topIncomes.map((cat: any) => (
+                        <div key={cat.category_name} className="flex justify-between bg-slate-800/50 p-2 rounded">
+                            <span>{cat.category_name}</span>
+                            <span className="font-semibold">{formatCurrency(cat.total)}</span>
+                        </div>
+                    )) : <p className="text-slate-500 text-center py-4 text-sm">لا توجد إيرادات</p>
+                )}
+            </div>
+
+            <button onClick={() => onShowMore(summary, activeTab)} className="mt-4 text-sm text-cyan-400 hover:text-cyan-300 w-full text-center">
+                عرض الكل
+            </button>
+        </div>
+    );
+};
+
+const FullSummaryModal: React.FC<{
+    monthData: any;
+    monthName: string;
+    year: number;
+    initialTab: 'expense' | 'income';
+    onClose: () => void;
+    allCategories: Category[];
+}> = ({ monthData, monthName, year, initialTab, onClose, allCategories }) => {
+    const [activeTab, setActiveTab] = useState(initialTab);
+    const data = activeTab === 'expense' ? monthData.expenses_by_category : monthData.incomes_by_category;
+    const total = activeTab === 'expense' ? monthData.total_expense : monthData.total_income;
+    const Icon = activeTab === 'expense' ? ArrowTrendingDown : ArrowTrendingUp;
+    const colorClass = activeTab === 'expense' ? 'text-red-400' : 'text-green-400';
+
+    return (
+        <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-slate-900 rounded-xl w-full max-w-2xl border border-slate-700 shadow-xl flex flex-col">
+                <div className="flex justify-between items-center p-4 border-b border-slate-700">
+                    <h3 className="text-xl font-bold">تفاصيل شهر {monthName} {year}</h3>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors"><XMarkIcon className="w-6 h-6" /></button>
+                </div>
+
+                <div className="p-4">
+                    <div className="flex border-b border-slate-700 mb-4">
+                        <button onClick={() => setActiveTab('expense')} className={`w-1/2 py-3 text-center font-semibold transition-colors ${activeTab === 'expense' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}>المصروفات</button>
+                        <button onClick={() => setActiveTab('income')} className={`w-1/2 py-3 text-center font-semibold transition-colors ${activeTab === 'income' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}>الإيرادات</button>
+                    </div>
+
+                    <div className="bg-slate-800/50 p-4 rounded-lg mb-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <Icon className={`w-8 h-8 ${colorClass}`} />
+                            <div>
+                                <p className="text-sm text-slate-400">إجمالي {activeTab === 'expense' ? 'المصروفات' : 'الإيرادات'}</p>
+                                <p className={`text-2xl font-extrabold ${colorClass}`}>{formatCurrency(total)}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="max-h-[50vh] overflow-y-auto space-y-3 pr-2">
+                        {data.map((item: any) => {
+                            const percentage = total > 0 ? (item.total / total) * 100 : 0;
+                            const category = allCategories.find(c => c.name === item.category_name && c.type === activeTab);
+                            const CategoryIcon = category ? iconMap[category.icon || 'CurrencyDollarIcon'] : DocumentTextIcon;
+                            
+                            return (
+                                <div key={item.category_name} className="bg-slate-800 p-3 rounded-lg">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: category?.color || '#334155' }}>
+                                                <CategoryIcon className="w-5 h-5 text-white" />
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold">{item.category_name}</p>
+                                                <p className="text-xs text-slate-500">{item.count} معاملات</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-bold">{formatCurrency(item.total)}</p>
+                                            <p className="text-xs text-slate-500">{percentage.toFixed(1)}%</p>
+                                        </div>
+                                    </div>
+                                    <div className="w-full bg-slate-700 rounded-full h-1.5 mt-2">
+                                        <div className="h-1.5 rounded-full" style={{ width: `${percentage}%`, backgroundColor: category?.color || '#334155' }}></div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };
