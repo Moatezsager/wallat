@@ -44,18 +44,18 @@
         
         /* Fade out long note cards */
         .note-card-content {
-            max-height: 70px; /* More compact height for mobile */
+            max-height: 100px; /* More compact height for mobile */
             overflow: hidden;
             position: relative;
-            -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
-            mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+            mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
         }
         
         @media (min-width: 640px) {
             .note-card-content {
-                max-height: 120px; /* Taller for larger screens */
-                -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
-                mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+                max-height: 150px; /* Taller for larger screens */
+                -webkit-mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+                mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
             }
         }
 
@@ -91,50 +91,6 @@
         .prose tr:nth-child(even) {
             background-color: #1e293b; /* slate-800 */
         }
-        
-        /* Compact prose styles for note cards for better consistency */
-        .note-card-content .prose p,
-        .note-card-content .prose ul,
-        .note-card-content .prose ol {
-            margin-top: 0.25rem;
-            margin-bottom: 0.25rem;
-        }
-        .note-card-content .prose h1,
-        .note-card-content .prose h2,
-        .note-card-content .prose h3,
-        .note-card-content .prose h4,
-        .note-card-content .prose h5,
-        .note-card-content .prose h6 {
-            margin-bottom: 0.25rem;
-        }
-        .note-card-content .prose li {
-            margin: 0.1rem 0;
-        }
-
-        /* Styles for the new note action menu */
-        .note-action-menu button, .note-action-menu .color-picker-container {
-            width: 100%;
-            text-align: right;
-            padding: 0.5rem 1rem;
-            font-size: 0.875rem;
-        }
-        .note-action-menu button {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            border-radius: 0.375rem; /* 6px */
-            transition: background-color 0.2s;
-        }
-        .note-action-menu button:hover {
-            background-color: #334155; /* slate-700 */
-        }
-        .note-action-menu button.delete-btn {
-            color: #f87171; /* red-400 */
-        }
-        .note-action-menu button.delete-btn:hover {
-            background-color: rgba(248, 113, 113, 0.1);
-        }
-
     </style>
     <script>
         tailwind.config = {

@@ -21,6 +21,32 @@ const formatCurrency = (amount: number, currency: string | undefined) => {
     return new Intl.NumberFormat('ar-LY', options).format(amount).replace('LYD', currency || 'د.ل');
 };
 
+const formatDateHeader = (dateString: string) => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+    yesterday.setHours(0, 0, 0, 0);
+
+    if (date.getTime() === today.getTime()) {
+        return 'اليوم';
+    }
+    if (date.getTime() === yesterday.getTime()) {
+        return 'الأمس';
+    }
+    
+    return new Intl.DateTimeFormat('ar-LY', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+    }).format(date);
+};
+
 type FilterValues = {
     startDate: string;
     endDate: string;
@@ -265,6 +291,17 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [key, filters, searchTerm]);
     
+    const groupedTransactions = useMemo(() => {
+        return transactions.reduce((acc, tx) => {
+            const dateKey = tx.date.split('T')[0]; // Group by YYYY-MM-DD
+            if (!acc[dateKey]) {
+                acc[dateKey] = [];
+            }
+            acc[dateKey].push(tx);
+            return acc;
+        }, {} as Record<string, Transaction[]>);
+    }, [transactions]);
+    
     const loadMore = useCallback(() => {
         const nextPage = page + 1;
         setPage(nextPage);
@@ -405,50 +442,60 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
                     </button>
                 </div>
             ) : (
-                <div className="space-y-3">
-                    {transactions.map((tx, index) => {
-                        const accountInfo = tx.type === 'transfer'
-                            ? `${tx.accounts?.name || 'حساب محذوف'} ← ${tx.to_accounts?.name || 'حساب محذوف'}`
-                            : tx.accounts?.name || '';
+                <div className="space-y-4">
+                    {Object.entries(groupedTransactions).map(([date, txsOnDate], groupIndex) => (
+                        <div key={date}>
+                            <div className="sticky top-16 bg-slate-900/80 backdrop-blur-sm py-2 z-10">
+                                <h3 className="text-sm font-semibold text-slate-400">{formatDateHeader(date)}</h3>
+                            </div>
+                            <div className="space-y-3 pt-2">
+                                {txsOnDate.map((tx, txIndex) => {
+                                    const accountInfo = tx.type === 'transfer'
+                                        ? `${tx.accounts?.name || 'حساب محذوف'} ← ${tx.to_accounts?.name || 'حساب محذوف'}`
+                                        : tx.accounts?.name || '';
+                                    
+                                    const isLastTransaction = 
+                                        groupIndex === Object.keys(groupedTransactions).length - 1 &&
+                                        txIndex === txsOnDate.length - 1;
 
-                        const buttonProps = {
-                            key: tx.id,
-                            onClick: () => handleOpenDetailModal(tx),
-                            className: "w-full text-right bg-slate-800 p-3 rounded-lg flex justify-between items-center hover:bg-slate-700/50 transition-colors animate-fade-in-fast"
-                        };
-                        
-                        if (transactions.length === index + 1) {
-                           return (
-                                <button ref={lastTransactionElementRef} {...buttonProps}>
-                                    <div>
-                                        <p className="font-bold text-lg">{tx.notes || (tx.type === 'transfer' ? 'تحويل' : tx.categories?.name || 'معاملة')}</p>
-                                        <p className="text-sm text-slate-400">{accountInfo}</p>
-                                    </div>
-                                    <div className="text-left">
-                                        <p className={`font-extrabold text-lg ${tx.type === 'income' ? 'text-green-400' : tx.type === 'expense' ? 'text-red-400' : 'text-slate-300'}`}>
-                                                {tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''}{formatCurrency(tx.amount, tx.accounts?.currency)}
-                                        </p>
-                                        <p className="text-xs text-slate-500">{new Date(tx.date).toLocaleDateString()}</p>
-                                    </div>
-                                </button>
-                           );
-                        }
+                                    const buttonProps = {
+                                        key: tx.id,
+                                        onClick: () => handleOpenDetailModal(tx),
+                                        className: "w-full text-right bg-slate-800 p-3 rounded-lg flex justify-between items-center hover:bg-slate-700/50 transition-colors animate-fade-in-fast"
+                                    };
 
-                        return (
-                             <button {...buttonProps}>
-                               <div>
-                                    <p className="font-bold text-lg">{tx.notes || (tx.type === 'transfer' ? 'تحويل' : tx.categories?.name || 'معاملة')}</p>
-                                    <p className="text-sm text-slate-400">{accountInfo}</p>
-                               </div>
-                               <div className="text-left">
-                                   <p className={`font-extrabold text-lg ${tx.type === 'income' ? 'text-green-400' : tx.type === 'expense' ? 'text-red-400' : 'text-slate-300'}`}>
-                                        {tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''}{formatCurrency(tx.amount, tx.accounts?.currency)}
-                                   </p>
-                                   <p className="text-xs text-slate-500">{new Date(tx.date).toLocaleDateString()}</p>
-                               </div>
-                            </button>
-                        );
-                    })}
+                                    const transactionContent = (
+                                        <>
+                                            <div>
+                                                <p className="font-bold text-lg">{tx.notes || (tx.type === 'transfer' ? 'تحويل' : tx.categories?.name || 'معاملة')}</p>
+                                                <p className="text-sm text-slate-400">{accountInfo}</p>
+                                            </div>
+                                            <div className="text-left">
+                                                <p className={`font-extrabold text-lg ${tx.type === 'income' ? 'text-green-400' : tx.type === 'expense' ? 'text-red-400' : 'text-slate-300'}`}>
+                                                        {tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''}{formatCurrency(tx.amount, tx.accounts?.currency)}
+                                                </p>
+                                                <p className="text-xs text-slate-500">{new Date(tx.date).toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })}</p>
+                                            </div>
+                                        </>
+                                    );
+
+                                    if (isLastTransaction) {
+                                       return (
+                                            <button ref={lastTransactionElementRef} {...buttonProps}>
+                                                {transactionContent}
+                                            </button>
+                                       );
+                                    }
+
+                                    return (
+                                         <button {...buttonProps}>
+                                            {transactionContent}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
                 </div>
             )}
             

@@ -90,6 +90,18 @@ const YearlyChart: React.FC<{ data: { income: number, expense: number }[] }> = (
                         rtl: true,
                         bodyFont: { family: 'Cairo' },
                         titleFont: { family: 'Cairo' },
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += formatCurrency(context.parsed.y);
+                                }
+                                return label;
+                            }
+                        }
                     }
                 },
                 scales: {

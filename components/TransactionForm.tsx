@@ -31,6 +31,23 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ transaction, onSave, 
         const newAmountValue = Number(amount);
 
         try {
+            const finalDate = new Date(`${date}T00:00:00`); // Local midnight on selected day
+            const originalDateString = transaction?.date ? new Date(transaction.date).toISOString().split('T')[0] : null;
+
+            // If it's an update and the date part hasn't changed, preserve the original time.
+            if (isUpdate && transaction?.date && date === originalDateString) {
+                const originalDate = new Date(transaction.date);
+                finalDate.setHours(originalDate.getHours());
+                finalDate.setMinutes(originalDate.getMinutes());
+                finalDate.setSeconds(originalDate.getSeconds());
+            } else {
+                // For new transactions or if the date was changed on an existing one, use the current time.
+                const now = new Date();
+                finalDate.setHours(now.getHours());
+                finalDate.setMinutes(now.getMinutes());
+                finalDate.setSeconds(now.getSeconds());
+            }
+            
             // Using an RPC is safer for handling balance updates atomically.
             // This prevents race conditions and ensures data integrity.
             const { error } = await supabase.rpc('save_transaction_and_update_balance', {
@@ -39,7 +56,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ transaction, onSave, 
                 p_account_id: accountId,
                 p_type: type,
                 p_amount: newAmountValue,
-                p_date: new Date(date).toISOString(),
+                p_date: finalDate.toISOString(),
                 p_category_id: categoryId || null,
                 p_notes: notes,
                 p_old_account_id: isUpdate ? transaction.account_id : null,

@@ -4,7 +4,7 @@ import { Note } from '../types';
 import { 
     MagnifyingGlassIcon, XMarkIcon, PinIcon, SolidPinIcon, PaintBrushIcon,
     TrashIcon, BoldIcon, ItalicIcon, UnderlineIcon, StrikethroughIcon,
-    ListBulletIcon, QueueListIcon, ChatBubbleLeftQuoteIcon, PlusIcon, EllipsisVerticalIcon, ClipboardDocumentIcon
+    ListBulletIcon, QueueListIcon, ChatBubbleLeftQuoteIcon, PlusIcon, ArrowLeftIcon, ClipboardDocumentIcon
 } from './icons';
 
 // A more vibrant and modern color palette
@@ -23,8 +23,9 @@ const NOTE_COLORS = [
     '#881337', // rose-900
 ];
 
-const useClickOutside = (ref: React.RefObject<HTMLElement>, handler: (event: MouseEvent | TouchEvent) => void) => {
+const useClickOutside = (ref: React.RefObject<HTMLElement>, handler: (event: MouseEvent | TouchEvent) => void, active: boolean) => {
   useEffect(() => {
+    if (!active) return;
     const listener = (event: MouseEvent | TouchEvent) => {
       if (!ref.current || ref.current.contains(event.target as Node)) {
         return;
@@ -37,7 +38,7 @@ const useClickOutside = (ref: React.RefObject<HTMLElement>, handler: (event: Mou
       document.removeEventListener('mousedown', listener);
       document.removeEventListener('touchstart', listener);
     };
-  }, [ref, handler]);
+  }, [ref, handler, active]);
 };
 
 // Helper function to execute rich text commands
@@ -77,15 +78,15 @@ const EditorToolbar: React.FC = () => {
     );
 };
 
-// A small popover for color selection, used in multiple places
+// A small popover for color selection
 const ColorPickerPopover: React.FC<{ onSelect: (color: string) => void; children: React.ReactNode; }> = ({ onSelect, children }) => {
     const [isOpen, setIsOpen] = useState(false);
     const popoverRef = useRef<HTMLDivElement>(null);
-    useClickOutside(popoverRef, () => setIsOpen(false));
+    useClickOutside(popoverRef, () => setIsOpen(false), isOpen);
 
     return (
         <div ref={popoverRef} className="relative">
-            <button onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }} className="p-2 rounded-full hover:bg-black/30 transition-colors">
+            <button type="button" onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }} className="p-2 rounded-full hover:bg-black/30 transition-colors">
                 {children}
             </button>
             {isOpen && (
@@ -93,6 +94,7 @@ const ColorPickerPopover: React.FC<{ onSelect: (color: string) => void; children
                     {NOTE_COLORS.map(color => (
                         <button 
                             key={color} 
+                            type="button"
                             style={{backgroundColor: color}} 
                             onClick={(e) => { e.stopPropagation(); onSelect(color); setIsOpen(false); }} 
                             className={'w-6 h-6 rounded-full transition-transform hover:scale-110 ring-white ring-offset-slate-900 focus:ring-2'}
@@ -144,7 +146,7 @@ const NotesPage: React.FC<{ key: number; handleDatabaseChange: (description?: st
         const isUpdate = 'id' in noteToSave;
         const noteData = isUpdate 
             ? { ...noteToSave, updated_at: new Date().toISOString() }
-            : noteToSave;
+            : { ...noteToSave, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
 
         const { error } = isUpdate
             ? await supabase.from('notes').update(noteData).eq('id', (noteToSave as Note).id)
@@ -169,7 +171,7 @@ const NotesPage: React.FC<{ key: number; handleDatabaseChange: (description?: st
     };
     
     const handleUpdateNoteField = async (noteId: string, updates: Partial<Note>) => {
-        const { error } = await supabase.from('notes').update(updates).eq('id', noteId);
+        const { error } = await supabase.from('notes').update({...updates, updated_at: new Date().toISOString()}).eq('id', noteId);
         if (error) {
              console.error("Error updating note:", error.message);
         } else {
@@ -224,7 +226,7 @@ const NotesPage: React.FC<{ key: number; handleDatabaseChange: (description?: st
                 </>
             )}
 
-            <button onClick={() => setEditorState({ mode: 'adding', note: null })} className="fixed bottom-20 right-4 h-14 w-14 bg-cyan-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-cyan-500 transition-transform transform active:scale-90 z-10">
+            <button onClick={() => setEditorState({ mode: 'adding', note: null })} className="fixed bottom-20 right-4 h-14 w-14 bg-cyan-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-cyan-500 transition-transform transform active:scale-90 z-30">
                 <PlusIcon className="w-8 h-8"/>
             </button>
 
@@ -270,9 +272,6 @@ const NoteCard: React.FC<{
     onDelete: () => void;
     onUpdateField: (updates: Partial<Note>) => void;
 }> = ({ note, onEdit, onDelete, onUpdateField }) => {
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const menuRef = useRef<HTMLDivElement>(null);
-    useClickOutside(menuRef, () => setIsMenuOpen(false));
 
     const [title, content] = useMemo(() => {
         const tempDiv = document.createElement('div');
@@ -287,48 +286,29 @@ const NoteCard: React.FC<{
     return (
         <div className="masonry-item group">
             <div 
+                onClick={onEdit}
                 className="relative border border-slate-700 rounded-lg cursor-pointer break-inside-avoid-column hover:border-cyan-500/60 hover:shadow-lg hover:shadow-cyan-900/20 hover:-translate-y-1 transition-all duration-300 shadow-md h-full flex flex-col"
                 style={{ backgroundColor: note.color }}
             >
-                <div onClick={onEdit} className="flex-grow p-4 pb-2">
+                <div className="flex-grow p-4 pb-12">
+                     {/* Fix: Wrap icon in a span to apply the title attribute, as the Icon component does not accept it directly. */}
+                    {note.is_pinned && <span title="مثبتة" className="absolute top-3 right-3"><SolidPinIcon className="w-4 h-4 text-cyan-200 opacity-70" /></span>}
                     <div className="note-card-content">
-                        {title && <h3 className="font-bold text-lg mb-2 break-words">{title}</h3>}
+                        {title && <h3 className="font-bold text-lg mb-2 break-words prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: `<h2>${title}</h2>` }} />}
                         <div className="text-slate-200 break-words prose prose-invert prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: content }} />
                     </div>
                 </div>
                 
-                <div className="flex items-center justify-end p-1">
-                    <div ref={menuRef} className="relative">
-                        <button onClick={(e) => { e.stopPropagation(); setIsMenuOpen(v => !v); }} title="المزيد من الإجراءات" className="p-2 rounded-full hover:bg-black/30 transition-colors opacity-60 group-hover:opacity-100">
-                            <EllipsisVerticalIcon className="w-5 h-5"/>
-                        </button>
-                        {isMenuOpen && (
-                             <div className="note-action-menu absolute left-0 bottom-full mb-1 w-56 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-20 animate-fade-in-fast p-1">
-                                <button onClick={(e) => { e.stopPropagation(); onUpdateField({ is_pinned: !note.is_pinned }); setIsMenuOpen(false); }}>
-                                    {note.is_pinned ? <SolidPinIcon className="w-5 h-5 text-cyan-300" /> : <PinIcon className="w-5 h-5" />}
-                                    <span>{note.is_pinned ? "إلغاء التثبيت" : "تثبيت الملاحظة"}</span>
-                                </button>
-                                <div className="color-picker-container">
-                                     <p className="text-xs text-slate-400 mb-2 px-1">اللون</p>
-                                     <div className="grid grid-cols-6 gap-2">
-                                         {NOTE_COLORS.map(color => (
-                                            <button 
-                                                key={color} 
-                                                style={{backgroundColor: color}} 
-                                                onClick={(e) => { e.stopPropagation(); onUpdateField({ color }); setIsMenuOpen(false); }} 
-                                                className={`w-6 h-6 rounded-full transition-transform hover:scale-110 ring-white ring-offset-slate-900 focus:ring-2`}
-                                            />
-                                        ))}
-                                     </div>
-                                </div>
-                                 <div className="border-t border-slate-700 my-1"></div>
-                                 <button onClick={(e) => { e.stopPropagation(); onDelete(); setIsMenuOpen(false); }} className="delete-btn">
-                                    <TrashIcon className="w-5 h-5"/>
-                                    <span>حذف الملاحظة</span>
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                <div className="absolute bottom-0 left-0 right-0 flex items-center justify-end p-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-gradient-to-t from-black/30 to-transparent rounded-b-lg">
+                    <button type="button" onClick={(e) => { e.stopPropagation(); onUpdateField({ is_pinned: !note.is_pinned }); }} title={note.is_pinned ? "إلغاء التثبيت" : "تثبيت"} className="p-2 rounded-full hover:bg-black/30 text-white">
+                        <PinIcon className="w-5 h-5"/>
+                    </button>
+                    <ColorPickerPopover onSelect={(color) => onUpdateField({ color })}>
+                        <PaintBrushIcon className="w-5 h-5 text-white" />
+                    </ColorPickerPopover>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(); }} title="حذف" className="p-2 rounded-full hover:bg-black/30 text-white">
+                        <TrashIcon className="w-5 h-5"/>
+                    </button>
                 </div>
             </div>
         </div>
@@ -346,7 +326,9 @@ const NoteEditorModal: React.FC<{
         color: NOTE_COLORS[0], 
         is_pinned: false, 
         is_code: false, 
-        language: null 
+        language: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
     }), []);
     
     const [note, setNote] = useState(initialNote || defaultNewNote);
@@ -366,13 +348,14 @@ const NoteEditorModal: React.FC<{
     const handleSave = useCallback(() => {
         const newTitle = titleRef.current?.value.trim() || '';
         const newContent = contentRef.current?.innerHTML.trim() || '';
-        const newNoteText = newTitle ? `<h2>${newTitle}</h2>${newContent}` : newContent;
         
+        // Don't save empty new notes
         if (!initialNote && !newTitle && !newContent) {
             onCancel();
             return;
         }
 
+        const newNoteText = newTitle ? `<h2>${newTitle}</h2>${newContent}` : newContent;
         const finalNoteData = { ...note, note_text: newNoteText };
         onSave(finalNoteData);
     }, [initialNote, note, onSave, onCancel]);
@@ -382,24 +365,50 @@ const NoteEditorModal: React.FC<{
     };
 
     const modalRef = useRef<HTMLDivElement>(null);
-    useClickOutside(modalRef, handleSave);
+    useClickOutside(modalRef, handleSave, true);
     
     useEffect(() => {
-        if (titleRef.current) {
-            titleRef.current.style.height = 'auto';
-            titleRef.current.style.height = `${titleRef.current.scrollHeight}px`;
+        const target = titleRef.current;
+        if (target) {
+            target.style.height = 'auto';
+            target.style.height = `${target.scrollHeight}px`;
         }
     }, [title]);
 
     return (
-        <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center p-0 animate-fade-in">
-            <div ref={modalRef} className="bg-slate-800 w-full h-full flex flex-col" style={{ backgroundColor: note.color }}>
-                <div className="p-4 flex-grow flex flex-col overflow-y-auto">
+        <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center p-0 sm:p-4 animate-fade-in">
+            <div 
+                ref={modalRef} 
+                className="w-full h-full flex flex-col bg-slate-800 text-white sm:max-w-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-xl sm:shadow-2xl" 
+                style={{ backgroundColor: note.color }}
+            >
+                {/* Top Bar */}
+                <div className="flex justify-between items-center p-2 shrink-0">
+                    <button onClick={handleSave} className="p-2 rounded-full hover:bg-black/20" aria-label="حفظ وإغلاق">
+                        <ArrowLeftIcon className="w-6 h-6"/>
+                    </button>
+                    <div className="flex items-center">
+                        <button onClick={() => setNote(prev => ({ ...prev, is_pinned: !prev.is_pinned }))} title={note.is_pinned ? "إلغاء التثبيت" : "تثبيت"} className="p-2 rounded-full hover:bg-black/20">
+                            {note.is_pinned ? <SolidPinIcon className="w-5 h-5 text-cyan-300" /> : <PinIcon className="w-5 h-5" />}
+                        </button>
+                        <ColorPickerPopover onSelect={handleColorSelect}>
+                            <PaintBrushIcon className="w-5 h-5" />
+                        </ColorPickerPopover>
+                        {initialNote && (
+                            <button onClick={() => onDelete(initialNote.id)} title="حذف" className="p-2 rounded-full hover:bg-black/20">
+                                <TrashIcon className="w-5 h-5"/>
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Content Area */}
+                <div className="px-4 pb-4 flex-grow flex flex-col overflow-y-auto">
                     <textarea
                         ref={titleRef}
                         defaultValue={title}
                         placeholder="العنوان"
-                        className="bg-transparent text-xl font-bold placeholder-slate-400/70 focus:outline-none resize-none overflow-hidden mb-2"
+                        className="bg-transparent text-2xl font-bold placeholder-slate-400/70 focus:outline-none resize-none overflow-hidden w-full"
                         rows={1}
                         onInput={(e) => {
                              const target = e.currentTarget;
@@ -412,30 +421,17 @@ const NoteEditorModal: React.FC<{
                         contentEditable
                         suppressContentEditableWarning
                         dangerouslySetInnerHTML={{ __html: content }}
-                        className="flex-grow outline-none prose prose-invert max-w-none"
+                        className="flex-grow outline-none prose prose-invert max-w-none mt-4 text-slate-200"
                         data-placeholder="اكتب ملاحظتك..."
                     />
                 </div>
-                <div className="flex justify-between items-center p-2 border-t border-white/10 flex-wrap">
+                
+                {/* Bottom Toolbar */}
+                <div className="flex justify-between items-center p-2 border-t border-white/10 flex-wrap shrink-0 gap-2">
                     <EditorToolbar />
-                    <div className="flex items-center gap-1">
-                        <ColorPickerPopover onSelect={handleColorSelect}>
-                             <PaintBrushIcon className="w-5 h-5" />
-                        </ColorPickerPopover>
-                        {initialNote && (
-                            <>
-                                <button onClick={() => onSave({ ...note, is_pinned: !note.is_pinned })} title={note.is_pinned ? "إلغاء التثبيت" : "تثبيت"} className="p-2 rounded-full hover:bg-black/30 transition-colors">
-                                    {note.is_pinned ? <SolidPinIcon className="w-5 h-5 text-cyan-300" /> : <PinIcon className="w-5 h-5" />}
-                                </button>
-                                <button onClick={() => onDelete(initialNote.id)} title="حذف" className="p-2 rounded-full hover:bg-black/30 transition-colors">
-                                    <TrashIcon className="w-5 h-5"/>
-                                </button>
-                            </>
-                        )}
-                         <button onClick={handleSave} className="py-2 px-5 bg-black/20 hover:bg-black/40 rounded-md transition text-sm">
-                            تم
-                        </button>
-                    </div>
+                    <span className="text-xs text-slate-300/80">
+                        آخر تحديث: {new Date(note.updated_at || note.created_at).toLocaleString('ar-LY', { timeStyle: 'short' })}
+                    </span>
                 </div>
             </div>
         </div>

@@ -106,12 +106,18 @@ const TransactionModal: React.FC<{
             const { error: updateError } = await supabase.from('accounts').update({ balance: account.balance + amountWithSign }).eq('id', accountId);
             if (updateError) throw updateError;
             
+            const finalDate = new Date(`${date}T00:00:00`); // Make sure it's parsed as local midnight
+            const now = new Date();
+            finalDate.setHours(now.getHours());
+            finalDate.setMinutes(now.getMinutes());
+            finalDate.setSeconds(now.getSeconds());
+
             const { error: insertError } = await supabase.from('transactions').insert({
                 amount: numericAmount,
                 type,
                 account_id: accountId,
                 category_id: categoryId || null,
-                date: new Date(date).toISOString(),
+                date: finalDate.toISOString(),
                 notes,
             });
             if (insertError) throw insertError;
