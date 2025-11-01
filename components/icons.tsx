@@ -22,7 +22,7 @@ export const DebtsIcon: React.FC<IconProps> = ({ className }) => (
 
 export const AccountsIcon: React.FC<IconProps> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0-9-6.75L3 12m18 0-9 6.75L3 12" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25-2.25H5.25A2.25 2.25 0 013 18v-6m18 0-9-6.75L3 12m18 0-9 6.75L3 12" />
     </svg>
 );
 
@@ -113,7 +113,7 @@ export const ArrowLeftIcon: React.FC<IconProps> = ({ className }) => (
 
 export const WalletIcon: React.FC<IconProps> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0-9-6.75L3 12m18 0-9 6.75L3 12" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25-2.25H5.25A2.25 2.25 0 013 18v-6m18 0-9-6.75L3 12m18 0-9 6.75L3 12" />
     </svg>
 );
 export const ArrowDownIcon: React.FC<IconProps> = ({ className }) => (
@@ -145,7 +145,7 @@ export const ChevronRightIcon: React.FC<IconProps> = ({ className }) => (
 );
 export const DocumentTextIcon: React.FC<IconProps> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3h7.5M3 17.25V7.5A2.25 2.25 0 015.25 5.25h5.25c.621 0 1.125.504 1.125 1.125v4.072m-5.25 6.072a2.25 2.25 0 01-2.25-2.25V7.5m5.25 12.75c0-1.518.09-2.962.26-4.372M15 11.25a2.25 2.25 0 012.25-2.25h1.5a2.25 2.25 0 012.25 2.25v6.75a2.25 2.25 0 01-2.25 2.25h-1.5a2.25 2.25 0 01-2.25-2.25v-6.75z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3h7.5M3 17.25V7.5A2.25 2.25 0 015.25 5.25h5.25c.621 0 1.125.504 1.125 1.125v4.072m-5.25 6.072a2.25 2.25 0 01-2.25-2.25V7.5m5.25 12.75c0-1.518.09-2.962.26-4.372M15 11.25a2.25 2.25 0 012.25-2.25h1.5a2.25 2.25 0 012.25 2.25v6.75a2.25 2.25 0 01-2.25-2.25h-1.5a2.25 2.25 0 01-2.25-2.25v-6.75z" />
   </svg>
 );
 
@@ -273,6 +273,12 @@ export const DocumentArrowDownIcon: React.FC<IconProps> = ({ className }) => (
   </svg>
 );
 
+export const KeyIcon: React.FC<IconProps> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
+  </svg>
+);
+
 
 export const iconMap: { [key: string]: React.FC<IconProps> } = {
     HomeIcon,
@@ -313,5 +319,6 @@ export const iconMap: { [key: string]: React.FC<IconProps> } = {
     SparklesIcon,
     PinIcon, SolidPinIcon, PaintBrushIcon,
     BoldIcon, ItalicIcon, UnderlineIcon, StrikethroughIcon,
-    ListBulletIcon, QueueListIcon, ChatBubbleLeftQuoteIcon
+    ListBulletIcon, QueueListIcon, ChatBubbleLeftQuoteIcon,
+    KeyIcon
 };

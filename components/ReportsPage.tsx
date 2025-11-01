@@ -9,10 +9,6 @@ import { SparklesIcon, ExclamationTriangleIcon, CheckCircleIcon, XMarkIcon } fro
 type Period = 'this_month' | 'last_month' | 'this_year';
 type ActiveTab = 'expense' | 'income' | 'debt';
 
-// FIX: Removed conflicting global declaration for window.aistudio.
-// The type is likely already defined in the global scope.
-
-
 const formatCurrency = (amount: number) => {
     const options: Intl.NumberFormatOptions = {
         style: 'currency',
@@ -175,7 +171,6 @@ const DebtReportView: React.FC<{ data: any }> = ({ data }) => {
     );
 };
 
-
 const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [debts, setDebts] = useState<Debt[]>([]);
@@ -186,7 +181,6 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
     const [isAiModalOpen, setIsAiModalOpen] = useState(false);
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [aiAnalysisResult, setAiAnalysisResult] = useState('');
-
 
     useEffect(() => {
         const fetchData = async () => {
@@ -204,22 +198,25 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
         };
         fetchData();
     }, [key]);
-
+    
     const handleGenerateAnalysis = async () => {
+        if (!process.env.API_KEY) {
+            const errorMessage = `
+            [HEADER]خطأ في الإعداد[/HEADER]
+            [OVERVIEW]مفتاح API غير متوفر.[/OVERVIEW]
+            [NEGATIVE]تفاصيل الخطأ[/NEGATIVE]
+            [ITEM]لم يتم العثور على مفتاح Google AI API في متغيرات البيئة. يرجى التأكد من أن المسؤول عن التطبيق قد قام بتكوينه.[/ITEM]
+            `;
+            setAiAnalysisResult(errorMessage);
+            setIsAiModalOpen(true);
+            return;
+        }
+
         setIsAiModalOpen(true);
         setIsAiLoading(true);
         setAiAnalysisResult('');
     
         try {
-            // Check for API key before proceeding
-            const hasApiKey = await window.aistudio.hasSelectedApiKey();
-            if (!hasApiKey) {
-                await window.aistudio.openSelectKey();
-                // After the user selects a key, we can assume it's available.
-                // Re-checking isn't strictly necessary per guidelines, but we proceed.
-            }
-    
-            // Initialize the GenAI client just-in-time
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
             const { startDate, endDate } = getDatesForPeriod('this_month');
@@ -305,11 +302,17 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
     
         } catch (error: any) {
             console.error('Error generating AI analysis:', error);
+            
+            let errorMessageText = error.message;
+            if (error.toString().includes('API key not valid')) { 
+                errorMessageText = "مفتاح API المستخدم غير صالح أو انتهت صلاحيته. يرجى مراجعة إعدادات البيئة.";
+            }
+
             const errorMessage = `
             [HEADER]حدث خطأ[/HEADER]
-            [OVERVIEW]عذراً، لم نتمكن من إنشاء التحليل. قد يكون السبب عدم اختيار مفتاح API صالح أو مشكلة في الشبكة.[/OVERVIEW]
+            [OVERVIEW]عذراً، لم نتمكن من إنشاء التحليل.[/OVERVIEW]
             [NEGATIVE]تفاصيل الخطأ[/NEGATIVE]
-            [ITEM]${error.message}[/ITEM]
+            [ITEM]${errorMessageText}[/ITEM]
             `;
             setAiAnalysisResult(errorMessage);
         } finally {

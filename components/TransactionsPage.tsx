@@ -1,16 +1,14 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Transaction, Account, Category } from '../types';
-import { PlusIcon, PencilSquareIcon, TrashIcon, FunnelIcon, XMarkIcon } from './icons';
 import TransactionForm from './TransactionForm';
+import { 
+    MagnifyingGlassIcon, FunnelIcon, XMarkIcon, PencilSquareIcon, TrashIcon,
+    ArrowDownIcon, ArrowUpIcon, ArrowsRightLeftIcon, iconMap 
+} from './icons';
 
-const PAGE_SIZE = 15; // Number of transactions to load at a time
-
-const formatCurrency = (amount: number, currency: string | undefined) => {
-    const options: Intl.NumberFormatOptions = {
-        style: 'currency',
-        currency: 'LYD',
-    };
+const formatCurrency = (amount: number, currency: string = 'د.ل') => {
+    const options: Intl.NumberFormatOptions = { style: 'currency', currency: 'LYD' };
     if (amount % 1 === 0) {
         options.minimumFractionDigits = 0;
         options.maximumFractionDigits = 0;
@@ -18,45 +16,36 @@ const formatCurrency = (amount: number, currency: string | undefined) => {
         options.minimumFractionDigits = 2;
         options.maximumFractionDigits = 2;
     }
-    return new Intl.NumberFormat('ar-LY', options).format(amount).replace('LYD', currency || 'د.ل');
+    return new Intl.NumberFormat('ar-LY', options).format(amount).replace('LYD', currency);
 };
 
-const formatDateHeader = (dateString: string) => {
-    const [year, month, day] = dateString.split('-').map(Number);
-    const date = new Date(year, month - 1, day);
-    
+const formatDateGroup = (dateString: string) => {
+    const date = new Date(dateString);
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
     const yesterday = new Date();
-    yesterday.setDate(today.getDate() - 1);
-    yesterday.setHours(0, 0, 0, 0);
+    yesterday.setDate(yesterday.getDate() - 1);
 
-    if (date.getTime() === today.getTime()) {
-        return 'اليوم';
-    }
-    if (date.getTime() === yesterday.getTime()) {
-        return 'الأمس';
-    }
+    if (date.toDateString() === today.toDateString()) return 'اليوم';
+    if (date.toDateString() === yesterday.toDateString()) return 'الأمس';
     
     return new Intl.DateTimeFormat('ar-LY', {
-        weekday: 'long',
         year: 'numeric',
         month: 'long',
-        day: 'numeric',
+        day: 'numeric'
     }).format(date);
 };
 
-type FilterValues = {
-    startDate: string;
-    endDate: string;
-    type: 'all' | 'expense' | 'income' | 'transfer';
-    accounts: string[];
-    categories: string[];
+const TransactionIcon: React.FC<{ type: Transaction['type'], className?: string }> = ({ type, className = "w-6 h-6" }) => {
+    switch (type) {
+        case 'income': return <ArrowDownIcon className={className} />;
+        case 'expense': return <ArrowUpIcon className={className} />;
+        case 'transfer': return <ArrowsRightLeftIcon className={className} />;
+        default: return null;
+    }
 };
 
 const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; }> = ({ children, title, onClose }) => (
-    <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
         <div className="bg-slate-800 rounded-lg p-6 w-full max-w-md border border-slate-700 shadow-xl animate-slide-up">
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold">{title}</h3>
@@ -67,431 +56,245 @@ const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () =>
     </div>
 );
 
-// Filter Modal Component (No changes needed here)
+type FilterValues = {
+    types: Transaction['type'][];
+    date_from: string;
+    date_to: string;
+    accounts: string[];
+    categories: string[];
+};
+
 const FilterModal: React.FC<{
-    accounts: Account[];
-    categories: Category[];
-    initialFilters: FilterValues;
-    onApply: (filters: FilterValues) => void;
-    onClose: () => void;
+    accounts: Account[],
+    categories: Category[],
+    initialFilters: FilterValues,
+    onApply: (filters: FilterValues) => void,
+    onClose: () => void,
 }> = ({ accounts, categories, initialFilters, onApply, onClose }) => {
     const [tempFilters, setTempFilters] = useState(initialFilters);
 
-    const handleTypeChange = (type: FilterValues['type']) => {
-        setTempFilters({ ...tempFilters, type });
-    };
-
-    const handleAccountToggle = (accountId: string) => {
-        const newAccounts = tempFilters.accounts.includes(accountId)
-            ? tempFilters.accounts.filter((id: string) => id !== accountId)
-            : [...tempFilters.accounts, accountId];
-        setTempFilters({ ...tempFilters, accounts: newAccounts });
-    };
-
-    const handleCategoryToggle = (categoryId: string) => {
-        const newCategories = tempFilters.categories.includes(categoryId)
-            ? tempFilters.categories.filter((id: string) => id !== categoryId)
-            : [...tempFilters.categories, categoryId];
-        setTempFilters({ ...tempFilters, categories: newCategories });
+    const handleTypeToggle = (type: Transaction['type']) => {
+        const newTypes = tempFilters.types.includes(type)
+            ? tempFilters.types.filter(t => t !== type)
+            : [...tempFilters.types, type];
+        setTempFilters(f => ({ ...f, types: newTypes }));
     };
     
     const handleReset = () => {
-        const freshFilters = { startDate: '', endDate: '', type: 'all' as 'all', accounts: [], categories: [] };
-        setTempFilters(freshFilters);
-        onApply(freshFilters); // Apply reset immediately
+        const defaultFilters = {
+            types: ['income', 'expense', 'transfer'],
+            date_from: '', date_to: '',
+            accounts: [], categories: []
+        };
+        setTempFilters(defaultFilters);
+        onApply(defaultFilters);
         onClose();
-    }
-
-    const handleApply = () => {
-        onApply(tempFilters);
     };
 
     return (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-slate-800 rounded-lg p-6 w-full max-w-lg border border-slate-700 shadow-xl animate-slide-up">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-bold">تصفية المعاملات</h3>
-                    <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors"><XMarkIcon className="w-6 h-6" /></button>
-                </div>
-                <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-sm text-slate-400">من تاريخ</label>
-                            <input type="date" value={tempFilters.startDate} onChange={e => setTempFilters({...tempFilters, startDate: e.target.value})} className="w-full bg-slate-700 p-2 rounded-md mt-1" />
-                        </div>
-                        <div>
-                            <label className="text-sm text-slate-400">إلى تاريخ</label>
-                            <input type="date" value={tempFilters.endDate} onChange={e => setTempFilters({...tempFilters, endDate: e.target.value})} className="w-full bg-slate-700 p-2 rounded-md mt-1" />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="text-sm text-slate-400">النوع</label>
-                        <div className="flex bg-slate-700 rounded-lg p-1 text-sm mt-1">
-                            {(['all', 'expense', 'income', 'transfer'] as const).map(type => (
-                                <button key={type} onClick={() => handleTypeChange(type)} className={`w-full py-2 px-1 rounded-md transition-colors font-semibold ${tempFilters.type === type ? 'bg-slate-600 text-cyan-400' : 'text-slate-300 hover:bg-slate-600/50'}`}>
-                                    { {all: 'الكل', expense: 'مصروف', income: 'إيراد', transfer: 'تحويل'}[type] }
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                    <div>
-                        <label className="text-sm text-slate-400">الحسابات</label>
-                        <div className="mt-1 max-h-32 overflow-y-auto space-y-1 p-2 bg-slate-700 rounded-md">
-                            {accounts.map(acc => (
-                                <label key={acc.id} className="flex items-center gap-2 p-1 rounded hover:bg-slate-600/50 cursor-pointer">
-                                    <input type="checkbox" checked={tempFilters.accounts.includes(acc.id)} onChange={() => handleAccountToggle(acc.id)} className="w-4 h-4 text-cyan-600 bg-slate-600 border-slate-500 rounded focus:ring-cyan-500"/>
-                                    <span>{acc.name}</span>
-                                </label>
-                            ))}
-                        </div>
-                    </div>
-                    <div>
-                        <label className="text-sm text-slate-400">الفئات</label>
-                         <div className="mt-1 max-h-32 overflow-y-auto space-y-1 p-2 bg-slate-700 rounded-md">
-                             {categories.map(cat => (
-                                <label key={cat.id} className="flex items-center gap-2 p-1 rounded hover:bg-slate-600/50 cursor-pointer">
-                                    <input type="checkbox" checked={tempFilters.categories.includes(cat.id)} onChange={() => handleCategoryToggle(cat.id)} className="w-4 h-4 text-cyan-600 bg-slate-600 border-slate-500 rounded focus:ring-cyan-500"/>
-                                    <span>{cat.name} ({cat.type === 'expense' ? 'مصروف' : 'إيراد'})</span>
-                                </label>
-                            ))}
-                        </div>
+        <Modal title="تصفية المعاملات" onClose={onClose}>
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                <div>
+                    <label className="text-sm font-medium text-slate-300 mb-2 block">نوع المعاملة</label>
+                    <div className="flex gap-2">
+                        {(['expense', 'income', 'transfer'] as Transaction['type'][]).map(type => (
+                            <button key={type} onClick={() => handleTypeToggle(type)}
+                                className={`w-full p-2 rounded-md text-sm transition-colors ${tempFilters.types.includes(type) ? 'bg-cyan-600 text-white' : 'bg-slate-700 hover:bg-slate-600'}`}>
+                                {{expense: 'مصروف', income: 'دخل', transfer: 'تحويل'}[type]}
+                            </button>
+                        ))}
                     </div>
                 </div>
-                <div className="flex justify-between items-center pt-4 mt-2 border-t border-slate-700">
-                    <button onClick={handleReset} className="py-2 px-4 text-slate-400 hover:text-white rounded-md transition text-sm">إعادة تعيين</button>
-                    <button onClick={handleApply} className="py-2 px-6 bg-cyan-600 hover:bg-cyan-500 rounded-md transition">تطبيق</button>
+                <div>
+                    <label className="text-sm font-medium text-slate-300 mb-2 block">نطاق التاريخ</label>
+                    <div className="flex gap-2">
+                        <input type="date" value={tempFilters.date_from} onChange={e => setTempFilters(f => ({...f, date_from: e.target.value}))} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" />
+                        <input type="date" value={tempFilters.date_to} onChange={e => setTempFilters(f => ({...f, date_to: e.target.value}))} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" />
+                    </div>
+                </div>
+                 <div>
+                    <label htmlFor="account" className="text-sm font-medium text-slate-300 mb-2 block">الحساب</label>
+                     <select id="account" value={tempFilters.accounts[0] || ''} onChange={e => setTempFilters(f => ({...f, accounts: e.target.value ? [e.target.value] : []}))} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white">
+                        <option value="">كل الحسابات</option>
+                        {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
+                    </select>
                 </div>
             </div>
-        </div>
+            <div className="flex justify-between items-center pt-6 mt-4 border-t border-slate-700">
+                <button onClick={handleReset} className="py-2 px-4 text-slate-400 hover:text-white rounded-md transition text-sm">إعادة تعيين</button>
+                <button onClick={() => onApply(tempFilters)} className="py-2 px-6 bg-cyan-600 hover:bg-cyan-500 rounded-md transition">تطبيق</button>
+            </div>
+        </Modal>
     );
 };
-
-// New Component for Transaction Details
-const TransactionDetailContent: React.FC<{
-    transaction: Transaction;
-    onEdit: () => void;
-    onDelete: () => void;
-}> = ({ transaction, onEdit, onDelete }) => {
-    const details = [
-        { label: 'المبلغ', value: formatCurrency(transaction.amount, transaction.accounts?.currency), color: transaction.type === 'income' ? 'text-green-400' : transaction.type === 'expense' ? 'text-red-400' : 'text-slate-300' },
-        { label: 'النوع', value: {income: 'إيراد', expense: 'مصروف', transfer: 'تحويل'}[transaction.type] },
-        { label: 'الحساب', value: transaction.type === 'transfer' ? `من: ${transaction.accounts?.name || 'N/A'}` : transaction.accounts?.name || 'N/A' },
-        { label: 'إلى حساب', value: transaction.type === 'transfer' ? transaction.to_accounts?.name || 'N/A' : null },
-        { label: 'الفئة', value: transaction.categories?.name || 'غير مصنف' },
-        { label: 'التاريخ', value: new Date(transaction.date).toLocaleString('ar-LY', { day: 'numeric', month: 'long', year: 'numeric', hour: 'numeric', minute: '2-digit' }) },
-        { label: 'ملاحظات', value: transaction.notes || '-' },
-    ].filter(item => item.value !== null);
-
-    return (
-        <div className="space-y-3">
-            {details.map(item => (
-                <div key={item.label} className="flex justify-between items-center text-sm py-2 border-b border-slate-700/50">
-                    <span className="text-slate-400">{item.label}</span>
-                    <span className={`font-semibold text-right ${item.color || 'text-white'}`}>{item.value}</span>
-                </div>
-            ))}
-            {transaction.type !== 'transfer' && (
-                <div className="flex justify-end gap-3 pt-4">
-                    <button onClick={onDelete} className="py-2 px-4 bg-red-600/20 text-red-400 hover:bg-red-600/40 rounded-md transition flex items-center gap-2">
-                        <TrashIcon className="w-5 h-5"/> حذف
-                    </button>
-                    <button onClick={onEdit} className="py-2 px-4 bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/40 rounded-md transition flex items-center gap-2">
-                        <PencilSquareIcon className="w-5 h-5"/> تعديل
-                    </button>
-                </div>
-            )}
-        </div>
-    );
-};
-
 
 const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (description?: string) => void }> = ({ key, handleDatabaseChange }) => {
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
-    const [isFetchingMore, setIsFetchingMore] = useState(false);
-
-    // Modal states
-    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    
-    const [editingTx, setEditingTx] = useState<Transaction | undefined>(undefined);
-    const [deletingTx, setDeletingTx] = useState<Transaction | null>(null);
-    const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
-    
-    // Search and filter states
     const [searchTerm, setSearchTerm] = useState('');
-    const [filters, setFilters] = useState<FilterValues>({ startDate: '', endDate: '', type: 'all', accounts: [], categories: [] });
-
-    // Pagination states
-    const [page, setPage] = useState(0);
-    const [hasMore, setHasMore] = useState(true);
-
-    // Intersection Observer for infinite scrolling
-    const observer = useRef<IntersectionObserver | null>(null);
-
-    const fetchData = useCallback(async (currentPage: number, isNewSearch = false) => {
-        if (isNewSearch) {
-            setLoading(true);
-        } else {
-            setIsFetchingMore(true);
-        }
-
-        const from = currentPage * PAGE_SIZE;
-        const to = from + PAGE_SIZE - 1;
-
-        let query = supabase.from('transactions').select('*, accounts:accounts!account_id(name, currency), to_accounts:accounts!to_account_id(name), categories(name)').order('date', { ascending: false }).order('created_at', { ascending: false });
-        
-        if (filters.startDate) query = query.gte('date', new Date(filters.startDate).toISOString());
-        if (filters.endDate) {
-            const end = new Date(filters.endDate);
-            end.setDate(end.getDate() + 1);
-            query = query.lt('date', end.toISOString().split('T')[0]);
-        }
-        if (filters.type !== 'all') query = query.eq('type', filters.type);
-        if (filters.accounts.length > 0) query = query.or(`account_id.in.(${filters.accounts.join(',')}),to_account_id.in.(${filters.accounts.join(',')})`);
-        if (filters.categories.length > 0) query = query.in('category_id', filters.categories);
-        if (searchTerm) query = query.ilike('notes', `%${searchTerm}%`);
-
-        query = query.range(from, to);
-
-        const { data: txData, error: txError } = await query;
-
-        if (txError) {
-            console.error('Error fetching transactions:', txError.message);
-        // FIX: Add type guard `Array.isArray(txData)` to ensure txData is an array before using array methods or properties.
-        // This prevents runtime errors if txData is null or another non-array type.
-        } else if (Array.isArray(txData)) {
-            setTransactions(prev => isNewSearch ? txData as Transaction[] : [...prev, ...txData as Transaction[]]);
-            if (txData.length < PAGE_SIZE) {
-                setHasMore(false);
-            } else {
-                setHasMore(true);
-            }
-        }
-        
-        if (isNewSearch) {
-             const accPromise = supabase.from('accounts').select('*');
-             const catPromise = supabase.from('categories').select('*');
-             const [{ data: accData }, { data: catData }] = await Promise.all([accPromise, catPromise]);
-             setAccounts(accData || []);
-             setCategories(catData || []);
-        }
-
-        if (isNewSearch) setLoading(false);
-        else setIsFetchingMore(false);
-
-    }, [filters, searchTerm]);
+    const [filters, setFilters] = useState<FilterValues>({
+        types: ['income', 'expense', 'transfer'],
+        date_from: '', date_to: '',
+        accounts: [], categories: []
+    });
+    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+    const [modal, setModal] = useState<{ type: 'edit' | 'delete' | null, transaction: Transaction | null }>({ type: null, transaction: null });
 
     useEffect(() => {
-        setTransactions([]);
-        setPage(0);
-        setHasMore(true);
-        fetchData(0, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [key, filters, searchTerm]);
+        const fetchData = async () => {
+            setLoading(true);
+            const txPromise = supabase.from('transactions').select('*, accounts:account_id(name, currency), to_accounts:to_account_id(name), categories(name, color, icon)').order('date', { ascending: false });
+            const accPromise = supabase.from('accounts').select('*');
+            const catPromise = supabase.from('categories').select('*');
+
+            const [{ data: txData }, { data: accData }, { data: catData }] = await Promise.all([txPromise, accPromise, catPromise]);
+            
+            // Fix: handle cases where Supabase returns null data instead of an empty array.
+            setAllTransactions(Array.isArray(txData) ? (txData as unknown as Transaction[]) : []);
+            setAccounts(Array.isArray(accData) ? accData : []);
+            setCategories(Array.isArray(catData) ? catData : []);
+            setLoading(false);
+        };
+        fetchData();
+    }, [key]);
+
+    const filteredTransactions = useMemo(() => {
+        return allTransactions.filter(tx => {
+            const txDate = new Date(tx.date);
+            const fromDate = filters.date_from ? new Date(filters.date_from) : null;
+            const toDate = filters.date_to ? new Date(filters.date_to) : null;
+            if(fromDate) fromDate.setHours(0,0,0,0);
+            if(toDate) toDate.setHours(23,59,59,999);
+            
+            return (
+                (filters.types.includes(tx.type)) &&
+                (!fromDate || txDate >= fromDate) &&
+                (!toDate || txDate <= toDate) &&
+                (filters.accounts.length === 0 || (tx.account_id && filters.accounts.includes(tx.account_id))) &&
+                (searchTerm === '' ||
+                    tx.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    tx.accounts?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    tx.categories?.name?.toLowerCase().includes(searchTerm.toLowerCase()))
+            );
+        });
+    }, [allTransactions, filters, searchTerm]);
     
     const groupedTransactions = useMemo(() => {
-        return transactions.reduce((acc, tx) => {
-            const dateKey = tx.date.split('T')[0]; // Group by YYYY-MM-DD
-            if (!acc[dateKey]) {
-                acc[dateKey] = [];
-            }
+        return filteredTransactions.reduce((acc, tx) => {
+            const dateKey = formatDateGroup(tx.date);
+            if (!acc[dateKey]) acc[dateKey] = [];
             acc[dateKey].push(tx);
             return acc;
         }, {} as Record<string, Transaction[]>);
-    }, [transactions]);
-    
-    const loadMore = useCallback(() => {
-        const nextPage = page + 1;
-        setPage(nextPage);
-        fetchData(nextPage, false);
-    }, [page, fetchData]);
+    }, [filteredTransactions]);
 
-    const lastTransactionElementRef = useCallback((node: HTMLButtonElement | null) => {
-        if (loading || isFetchingMore) return;
-        if (observer.current) observer.current.disconnect();
-        observer.current = new IntersectionObserver(entries => {
-            if (entries[0].isIntersecting && hasMore) {
-                loadMore();
-            }
-        });
-        if (node) observer.current.observe(node);
-    }, [loading, isFetchingMore, hasMore, loadMore]);
+    const summary = useMemo(() => {
+        return filteredTransactions.reduce((acc, tx) => {
+            if (tx.type === 'income') acc.income += tx.amount;
+            if (tx.type === 'expense') acc.expense += tx.amount;
+            return acc;
+        }, { income: 0, expense: 0 });
+    }, [filteredTransactions]);
 
-
-    const closeAllModals = () => {
-        setIsFormModalOpen(false);
-        setEditingTx(undefined);
-        setDeletingTx(null);
-        setIsDetailModalOpen(false);
-        setSelectedTx(null);
-    };
-    
-    const handleSave = () => {
-        const description = editingTx ? 'تعديل معاملة' : 'إضافة معاملة جديدة';
-        closeAllModals();
+    const handleSave = (description: string) => {
+        setModal({ type: null, transaction: null });
         handleDatabaseChange(description);
-    }
+    };
 
     const handleDelete = async () => {
-        if (!deletingTx || !deletingTx.account_id || deletingTx.type === 'transfer') {
-            alert('لا يمكن حذف التحويلات مباشرة.');
-            closeAllModals();
-            return;
-        }
-        const description = `حذف معاملة "${deletingTx.notes || 'غير مسجلة'}"`;
+        if (!modal.transaction) return;
+        const { id, account_id, to_account_id, type, amount } = modal.transaction;
+
         try {
-            const { data: account, error: accError } = await supabase
-                .from('accounts')
-                .select('balance')
-                .eq('id', deletingTx.account_id)
-                .single();
-    
-            if (accError || !account) throw accError || new Error("Account not found");
-    
-            const balanceChange = deletingTx.type === 'income' ? -deletingTx.amount : deletingTx.amount;
-            const newBalance = account.balance + balanceChange;
-    
-            const { error: updateError } = await supabase
-                .from('accounts')
-                .update({ balance: newBalance })
-                .eq('id', deletingTx.account_id);
-            
-            if (updateError) throw updateError;
-    
-            const { error: deleteError } = await supabase
-                .from('transactions')
-                .delete()
-                .eq('id', deletingTx.id);
-    
-            if (deleteError) {
-                // Attempt to revert
-                await supabase
-                    .from('accounts')
-                    .update({ balance: account.balance })
-                    .eq('id', deletingTx.account_id);
-                throw deleteError;
+            if (type === 'transfer') {
+                if (!account_id || !to_account_id) throw new Error("Transfer accounts not found");
+                const { data: fromAcc } = await supabase.from('accounts').select('balance').eq('id', account_id).single();
+                const { data: toAcc } = await supabase.from('accounts').select('balance').eq('id', to_account_id).single();
+                if (!fromAcc || !toAcc) throw new Error("Could not fetch transfer accounts");
+                await supabase.from('accounts').update({ balance: fromAcc.balance + amount }).eq('id', account_id);
+                await supabase.from('accounts').update({ balance: toAcc.balance - amount }).eq('id', to_account_id);
+            } else if(account_id) {
+                const { data: acc } = await supabase.from('accounts').select('balance').eq('id', account_id).single();
+                if (!acc) throw new Error("Account not found");
+                const newBalance = type === 'income' ? acc.balance - amount : acc.balance + amount;
+                await supabase.from('accounts').update({ balance: newBalance }).eq('id', account_id);
             }
-    
-            handleDatabaseChange(description);
+
+            await supabase.from('transactions').delete().eq('id', id);
+            handleSave('تم حذف المعاملة');
         } catch (error: any) {
-             console.error('Error deleting transaction', error.message);
-             alert('حدث خطأ أثناء الحذف.');
-        } finally {
-            closeAllModals();
+            console.error("Error deleting transaction:", error.message);
+            alert('حدث خطأ أثناء الحذف.');
+            setModal({ type: null, transaction: null });
         }
-    }
-    
-    const handleApplyFilters = (newFilters: FilterValues) => {
-        setFilters(newFilters);
-        setIsFilterModalOpen(false);
     };
     
-    const handleOpenDetailModal = (tx: Transaction) => {
-        setSelectedTx(tx);
-        setIsDetailModalOpen(true);
-    };
-
-    const handleOpenEditFromDetail = () => {
-        if (!selectedTx) return;
-        setEditingTx(selectedTx);
-        setIsFormModalOpen(true);
-        setIsDetailModalOpen(false);
-    };
-
-    const handleOpenDeleteFromDetail = () => {
-        if (!selectedTx) return;
-        setDeletingTx(selectedTx);
-        setIsDetailModalOpen(false);
-    };
-
     const activeFilterCount = useMemo(() => {
         let count = 0;
-        if (filters.startDate || filters.endDate) count++;
-        if (filters.type !== 'all') count++;
-        if (filters.accounts.length > 0) count += filters.accounts.length;
-        if (filters.categories.length > 0) count += filters.categories.length;
+        if(filters.types.length !== 3) count++;
+        if(filters.date_from || filters.date_to) count++;
+        if(filters.accounts.length > 0) count++;
         return count;
     }, [filters]);
 
     return (
-        <div className="relative">
-             <div className="flex gap-2 items-center mb-4">
-                 <input 
-                    type="text" 
-                    placeholder="ابحث في الملاحظات..." 
-                    value={searchTerm} 
-                    onChange={e => setSearchTerm(e.target.value)}
-                    className="flex-grow bg-slate-800 p-2 rounded-lg text-white border border-transparent focus:border-cyan-500 focus:ring-0 transition"
-                />
-                <button onClick={() => setIsFilterModalOpen(true)} className="relative flex-shrink-0 flex items-center gap-2 bg-slate-800 py-2 px-4 rounded-lg text-slate-300 hover:bg-slate-700 transition">
+        <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="bg-slate-800 p-2 rounded-lg">
+                    <p className="text-xs text-green-400">الدخل</p>
+                    <p className="font-bold text-sm">{formatCurrency(summary.income)}</p>
+                </div>
+                <div className="bg-slate-800 p-2 rounded-lg">
+                    <p className="text-xs text-red-400">المصروف</p>
+                    <p className="font-bold text-sm">{formatCurrency(summary.expense)}</p>
+                </div>
+                <div className="bg-slate-800 p-2 rounded-lg">
+                    <p className="text-xs text-slate-400">الصافي</p>
+                    <p className="font-bold text-sm">{formatCurrency(summary.income - summary.expense)}</p>
+                </div>
+            </div>
+            <div className="flex gap-2 items-center">
+                <div className="relative flex-grow">
+                    <MagnifyingGlassIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                    <input type="text" placeholder="ابحث..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                        className="w-full bg-slate-800 p-2 pr-10 rounded-lg text-white border border-slate-700 focus:border-cyan-500 focus:ring-0 transition" />
+                </div>
+                <button onClick={() => setIsFilterModalOpen(true)} className="relative flex-shrink-0 flex items-center gap-2 bg-slate-800 py-2 px-4 rounded-lg text-slate-300 hover:bg-slate-700 transition border border-slate-700">
                     <FunnelIcon className="w-5 h-5"/>
-                    {activeFilterCount > 0 && <span className="absolute -top-1 -right-1 h-4 w-4 bg-cyan-500 text-white text-[10px] rounded-full flex items-center justify-center">{activeFilterCount}</span>}
+                    {activeFilterCount > 0 && <span className="absolute -top-1 -right-1 h-4 w-4 bg-cyan-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-slate-900">{activeFilterCount}</span>}
                 </button>
             </div>
             
-            {loading ? (
-                <div className="mt-4 animate-pulse text-center text-slate-400">جاري تحميل المعاملات...</div>
-            ) : transactions.length === 0 ? (
-                 <div className="text-center py-10">
-                    <p className="text-slate-400 mb-4">{activeFilterCount > 0 || searchTerm ? "لا توجد معاملات تطابق بحثك." : "لا يوجد معاملات مسجلة."}</p>
-                     <button onClick={() => { setEditingTx(undefined); setIsFormModalOpen(true); }} className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-4 rounded-lg inline-flex items-center">
-                        <PlusIcon className="w-5 h-5 ml-2" />
-                        إضافة معاملة
-                    </button>
-                </div>
-            ) : (
+            {loading ? <p className="text-center py-8 text-slate-400">جاري تحميل المعاملات...</p>
+            : Object.keys(groupedTransactions).length === 0 ? <p className="text-center py-8 text-slate-500">لا توجد معاملات تطابق بحثك.</p>
+            : (
                 <div className="space-y-4">
-                    {Object.entries(groupedTransactions).map(([date, txsOnDate], groupIndex) => (
+                    {Object.entries(groupedTransactions).map(([date, txs]) => (
                         <div key={date}>
-                            <div className="sticky top-16 bg-slate-900/80 backdrop-blur-sm py-2 z-10">
-                                <h3 className="text-sm font-semibold text-slate-400">{formatDateHeader(date)}</h3>
-                            </div>
-                            <div className="space-y-3 pt-2">
-                                {txsOnDate.map((tx, txIndex) => {
-                                    const accountInfo = tx.type === 'transfer'
-                                        ? `${tx.accounts?.name || 'حساب محذوف'} ← ${tx.to_accounts?.name || 'حساب محذوف'}`
-                                        : tx.accounts?.name || '';
-                                    
-                                    const isLastTransaction = 
-                                        groupIndex === Object.keys(groupedTransactions).length - 1 &&
-                                        txIndex === txsOnDate.length - 1;
-
-                                    const buttonProps = {
-                                        key: tx.id,
-                                        onClick: () => handleOpenDetailModal(tx),
-                                        className: "w-full text-right bg-slate-800 p-3 rounded-lg flex justify-between items-center hover:bg-slate-700/50 transition-colors animate-fade-in-fast"
-                                    };
-
-                                    const transactionContent = (
-                                        <>
-                                            <div>
-                                                <p className="font-bold text-lg">{tx.notes || (tx.type === 'transfer' ? 'تحويل' : tx.categories?.name || 'معاملة')}</p>
-                                                <p className="text-sm text-slate-400">{accountInfo}</p>
-                                            </div>
-                                            <div className="text-left">
-                                                <p className={`font-extrabold text-lg ${tx.type === 'income' ? 'text-green-400' : tx.type === 'expense' ? 'text-red-400' : 'text-slate-300'}`}>
-                                                        {tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''}{formatCurrency(tx.amount, tx.accounts?.currency)}
-                                                </p>
-                                                <p className="text-xs text-slate-500">{new Date(tx.date).toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })}</p>
-                                            </div>
-                                        </>
-                                    );
-
-                                    if (isLastTransaction) {
-                                       return (
-                                            <button ref={lastTransactionElementRef} {...buttonProps}>
-                                                {transactionContent}
-                                            </button>
-                                       );
-                                    }
-
+                            <h3 className="font-semibold text-slate-400 mb-2">{date}</h3>
+                            <div className="space-y-2">
+                                {txs.map(tx => {
+                                    const CategoryIcon = tx.categories?.icon ? iconMap[tx.categories.icon] : null;
                                     return (
-                                         <button {...buttonProps}>
-                                            {transactionContent}
+                                        <button key={tx.id} onClick={() => setModal({ type: 'edit', transaction: tx })}
+                                            className="w-full text-right bg-slate-800 p-3 rounded-lg flex justify-between items-center hover:bg-slate-700/50 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                                                    tx.type === 'income' ? 'bg-green-500/20 text-green-400' : 
+                                                    tx.type === 'expense' ? 'bg-red-500/20 text-red-400' : 'bg-indigo-500/20 text-indigo-400'
+                                                }`}>
+                                                    {CategoryIcon ? <CategoryIcon className="w-6 h-6"/> : <TransactionIcon type={tx.type} />}
+                                                </div>
+                                                <div>
+                                                    <p className="font-semibold">{tx.notes || tx.categories?.name || (tx.type === 'transfer' ? `تحويل إلى ${tx.to_accounts?.name}` : 'معاملة')}</p>
+                                                    <p className="text-sm text-slate-400">{tx.accounts?.name || 'حساب محذوف'}</p>
+                                                </div>
+                                            </div>
+                                            <p className={`font-bold text-lg ${tx.type === 'income' ? 'text-green-400' : tx.type === 'expense' ? 'text-red-400' : ''}`}>
+                                                {formatCurrency(tx.amount, tx.accounts?.currency)}
+                                            </p>
                                         </button>
                                     );
                                 })}
@@ -500,59 +303,43 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
                     ))}
                 </div>
             )}
-            
-            {isFetchingMore && (
-                <div className="text-center mt-6 flex justify-center items-center gap-2 text-slate-400">
-                    <div className="w-5 h-5 border-2 border-slate-600 border-t-cyan-400 rounded-full animate-spin"></div>
-                    <span>جاري تحميل المزيد...</span>
-                </div>
-            )}
-
-            <button onClick={() => { setEditingTx(undefined); setIsFormModalOpen(true); }} className="fixed bottom-20 right-4 h-14 w-14 bg-cyan-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-cyan-500 transition-transform transform active:scale-95 z-30">
-                <PlusIcon className="w-8 h-8"/>
-            </button>
-            
-            {isDetailModalOpen && selectedTx && (
-                <Modal title="تفاصيل المعاملة" onClose={closeAllModals}>
-                    <TransactionDetailContent 
-                        transaction={selectedTx} 
-                        onEdit={handleOpenEditFromDetail} 
-                        onDelete={handleOpenDeleteFromDetail} 
-                    />
-                </Modal>
-            )}
-
-            {isFormModalOpen && (
-                 <Modal title={editingTx ? 'تعديل المعاملة' : 'إضافة معاملة جديدة'} onClose={closeAllModals}>
-                    <TransactionForm
-                        transaction={editingTx}
-                        onSave={handleSave}
-                        onCancel={closeAllModals}
-                        accounts={accounts}
-                        categories={categories}
-                    />
-                 </Modal>
-            )}
-
-            {deletingTx && (
-                 <Modal title="تأكيد الحذف" onClose={() => setDeletingTx(null)}>
-                    <p className="text-slate-300 mb-6">هل أنت متأكد من رغبتك في حذف هذه المعاملة؟ سيتم التراجع عن تأثيرها على رصيد الحساب.</p>
-                    <div className="flex justify-end gap-3">
-                        <button onClick={() => setDeletingTx(null)} className="py-2 px-4 bg-slate-600 hover:bg-slate-500 rounded-md transition">إلغاء</button>
-                        <button onClick={handleDelete} className="py-2 px-4 bg-red-600 hover:bg-red-500 rounded-md transition">تأكيد الحذف</button>
-                    </div>
-                 </Modal>
-            )}
 
             {isFilterModalOpen && (
                 <FilterModal 
-                    accounts={accounts}
-                    categories={categories}
+                    accounts={accounts} 
+                    categories={categories} 
                     initialFilters={filters}
-                    onApply={handleApplyFilters}
+                    onApply={(newFilters) => { setFilters(newFilters); setIsFilterModalOpen(false); }}
                     onClose={() => setIsFilterModalOpen(false)}
                 />
             )}
+            
+            {modal.type === 'edit' && modal.transaction && (
+                <Modal title="تعديل المعاملة" onClose={() => setModal({ type: null, transaction: null })}>
+                    {modal.transaction.type === 'transfer' ? (
+                        <p className="text-slate-400 text-center py-4">لا يمكن تعديل التحويلات من هنا. يرجى حذفها وإعادة إنشائها.</p>
+                    ) : (
+                        <TransactionForm
+                            transaction={modal.transaction}
+                            onSave={() => handleSave('تم تعديل المعاملة')}
+                            onCancel={() => setModal({ type: null, transaction: null })}
+                            accounts={accounts}
+                            categories={categories}
+                        />
+                    )}
+                </Modal>
+            )}
+
+            {modal.type === 'delete' && modal.transaction && (
+                 <Modal title="تأكيد الحذف" onClose={() => setModal({ type: null, transaction: null })}>
+                    <p className="text-slate-300 mb-6">هل أنت متأكد من حذف هذه المعاملة؟ سيتم التراجع عن تأثيرها على رصيد الحساب.</p>
+                    <div className="flex justify-end gap-3">
+                        <button onClick={() => setModal({ type: null, transaction: null })} className="py-2 px-4 bg-slate-600 hover:bg-slate-500 rounded-md transition">إلغاء</button>
+                        <button onClick={handleDelete} className="py-2 px-4 bg-red-600 hover:bg-red-500 rounded-md transition">تأكيد الحذف</button>
+                    </div>
+                </Modal>
+            )}
+
         </div>
     );
 };
