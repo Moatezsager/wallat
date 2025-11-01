@@ -9,6 +9,10 @@ import { SparklesIcon, ExclamationTriangleIcon, CheckCircleIcon, XMarkIcon } fro
 type Period = 'this_month' | 'last_month' | 'this_year';
 type ActiveTab = 'expense' | 'income' | 'debt';
 
+// FIX: Removed conflicting global declaration for window.aistudio.
+// The type is likely already defined in the global scope.
+
+
 const formatCurrency = (amount: number) => {
     const options: Intl.NumberFormatOptions = {
         style: 'currency',
@@ -207,7 +211,15 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
         setAiAnalysisResult('');
     
         try {
-            // API key is assumed to be available from process.env.API_KEY
+            // Check for API key before proceeding
+            const hasApiKey = await window.aistudio.hasSelectedApiKey();
+            if (!hasApiKey) {
+                await window.aistudio.openSelectKey();
+                // After the user selects a key, we can assume it's available.
+                // Re-checking isn't strictly necessary per guidelines, but we proceed.
+            }
+    
+            // Initialize the GenAI client just-in-time
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
             const { startDate, endDate } = getDatesForPeriod('this_month');
@@ -295,7 +307,7 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
             console.error('Error generating AI analysis:', error);
             const errorMessage = `
             [HEADER]حدث خطأ[/HEADER]
-            [OVERVIEW]عذراً، لم نتمكن من إنشاء التحليل. يرجى المحاولة مرة أخرى لاحقاً.[/OVERVIEW]
+            [OVERVIEW]عذراً، لم نتمكن من إنشاء التحليل. قد يكون السبب عدم اختيار مفتاح API صالح أو مشكلة في الشبكة.[/OVERVIEW]
             [NEGATIVE]تفاصيل الخطأ[/NEGATIVE]
             [ITEM]${error.message}[/ITEM]
             `;

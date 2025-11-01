@@ -261,8 +261,9 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
 
         if (txError) {
             console.error('Error fetching transactions:', txError.message);
-        } else if (txData) {
-            // FIX: The 'as unknown' cast can break type inference. A direct cast is safer.
+        // FIX: Add type guard `Array.isArray(txData)` to ensure txData is an array before using array methods or properties.
+        // This prevents runtime errors if txData is null or another non-array type.
+        } else if (Array.isArray(txData)) {
             setTransactions(prev => isNewSearch ? txData as Transaction[] : [...prev, ...txData as Transaction[]]);
             if (txData.length < PAGE_SIZE) {
                 setHasMore(false);
@@ -507,7 +508,7 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
                 </div>
             )}
 
-            <button onClick={() => { setEditingTx(undefined); setIsFormModalOpen(true); }} className="fixed bottom-20 right-4 h-14 w-14 bg-cyan-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-cyan-500 transition-transform transform active:scale-90 z-30">
+            <button onClick={() => { setEditingTx(undefined); setIsFormModalOpen(true); }} className="fixed bottom-20 right-4 h-14 w-14 bg-cyan-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-cyan-500 transition-transform transform active:scale-95 z-30">
                 <PlusIcon className="w-8 h-8"/>
             </button>
             
