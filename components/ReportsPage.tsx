@@ -2,20 +2,26 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { Transaction, Debt, Category } from '../types';
 import type { Chart, ChartConfiguration } from 'chart.js/auto';
-import { SparklesIcon, ExclamationTriangleIcon, CheckCircleIcon, XMarkIcon } from './icons';
+import { 
+    SparklesIcon, ExclamationTriangleIcon, CheckCircleIcon, XMarkIcon, 
+    ArrowTrendingUp, ArrowTrendingDown, KeyIcon 
+} from './icons';
+// Fix: Import GoogleGenAI and Type for Gemini API usage.
+import { GoogleGenAI, Type } from "@google/genai";
 
 
 type Period = 'this_month' | 'last_month' | 'this_year';
 type ActiveTab = 'expense' | 'income' | 'debt';
 
-const formatCurrency = (amount: number) => {
-    const options: Intl.NumberFormatOptions = {
+const formatCurrency = (amount: number, options?: Intl.NumberFormatOptions) => {
+    const defaultOptions: Intl.NumberFormatOptions = {
         style: 'currency',
         currency: 'LYD',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
+        ...options,
     };
-    return new Intl.NumberFormat('ar-LY', options).format(amount).replace('LYD', 'د.ل');
+    return new Intl.NumberFormat('ar-LY', defaultOptions).format(amount).replace('LYD', 'د.ل');
 };
 
 const getDatesForPeriod = (period: Period) => {
@@ -38,9 +44,8 @@ const getDatesForPeriod = (period: Period) => {
         case 'this_year':
             startDate = new Date(now.getFullYear(), 0, 1);
             endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
-            // For 'this_year', comparing to 'last_month' is a reasonable default.
-            prevStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            prevEndDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+            prevStartDate = new Date(now.getFullYear() - 1, 0, 1);
+            prevEndDate = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
             break;
     }
     return { startDate, endDate, prevStartDate, prevEndDate };
@@ -171,54 +176,76 @@ const DebtSummary: React.FC<{ debts: Debt[] }> = ({ debts }) => {
     );
 };
 
-// Component to render styled markdown from AI
-const StyledMarkdown: React.FC<{ content: string }> = ({ content }) => {
-    const groupedLines = useMemo(() => {
-        return content.split('\n').reduce((acc, line) => {
-            if (line.startsWith('* ')) {
-                const lastGroup = acc[acc.length - 1];
-                if (lastGroup && lastGroup.type === 'ul') {
-                    lastGroup.lines.push(line);
-                } else {
-                    acc.push({ type: 'ul', lines: [line] });
-                }
-            } else if (line.trim() !== '') {
-                acc.push({ type: 'other', lines: [line] });
-            }
-            return acc;
-        }, [] as { type: 'ul' | 'other'; lines: string[] }[]);
-    }, [content]);
+
+const AnalysisResultDisplay: React.FC<{ result: any }> = ({ result }) => {
+    if (typeof result === 'string') {
+        return <p className="text-center text-slate-400">{result}</p>;
+    }
+
+    const { summary, positives, improvements, comparison, actionPlan } = result;
+    const comparisonItems = [
+        { label: "الدخل", data: comparison.income, color: "text-green-400" },
+        { label: "المصاريف", data: comparison.expense, color: "text-red-400" },
+        { label: "الصافي", data: comparison.savings, color: "text-cyan-400" },
+    ];
 
     return (
-        <div className="space-y-4">
-            {groupedLines.map((group, groupIndex) => {
-                if (group.type === 'ul') {
-                    return (
-                        <ul key={groupIndex} className="space-y-2.5">
-                            {group.lines.map((line, lineIndex) => (
-                                <li key={lineIndex} className="flex items-start gap-3">
-                                    <span className="text-cyan-400 mt-1.5 text-xs">●</span>
-                                    <span className="flex-1 text-slate-300" dangerouslySetInnerHTML={{ __html: line.substring(2).replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-white">$1</strong>') }} />
-                                </li>
-                            ))}
-                        </ul>
-                    );
-                }
+        <div className="space-y-6">
+            <div className="text-center bg-slate-900/50 p-4 rounded-lg">
+                <h3 className="text-xl font-bold text-cyan-300 mb-2">🇱🇾 ملخص وضعك المالي</h3>
+                <p className="text-slate-300 leading-relaxed">{summary}</p>
+            </div>
 
-                const line = group.lines[0];
-                if (line.startsWith('### ')) {
-                    const title = line.substring(4);
-                    let colorClass = 'text-cyan-400';
-                    let borderColor = 'border-cyan-500/30';
-                    if (title.includes('القوة')) { colorClass = 'text-green-400'; borderColor = 'border-green-500/30'; }
-                    if (title.includes('للتحسين')) { colorClass = 'text-amber-400'; borderColor = 'border-amber-500/30'; }
-                    if (title.includes('تحذيرات')) { colorClass = 'text-red-400'; borderColor = 'border-red-500/30'; }
+            <div className="grid md:grid-cols-2 gap-4">
+                <div className="bg-slate-900/50 p-4 rounded-lg space-y-3">
+                    <h4 className="font-bold text-lg text-green-400 flex items-center gap-2"><CheckCircleIcon className="w-6 h-6"/> نقاط القوة</h4>
+                    {positives.map((item: any, i: number) => (
+                        <div key={i} className="text-sm">
+                            <p className="font-semibold text-slate-200">{item.title}</p>
+                            <p className="text-slate-400">{item.description}</p>
+                        </div>
+                    ))}
+                </div>
+                <div className="bg-slate-900/50 p-4 rounded-lg space-y-3">
+                    <h4 className="font-bold text-lg text-amber-400 flex items-center gap-2"><ExclamationTriangleIcon className="w-6 h-6"/> نقاط للتحسين</h4>
+                    {improvements.map((item: any, i: number) => (
+                         <div key={i} className="text-sm">
+                            <p className="font-semibold text-slate-200">{item.title}</p>
+                            <p className="text-slate-400">{item.description}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
 
-                    return <h3 key={groupIndex} className={`text-lg font-bold flex items-center gap-2 ${colorClass} border-r-4 ${borderColor} pr-3`}>{title}</h3>;
-                }
+             <div className="bg-slate-900/50 p-4 rounded-lg">
+                <h4 className="font-bold text-lg text-cyan-400 mb-3">📊 مقارنة بالفترة الماضية</h4>
+                <div className="grid grid-cols-3 gap-4 text-center">
+                    {comparisonItems.map(item => (
+                        <div key={item.label}>
+                            <p className="text-sm text-slate-400">{item.label}</p>
+                            <div className={`flex items-center justify-center gap-1 font-bold text-lg ${item.color}`}>
+                                {item.data.trend === 'up' ? <ArrowTrendingUp className="w-5 h-5"/> : <ArrowTrendingDown className="w-5 h-5"/>}
+                                <span>{formatCurrency(Math.abs(item.data.value))}</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
 
-                return <p key={groupIndex} className="leading-relaxed text-slate-300" dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-100">$1</strong>') }} />;
-            })}
+             <div className="bg-slate-900/50 p-4 rounded-lg space-y-4">
+                <h4 className="font-bold text-lg text-cyan-400">✨ خطة مقترحة ليك</h4>
+                {actionPlan.map((item: any, i: number) => (
+                    <div key={i} className="flex items-start gap-3">
+                        <div className="bg-cyan-900/50 text-cyan-300 rounded-full h-8 w-8 flex-shrink-0 flex items-center justify-center mt-1">
+                            <KeyIcon className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <p className="font-bold text-slate-200">{item.title}</p>
+                            <p className="text-sm text-slate-400 leading-relaxed">{item.description}</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };
@@ -236,7 +263,7 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
     // AI Analysis State
     const [isAnalysisModalOpen, setAnalysisModalOpen] = useState(false);
     const [analysisLoading, setAnalysisLoading] = useState(false);
-    const [analysisResult, setAnalysisResult] = useState('');
+    const [analysisResult, setAnalysisResult] = useState<any | string>('');
 
     useEffect(() => {
         const fetchData = async () => {
@@ -320,7 +347,7 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
         setAnalysisResult('');
 
         if (transactions.length === 0) {
-            setAnalysisResult('### لا توجد بيانات كافية للتحليل. \n\n الرجاء إضافة بعض المعاملات أولاً.');
+            setAnalysisResult('مافيش بيانات كافية للتحليل. ضيف معاملاتك وارجع جرب مرة تانية.');
             setAnalysisLoading(false);
             return;
         }
@@ -332,20 +359,23 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
                 amount: tx.amount,
                 category: (tx.categories as any)?.name || 'غير مصنف'
             }));
-
+            
         const simplifiedPrevData = previousTransactions.map(tx => ({
             type: tx.type,
             amount: tx.amount,
             category: tx.categories?.name || 'غير مصنف'
         }));
         
-        const OPENROUTER_API_KEY = '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';
-        
-        const essentialCategories = ['إيجار', 'فواتير', 'بقالة', 'صحة', 'مواصلات', 'تعليم', 'اتصالات', 'وقود', 'أسرة'];
+        const totalIncome = reportData.totalIncome;
+        const totalExpense = reportData.totalExpense;
+        const prevTotalIncome = previousTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+        const prevTotalExpense = previousTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+
+        const essentialCategories = ['إيجار', 'فواتير', 'بقالة', 'صحة', 'مواصلات', 'تعليم', 'اتصالات', 'وقود', 'أسرة', 'صيانة'];
 
         const prompt = `
-            أنت مستشار مالي خبير ومحفز من ليبيا. مهمتك هي تحليل البيانات المالية للمستخدم وتقديم نصائح عملية بلهجة ليبية ودودة ومبسطة.
-            
+            أنت مستشار مالي خبير ومحفز من ليبيا. مهمتك هي تحليل البيانات المالية للمستخدم وتقديم تقرير احترافي بصيغة JSON. خاطب المستخدم مباشرة بلهجة ليبية ودودة وبسيطة.
+
             **بيانات الفترة الحالية:**
             ${JSON.stringify(simplifiedCurrentData)}
             
@@ -356,56 +386,133 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
             ${JSON.stringify(essentialCategories)}
 
             **المطلوب منك:**
-            الرجاء تقديم التحليل على هيئة Markdown حصراً، وبالترتيب والهيكل التالي:
+            حلل البيانات وأرجع **فقط كائن JSON صالح** بالهيكل التالي، بدون أي نص قبله أو بعده.
 
-            ### 🇱🇾 ملخص الوضع المالي
-            ابدأ بفقرة قصيرة (2-3 جمل) تلخص الوضع المالي العام بأسلوب مشجع وإيجابي. خاطب المستخدم مباشرة.
-
-            ### 💪 نقاط القوة
-            اذكر 2-3 أشياء إيجابية قام بها المستخدم (مثال: زيادة في الدخل، انخفاض في المصاريف غير الأساسية، التزام بالميزانية). استخدم قائمة نقطية.
-
-            ### 📉 نقاط للتحسين
-            اذكر 2-3 مجالات يمكن للمستخدم تحسينها (مثال: مصاريف عالية في فئة ثانوية معينة، انخفاض في الادخار). كن لطيفاً في طرحك. استخدم قائمة نقطية.
-
-            ### ⚠️ تحذيرات هامة
-            إذا كانت المصاريف تفوق الدخل أو لاحظت أي شيء خطير، اذكره هنا بوضوح ولكن بدون ترهيب. إذا لم يكن هناك شيء، اذكر أن الوضع مستقر وأن الأمور طيبة.
-
-            ### 📊 مقارنة بالفترة الماضية
-            قدم مقارنة بسيطة بين هذه الفترة والفترة السابقة في نقاط:
-            *   **الدخل:** (زاد/نقص) بمقدار X.
-            *   **المصاريف:** (زادت/نقصت) بمقدار Y.
-            *   **صافي التوفير:** (زاد/نقص) بمقدار Z.
-
-            ### ✨ خطة مقترحة ليك
-            قدم خطة بسيطة من 3 خطوات عملية يمكن للمستخدم اتباعها الفترة القادمة لتحسين وضعه المالي. اجعلها واضحة ومباشرة.
-        `;
-
-        try {
-            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    "model": "openai/gpt-3.5-turbo",
-                    "messages": [
-                        { "role": "user", "content": prompt }
-                    ]
-                })
-            });
-
-            if (!response.ok) {
-                const errorBody = await response.json();
-                console.error("OpenRouter API Error:", errorBody);
-                throw new Error(`API request failed with status ${response.status}`);
+            {
+              "summary": "ملخص عام ومحفز للوضع المالي باللهجة الليبية (جملتين أو ثلاثة).",
+              "positives": [
+                { "title": "عنوان نقطة قوة (مثال: 'تحكم ممتاز في المصاريف')", "description": "شرح بسيط للنقطة الإيجابية." }
+              ],
+              "improvements": [
+                { "title": "عنوان نقطة للتحسين (مثال: 'مصاريف المطاعم عالية شوية')", "description": "اقتراح لطيف وبناء للتحسين." }
+              ],
+              "comparison": {
+                "income": { "value": ${totalIncome - prevTotalIncome}, "trend": "${totalIncome >= prevTotalIncome ? 'up' : 'down'}" },
+                "expense": { "value": ${totalExpense - prevTotalExpense}, "trend": "${totalExpense > prevTotalExpense ? 'up' : 'down'}" },
+                "savings": { "value": ${(totalIncome - totalExpense) - (prevTotalIncome - prevTotalExpense)}, "trend": "${(totalIncome - totalExpense) >= (prevTotalIncome - prevTotalExpense) ? 'up' : 'down'}" }
+              },
+              "actionPlan": [
+                { "title": "عنوان الخطوة الأولى", "description": "شرح واضح ومبسط للخطوة الأولى باللهجة الليبية." },
+                { "title": "عنوان الخطوة الثانية", "description": "شرح واضح ومبسط للخطوة الثانية." },
+                { "title": "عنوان الخطوة الثالثة", "description": "شرح واضح ومبسط للخطوة الثالثة." }
+              ]
             }
 
-            const data = await response.json();
-            setAnalysisResult(data.choices[0].message.content);
+            **إرشادات هامة:**
+            - قدم 2 نقاط قوة و 2 نقاط للتحسين.
+            - قدم خطة عمل من 3 خطوات واضحة وقابلة للتنفيذ.
+            - كن دقيقاً في تحليلك، وفرّق بين المصاريف الأساسية والكمالية.
+            - إذا كانت المصاريف أعلى من الدخل، اجعلها نقطة تحسين رئيسية.
+            - حافظ على اللهجة الليبية والأسلوب الإيجابي والمشجع.
+        `;
+
+        // Fix: Replace OpenRouter API call with Google Gemini API call
+        try {
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+            const responseSchema = {
+                type: Type.OBJECT,
+                properties: {
+                    summary: { type: Type.STRING },
+                    positives: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                title: { type: Type.STRING },
+                                description: { type: Type.STRING }
+                            },
+                            required: ['title', 'description']
+                        }
+                    },
+                    improvements: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                title: { type: Type.STRING },
+                                description: { type: Type.STRING }
+                            },
+                            required: ['title', 'description']
+                        }
+                    },
+                    comparison: {
+                        type: Type.OBJECT,
+                        properties: {
+                            income: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    value: { type: Type.NUMBER },
+                                    trend: { type: Type.STRING }
+                                },
+                                required: ['value', 'trend']
+                            },
+                            expense: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    value: { type: Type.NUMBER },
+                                    trend: { type: Type.STRING }
+                                },
+                                required: ['value', 'trend']
+                            },
+                            savings: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    value: { type: Type.NUMBER },
+                                    trend: { type: Type.STRING }
+                                },
+                                required: ['value', 'trend']
+                            }
+                        },
+                        required: ['income', 'expense', 'savings']
+                    },
+                    actionPlan: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                title: { type: Type.STRING },
+                                description: { type: Type.STRING }
+                            },
+                            required: ['title', 'description']
+                        }
+                    }
+                },
+                 required: ['summary', 'positives', 'improvements', 'comparison', 'actionPlan']
+            };
+
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-pro', // Using a more capable model for structured JSON output
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: responseSchema,
+                },
+            });
+
+            const content = response.text;
+            
+            try {
+                const parsedResult = JSON.parse(content);
+                setAnalysisResult(parsedResult);
+            } catch (parseError) {
+                console.error("Failed to parse AI response as JSON:", content);
+                setAnalysisResult('للأسف، شكل الرد من السيرفر غير متوقع. جرب مرة تانية.');
+            }
+
         } catch (err: any) {
-            console.error(err);
-            setAnalysisResult('عذرًا، حدث خطأ أثناء تحليل بياناتك. يرجى المحاولة مرة أخرى.');
+            console.error("Error during AI analysis:", err);
+            setAnalysisResult('عذرًا، صارت مشكلة في تحليل بياناتك. تأكد من اتصالك بالإنترنت وجرب مرة أخرى.');
         } finally {
             setAnalysisLoading(false);
         }
@@ -462,32 +569,36 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
             
             {isAnalysisModalOpen && (
                  <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-                    <div className="bg-slate-800 rounded-xl p-1 w-full max-w-lg border border-slate-700 shadow-xl animate-slide-up flex flex-col">
+                    <div className="bg-slate-800 rounded-xl p-1 w-full max-w-2xl border border-slate-700 shadow-xl animate-slide-up flex flex-col">
                         <div className="flex justify-between items-center p-4">
-                            <h3 className="text-lg font-bold flex items-center gap-2 text-cyan-300"><SparklesIcon className="w-5 h-5" /> التحليل المالي الذكي</h3>
+                            <h3 className="text-xl font-bold flex items-center gap-2 text-cyan-300"><SparklesIcon className="w-6 h-6" /> التحليل المالي الذكي</h3>
                             <button onClick={() => setAnalysisModalOpen(false)} className="text-slate-400 hover:text-white transition-colors"><XMarkIcon className="w-6 h-6" /></button>
                         </div>
-                        <div className="max-h-[60vh] overflow-y-auto p-4 bg-slate-900/50 rounded-b-lg">
+                        <div className="max-h-[70vh] overflow-y-auto p-4 bg-slate-900/50 rounded-b-lg">
                             {analysisLoading ? (
-                                <div className="space-y-6 animate-pulse">
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-6 w-6 rounded-full bg-slate-700"></div>
+                                <div className="space-y-6 animate-pulse p-4">
+                                     <div className="space-y-2">
                                         <div className="h-5 w-1/3 bg-slate-700 rounded"></div>
-                                    </div>
-                                    <div className="space-y-3 pl-9">
                                         <div className="h-4 w-full bg-slate-700 rounded"></div>
                                         <div className="h-4 w-5/6 bg-slate-700 rounded"></div>
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-6 w-6 rounded-full bg-slate-700"></div>
-                                        <div className="h-5 w-1/3 bg-slate-700 rounded"></div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <div className="h-5 w-1/2 bg-slate-700 rounded"></div>
+                                            <div className="h-4 w-full bg-slate-700 rounded"></div>
+                                        </div>
+                                         <div className="space-y-2">
+                                            <div className="h-5 w-1/2 bg-slate-700 rounded"></div>
+                                            <div className="h-4 w-full bg-slate-700 rounded"></div>
+                                        </div>
                                     </div>
-                                    <div className="space-y-3 pl-9">
-                                        <div className="h-4 w-full bg-slate-700 rounded"></div>
+                                     <div className="space-y-2">
+                                        <div className="h-5 w-1/3 bg-slate-700 rounded"></div>
+                                        <div className="h-8 w-full bg-slate-700 rounded"></div>
                                     </div>
                                 </div>
                             ) : (
-                                <StyledMarkdown content={analysisResult} />
+                                <AnalysisResultDisplay result={analysisResult} />
                             )}
                         </div>
                     </div>

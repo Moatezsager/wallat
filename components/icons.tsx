@@ -336,4 +336,7 @@ export const iconMap: { [key: string]: React.FC<IconProps> } = {
     KeyIcon,
     CalendarDaysIcon,
     TagIcon,
+    // Fix: Add missing icons to the map.
+    ArrowTrendingUp,
+    ArrowTrendingDown,
 };
