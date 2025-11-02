@@ -20,23 +20,30 @@ const formatCurrency = (amount: number) => {
 
 const getDatesForPeriod = (period: Period) => {
     const now = new Date();
-    let startDate: Date, endDate: Date;
+    let startDate: Date, endDate: Date, prevStartDate: Date, prevEndDate: Date;
 
     switch (period) {
         case 'this_month':
             startDate = new Date(now.getFullYear(), now.getMonth(), 1);
             endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+            prevStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            prevEndDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
             break;
         case 'last_month':
             startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
             endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+            prevStartDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+            prevEndDate = new Date(now.getFullYear(), now.getMonth() - 1, 0, 23, 59, 59);
             break;
         case 'this_year':
             startDate = new Date(now.getFullYear(), 0, 1);
             endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+            // For 'this_year', comparing to 'last_month' is a reasonable default.
+            prevStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            prevEndDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
             break;
     }
-    return { startDate, endDate };
+    return { startDate, endDate, prevStartDate, prevEndDate };
 };
 
 
@@ -164,10 +171,64 @@ const DebtSummary: React.FC<{ debts: Debt[] }> = ({ debts }) => {
     );
 };
 
+// Component to render styled markdown from AI
+const StyledMarkdown: React.FC<{ content: string }> = ({ content }) => {
+    const groupedLines = useMemo(() => {
+        return content.split('\n').reduce((acc, line) => {
+            if (line.startsWith('* ')) {
+                const lastGroup = acc[acc.length - 1];
+                if (lastGroup && lastGroup.type === 'ul') {
+                    lastGroup.lines.push(line);
+                } else {
+                    acc.push({ type: 'ul', lines: [line] });
+                }
+            } else if (line.trim() !== '') {
+                acc.push({ type: 'other', lines: [line] });
+            }
+            return acc;
+        }, [] as { type: 'ul' | 'other'; lines: string[] }[]);
+    }, [content]);
+
+    return (
+        <div className="space-y-4">
+            {groupedLines.map((group, groupIndex) => {
+                if (group.type === 'ul') {
+                    return (
+                        <ul key={groupIndex} className="space-y-2.5">
+                            {group.lines.map((line, lineIndex) => (
+                                <li key={lineIndex} className="flex items-start gap-3">
+                                    <span className="text-cyan-400 mt-1.5 text-xs">●</span>
+                                    <span className="flex-1 text-slate-300" dangerouslySetInnerHTML={{ __html: line.substring(2).replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-white">$1</strong>') }} />
+                                </li>
+                            ))}
+                        </ul>
+                    );
+                }
+
+                const line = group.lines[0];
+                if (line.startsWith('### ')) {
+                    const title = line.substring(4);
+                    let colorClass = 'text-cyan-400';
+                    let borderColor = 'border-cyan-500/30';
+                    if (title.includes('القوة')) { colorClass = 'text-green-400'; borderColor = 'border-green-500/30'; }
+                    if (title.includes('للتحسين')) { colorClass = 'text-amber-400'; borderColor = 'border-amber-500/30'; }
+                    if (title.includes('تحذيرات')) { colorClass = 'text-red-400'; borderColor = 'border-red-500/30'; }
+
+                    return <h3 key={groupIndex} className={`text-lg font-bold flex items-center gap-2 ${colorClass} border-r-4 ${borderColor} pr-3`}>{title}</h3>;
+                }
+
+                return <p key={groupIndex} className="leading-relaxed text-slate-300" dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-100">$1</strong>') }} />;
+            })}
+        </div>
+    );
+};
+
+
 const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
     const [period, setPeriod] = useState<Period>('this_month');
     const [activeTab, setActiveTab] = useState<ActiveTab>('expense');
     const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [previousTransactions, setPreviousTransactions] = useState<any[]>([]);
     const [debts, setDebts] = useState<Debt[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
@@ -180,24 +241,34 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
-            const { startDate, endDate } = getDatesForPeriod(period);
+            const { startDate, endDate, prevStartDate, prevEndDate } = getDatesForPeriod(period);
 
             const txPromise = supabase.from('transactions')
                 .select('*, categories(*)')
                 .gte('date', startDate.toISOString())
                 .lte('date', endDate.toISOString());
+
+            const prevTxPromise = supabase.from('transactions')
+                .select('amount, type, categories(name)')
+                .gte('date', prevStartDate.toISOString())
+                .lte('date', prevEndDate.toISOString())
+                .in('type', ['income', 'expense']);
             
             const debtPromise = supabase.from('debts').select('*');
             const catPromise = supabase.from('categories').select('*');
 
             const [
                 { data: txData, error: txError },
+                { data: prevTxData, error: prevTxError },
                 { data: debtData, error: debtError },
                 { data: catData, error: catError }
-            ] = await Promise.all([txPromise, debtPromise, catPromise]);
+            ] = await Promise.all([txPromise, prevTxPromise, debtPromise, catPromise]);
 
             if (txError) console.error("Error fetching transactions:", txError.message);
             else setTransactions((txData as any) || []);
+
+            if (prevTxError) console.error("Error fetching previous transactions:", prevTxError.message);
+            else setPreviousTransactions(prevTxData || []);
 
             if (debtError) console.error("Error fetching debts:", debtError.message);
             else setDebts(debtData || []);
@@ -248,36 +319,65 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
         setAnalysisLoading(true);
         setAnalysisResult('');
 
-        const { startDate, endDate } = getDatesForPeriod(period);
-
-        const { data: reportData, error } = await supabase
-            .from('transactions')
-            .select('amount, type, categories(name)')
-            .gte('date', startDate.toISOString())
-            .lte('date', endDate.toISOString())
-            .in('type', ['income', 'expense']);
-
-        if (error || !reportData) {
-            setAnalysisResult('حدث خطأ أثناء جلب البيانات للتحليل.');
+        if (transactions.length === 0) {
+            setAnalysisResult('### لا توجد بيانات كافية للتحليل. \n\n الرجاء إضافة بعض المعاملات أولاً.');
             setAnalysisLoading(false);
             return;
         }
-        
-        const OPENROUTER_API_KEY = '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';
 
-        const simplifiedData = reportData.map(tx => ({
+        const simplifiedCurrentData = transactions
+            .filter(tx => tx.type !== 'transfer')
+            .map(tx => ({
+                type: tx.type,
+                amount: tx.amount,
+                category: (tx.categories as any)?.name || 'غير مصنف'
+            }));
+
+        const simplifiedPrevData = previousTransactions.map(tx => ({
             type: tx.type,
             amount: tx.amount,
-            category: (tx.categories as any)?.name || 'غير مصنف'
+            category: tx.categories?.name || 'غير مصنف'
         }));
+        
+        const OPENROUTER_API_KEY = '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';
+        
+        const essentialCategories = ['إيجار', 'فواتير', 'بقالة', 'صحة', 'مواصلات', 'تعليم', 'اتصالات', 'وقود', 'أسرة'];
 
         const prompt = `
-            باللغة العربية، قم بتحليل البيانات المالية التالية للمستخدم. قدم ملخصًا موجزًا (2-3 جمل) عن الوضع المالي العام.
-            ثم قدم 3-5 نقاط رئيسية كقائمة من النصائح أو الملاحظات القابلة للتنفيذ.
-            كن إيجابيًا ومحفزًا. اجعل التحليل بسيطًا وسهل الفهم لشخص غير خبير ماليًا.
+            أنت مستشار مالي خبير ومحفز من ليبيا. مهمتك هي تحليل البيانات المالية للمستخدم وتقديم نصائح عملية بلهجة ليبية ودودة ومبسطة.
             
-            البيانات:
-            ${JSON.stringify(simplifiedData)}
+            **بيانات الفترة الحالية:**
+            ${JSON.stringify(simplifiedCurrentData)}
+            
+            **بيانات الفترة السابقة للمقارنة:**
+            ${JSON.stringify(simplifiedPrevData)}
+
+            **الفئات التي تعتبر أساسية:**
+            ${JSON.stringify(essentialCategories)}
+
+            **المطلوب منك:**
+            الرجاء تقديم التحليل على هيئة Markdown حصراً، وبالترتيب والهيكل التالي:
+
+            ### 🇱🇾 ملخص الوضع المالي
+            ابدأ بفقرة قصيرة (2-3 جمل) تلخص الوضع المالي العام بأسلوب مشجع وإيجابي. خاطب المستخدم مباشرة.
+
+            ### 💪 نقاط القوة
+            اذكر 2-3 أشياء إيجابية قام بها المستخدم (مثال: زيادة في الدخل، انخفاض في المصاريف غير الأساسية، التزام بالميزانية). استخدم قائمة نقطية.
+
+            ### 📉 نقاط للتحسين
+            اذكر 2-3 مجالات يمكن للمستخدم تحسينها (مثال: مصاريف عالية في فئة ثانوية معينة، انخفاض في الادخار). كن لطيفاً في طرحك. استخدم قائمة نقطية.
+
+            ### ⚠️ تحذيرات هامة
+            إذا كانت المصاريف تفوق الدخل أو لاحظت أي شيء خطير، اذكره هنا بوضوح ولكن بدون ترهيب. إذا لم يكن هناك شيء، اذكر أن الوضع مستقر وأن الأمور طيبة.
+
+            ### 📊 مقارنة بالفترة الماضية
+            قدم مقارنة بسيطة بين هذه الفترة والفترة السابقة في نقاط:
+            *   **الدخل:** (زاد/نقص) بمقدار X.
+            *   **المصاريف:** (زادت/نقصت) بمقدار Y.
+            *   **صافي التوفير:** (زاد/نقص) بمقدار Z.
+
+            ### ✨ خطة مقترحة ليك
+            قدم خطة بسيطة من 3 خطوات عملية يمكن للمستخدم اتباعها الفترة القادمة لتحسين وضعه المالي. اجعلها واضحة ومباشرة.
         `;
 
         try {
@@ -353,7 +453,7 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
             )}
             
             <button 
-                onClick={() => { setAnalysisResult(''); setAnalysisModalOpen(true); handleAnalysis(); }}
+                onClick={() => { setAnalysisModalOpen(true); handleAnalysis(); }}
                 className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-slate-800 hover:bg-slate-700 text-cyan-400 font-bold rounded-lg transition-colors border border-slate-700"
             >
                 <SparklesIcon className="w-6 h-6" />
@@ -362,21 +462,32 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
             
             {isAnalysisModalOpen && (
                  <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-                    <div className="bg-slate-800 rounded-lg p-6 w-full max-w-lg border border-slate-700 shadow-xl animate-slide-up">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold flex items-center gap-2"><SparklesIcon className="w-5 h-5 text-cyan-400" /> التحليل المالي</h3>
+                    <div className="bg-slate-800 rounded-xl p-1 w-full max-w-lg border border-slate-700 shadow-xl animate-slide-up flex flex-col">
+                        <div className="flex justify-between items-center p-4">
+                            <h3 className="text-lg font-bold flex items-center gap-2 text-cyan-300"><SparklesIcon className="w-5 h-5" /> التحليل المالي الذكي</h3>
                             <button onClick={() => setAnalysisModalOpen(false)} className="text-slate-400 hover:text-white transition-colors"><XMarkIcon className="w-6 h-6" /></button>
                         </div>
-                        <div className="max-h-[60vh] overflow-y-auto pr-2 text-slate-300">
+                        <div className="max-h-[60vh] overflow-y-auto p-4 bg-slate-900/50 rounded-b-lg">
                             {analysisLoading ? (
-                                <div className="space-y-4">
-                                    <div className="h-4 bg-slate-700 rounded w-3/4 animate-pulse"></div>
-                                    <div className="h-4 bg-slate-700 rounded w-1/2 animate-pulse"></div>
-                                    <div className="h-4 bg-slate-700 rounded w-5/6 animate-pulse mt-6"></div>
-                                    <div className="h-4 bg-slate-700 rounded w-full animate-pulse"></div>
+                                <div className="space-y-6 animate-pulse">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-6 w-6 rounded-full bg-slate-700"></div>
+                                        <div className="h-5 w-1/3 bg-slate-700 rounded"></div>
+                                    </div>
+                                    <div className="space-y-3 pl-9">
+                                        <div className="h-4 w-full bg-slate-700 rounded"></div>
+                                        <div className="h-4 w-5/6 bg-slate-700 rounded"></div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-6 w-6 rounded-full bg-slate-700"></div>
+                                        <div className="h-5 w-1/3 bg-slate-700 rounded"></div>
+                                    </div>
+                                    <div className="space-y-3 pl-9">
+                                        <div className="h-4 w-full bg-slate-700 rounded"></div>
+                                    </div>
                                 </div>
                             ) : (
-                                <div className="prose prose-invert max-w-none prose-p:my-2 prose-ul:my-2 prose-headings:text-cyan-400" dangerouslySetInnerHTML={{ __html: analysisResult.replace(/\n/g, '<br />') }}></div>
+                                <StyledMarkdown content={analysisResult} />
                             )}
                         </div>
                     </div>
