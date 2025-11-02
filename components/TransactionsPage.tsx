@@ -152,9 +152,9 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
             const [{ data: txData }, { data: accData }, { data: catData }] = await Promise.all([txPromise, accPromise, catPromise]);
             
             // Fix: handle cases where Supabase returns null data instead of an empty array.
-            setAllTransactions(Array.isArray(txData) ? (txData as unknown as Transaction[]) : []);
-            setAccounts(Array.isArray(accData) ? accData : []);
-            setCategories(Array.isArray(catData) ? catData : []);
+            setAllTransactions(txData || []);
+            setAccounts(accData || []);
+            setCategories(catData || []);
             setLoading(false);
         };
         fetchData();

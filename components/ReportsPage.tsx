@@ -217,6 +217,8 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
         setAiAnalysisResult('');
     
         try {
+            // Securely initialize the Google AI client using the API key
+            // provided via the environment variable.
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
             const { startDate, endDate } = getDatesForPeriod('this_month');
