@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { Transaction, Debt, Category } from '../types';
 import type { Chart, ChartConfiguration } from 'chart.js/auto';
-import { GoogleGenAI } from '@google/genai';
 import { SparklesIcon, ExclamationTriangleIcon, CheckCircleIcon, XMarkIcon } from './icons';
 
 
@@ -128,43 +127,37 @@ const ReportView: React.FC<{
                                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color || '#334155' }}></div>
                                     <span>{item.name}</span>
                                 </div>
-                                <div className="font-semibold">
-                                    <span>{formatCurrency(item.amount)}</span>
-                                    <span className="text-slate-400 text-xs mr-2">({item.percentage.toFixed(1)}%)</span>
-                                </div>
+                                <span className="font-semibold">{formatCurrency(item.amount)}</span>
                             </div>
-                            <div className="w-full bg-slate-700 rounded-full h-2">
-                                <div 
-                                    className="h-2 rounded-full" 
-                                    style={{ width: `${item.percentage}%`, backgroundColor: item.color || '#334155' }}
-                                ></div>
+                            <div className="w-full bg-slate-700 rounded-full h-1.5">
+                                <div className="h-1.5 rounded-full" style={{ width: `${item.percentage}%`, backgroundColor: item.color || '#334155' }}></div>
                             </div>
                         </div>
-                    )) : (
-                        <p className="text-slate-500 text-center col-span-3 py-8">لا توجد بيانات لعرضها في هذه الفترة.</p>
-                    )}
+                    )) : <p className="text-slate-500 text-center">لا توجد بيانات لهذه الفترة.</p>}
                 </div>
             </div>
         </div>
     );
 };
 
-const DebtReportView: React.FC<{ data: any }> = ({ data }) => {
+const DebtSummary: React.FC<{ debts: Debt[] }> = ({ debts }) => {
+    const summary = useMemo(() => {
+        const forYou = debts.filter(d => d.type === 'for_you' && !d.paid).reduce((sum, d) => sum + d.amount, 0);
+        const onYou = debts.filter(d => d.type === 'on_you' && !d.paid).reduce((sum, d) => sum + d.amount, 0);
+        return { forYou, onYou };
+    }, [debts]);
+
     return (
-        <div className="bg-slate-800 p-4 rounded-xl shadow-lg space-y-4">
-            <h3 className="text-xl font-bold mb-4">ملخص الديون</h3>
-             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                 <div className="bg-slate-900/50 p-4 rounded-lg text-center">
-                    <p className="text-sm text-green-400">ديون لك (غير مسددة)</p>
-                    <p className="text-2xl font-bold text-white">{formatCurrency(data.forYou)}</p>
+        <div className="bg-slate-800 p-4 rounded-xl shadow-lg">
+            <h3 className="text-xl font-bold mb-4">ملخص الديون الحالية</h3>
+            <div className="grid grid-cols-2 gap-4 text-center">
+                <div>
+                    <p className="text-slate-400">ديون لك</p>
+                    <p className="text-2xl font-bold text-green-400">{formatCurrency(summary.forYou)}</p>
                 </div>
-                <div className="bg-slate-900/50 p-4 rounded-lg text-center">
-                    <p className="text-sm text-red-400">ديون عليك (غير مسددة)</p>
-                    <p className="text-2xl font-bold text-white">{formatCurrency(data.onYou)}</p>
-                </div>
-                <div className={`p-4 rounded-lg text-center ${data.net > 0 ? 'bg-green-500/10 text-green-400' : data.net < 0 ? 'bg-red-500/10 text-red-400' : 'bg-slate-700 text-slate-400'}`}>
-                    <p className="text-sm">صافي مركز الديون</p>
-                    <p className="text-2xl font-bold text-white">{formatCurrency(data.net)}</p>
+                <div>
+                    <p className="text-slate-400">ديون عليك</p>
+                    <p className="text-2xl font-bold text-red-400">{formatCurrency(summary.onYou)}</p>
                 </div>
             </div>
         </div>
@@ -172,345 +165,222 @@ const DebtReportView: React.FC<{ data: any }> = ({ data }) => {
 };
 
 const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
+    const [period, setPeriod] = useState<Period>('this_month');
+    const [activeTab, setActiveTab] = useState<ActiveTab>('expense');
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [debts, setDebts] = useState<Debt[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
-    const [period, setPeriod] = useState<Period>('this_month');
-    const [activeTab, setActiveTab] = useState<ActiveTab>('expense');
-    const [isAiModalOpen, setIsAiModalOpen] = useState(false);
-    const [isAiLoading, setIsAiLoading] = useState(false);
-    const [aiAnalysisResult, setAiAnalysisResult] = useState('');
+    
+    // AI Analysis State
+    const [isAnalysisModalOpen, setAnalysisModalOpen] = useState(false);
+    const [analysisLoading, setAnalysisLoading] = useState(false);
+    const [analysisResult, setAnalysisResult] = useState('');
 
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
-            const txPromise = supabase.from('transactions').select('*, categories(name, color)');
+            const { startDate, endDate } = getDatesForPeriod(period);
+
+            const txPromise = supabase.from('transactions')
+                .select('*, categories(*)')
+                .gte('date', startDate.toISOString())
+                .lte('date', endDate.toISOString());
+            
             const debtPromise = supabase.from('debts').select('*');
             const catPromise = supabase.from('categories').select('*');
 
-            const [{ data: txData }, { data: debtData }, {data: catData}] = await Promise.all([txPromise, debtPromise, catPromise]);
+            const [
+                { data: txData, error: txError },
+                { data: debtData, error: debtError },
+                { data: catData, error: catError }
+            ] = await Promise.all([txPromise, debtPromise, catPromise]);
+
+            if (txError) console.error("Error fetching transactions:", txError.message);
+            else setTransactions((txData as any) || []);
+
+            if (debtError) console.error("Error fetching debts:", debtError.message);
+            else setDebts(debtData || []);
             
-            setTransactions(txData as any[] || []);
-            setDebts(debtData || []);
-            setCategories(catData || []);
+            if (catError) console.error("Error fetching categories:", catError.message);
+            else setCategories(catData || []);
+
             setLoading(false);
         };
         fetchData();
-    }, [key]);
+    }, [key, period]);
+
+    const reportData = useMemo(() => {
+        const expenseData = new Map<string, { amount: number, color: string | null }>();
+        const incomeData = new Map<string, { amount: number, color: string | null }>();
+
+        transactions.forEach(tx => {
+            const categoryName = (tx.categories as any)?.name || 'غير مصنف';
+            const categoryColor = (tx.categories as any)?.color || '#78716c'; // stone-500
+            
+            if (tx.type === 'expense') {
+                const current = expenseData.get(categoryName) || { amount: 0, color: categoryColor };
+                expenseData.set(categoryName, { ...current, amount: current.amount + tx.amount });
+            } else if (tx.type === 'income') {
+                const current = incomeData.get(categoryName) || { amount: 0, color: categoryColor };
+                incomeData.set(categoryName, { ...current, amount: current.amount + tx.amount });
+            }
+        });
+
+        const totalExpense = Array.from(expenseData.values()).reduce((sum, { amount }) => sum + amount, 0);
+        const totalIncome = Array.from(incomeData.values()).reduce((sum, { amount }) => sum + amount, 0);
+
+        const processMap = (map: Map<string, { amount: number, color: string | null }>, total: number) => {
+            return Array.from(map.entries())
+                .map(([name, { amount, color }]) => ({ name, amount, color, percentage: total > 0 ? (amount / total) * 100 : 0 }))
+                .sort((a, b) => b.amount - a.amount);
+        };
+
+        return {
+            expenses: processMap(expenseData, totalExpense),
+            incomes: processMap(incomeData, totalIncome),
+            totalExpense,
+            totalIncome
+        };
+    }, [transactions]);
     
-    const handleGenerateAnalysis = async () => {
-        if (!process.env.API_KEY) {
-            const errorMessage = `
-            [HEADER]خطأ في الإعداد[/HEADER]
-            [OVERVIEW]مفتاح API غير متوفر.[/OVERVIEW]
-            [NEGATIVE]تفاصيل الخطأ[/NEGATIVE]
-            [ITEM]لم يتم العثور على مفتاح Google AI API في متغيرات البيئة. يرجى التأكد من أن المسؤول عن التطبيق قد قام بتكوينه.[/ITEM]
-            `;
-            setAiAnalysisResult(errorMessage);
-            setIsAiModalOpen(true);
+    const handleAnalysis = async () => {
+        setAnalysisLoading(true);
+        setAnalysisResult('');
+
+        const { startDate, endDate } = getDatesForPeriod(period);
+
+        const { data: reportData, error } = await supabase
+            .from('transactions')
+            .select('amount, type, categories(name)')
+            .gte('date', startDate.toISOString())
+            .lte('date', endDate.toISOString())
+            .in('type', ['income', 'expense']);
+
+        if (error || !reportData) {
+            setAnalysisResult('حدث خطأ أثناء جلب البيانات للتحليل.');
+            setAnalysisLoading(false);
             return;
         }
+        
+        const OPENROUTER_API_KEY = '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';
 
-        setIsAiModalOpen(true);
-        setIsAiLoading(true);
-        setAiAnalysisResult('');
-    
+        const simplifiedData = reportData.map(tx => ({
+            type: tx.type,
+            amount: tx.amount,
+            category: (tx.categories as any)?.name || 'غير مصنف'
+        }));
+
+        const prompt = `
+            باللغة العربية، قم بتحليل البيانات المالية التالية للمستخدم. قدم ملخصًا موجزًا (2-3 جمل) عن الوضع المالي العام.
+            ثم قدم 3-5 نقاط رئيسية كقائمة من النصائح أو الملاحظات القابلة للتنفيذ.
+            كن إيجابيًا ومحفزًا. اجعل التحليل بسيطًا وسهل الفهم لشخص غير خبير ماليًا.
+            
+            البيانات:
+            ${JSON.stringify(simplifiedData)}
+        `;
+
         try {
-            // Securely initialize the Google AI client using the API key
-            // provided via the environment variable.
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
-            const { startDate, endDate } = getDatesForPeriod('this_month');
-            const currentTxs = transactions.filter(tx => {
-                const txDate = new Date(tx.date);
-                return txDate >= startDate && txDate <= endDate;
+            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    "model": "openai/gpt-3.5-turbo",
+                    "messages": [
+                        { "role": "user", "content": prompt }
+                    ]
+                })
             });
-    
-            const totalIncome = currentTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-            const totalExpense = currentTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-            
-            const expensesByCategory: { [key: string]: number } = {};
-            currentTxs.filter(tx => tx.type === 'expense').forEach(tx => {
-                const categoryName = (tx as any).categories?.name || 'غير مصنف';
-                expensesByCategory[categoryName] = (expensesByCategory[categoryName] || 0) + tx.amount;
-            });
-            const expensesString = Object.entries(expensesByCategory).map(([name, amount]) => `- ${name}: ${formatCurrency(amount)}`).join('\n');
 
-            const incomeByCategory: { [key: string]: number } = {};
-            currentTxs.filter(tx => tx.type === 'income').forEach(tx => {
-                const categoryName = (tx as any).categories?.name || 'غير مصنف';
-                incomeByCategory[categoryName] = (incomeByCategory[categoryName] || 0) + tx.amount;
-            });
-            const incomeString = Object.entries(incomeByCategory).map(([name, amount]) => `- ${name}: ${formatCurrency(amount)}`).join('\n');
-
-            const allExpenseCategories = categories.filter(c => c.type === 'expense').map(c => c.name).join('، ');
-            const allIncomeCategories = categories.filter(c => c.type === 'income').map(c => c.name).join('، ');
-    
-            const debtsForYou = debts.filter(d => d.type === 'for_you' && !d.paid).reduce((sum, d) => sum + d.amount, 0);
-            const debtsOnYou = debts.filter(d => d.type === 'on_you' && !d.paid).reduce((sum, d) => sum + d.amount, 0);
-    
-            const prompt = `
-            أنت مستشار مالي شخصي خبير. مهمتك هي تحليل البيانات المالية للمستخدم باللغة العربية وتقديم رؤى عميقة ونصائح عملية لتحسين وضعه المالي.
-
-            **البيانات المالية للشهر الحالي:**
-            - إجمالي الدخل: ${formatCurrency(totalIncome)}
-            - إجمالي المصروفات: ${formatCurrency(totalExpense)}
-            - صافي التوفير (الدخل - المصروفات): ${formatCurrency(totalIncome - totalExpense)}
-            - ديون لك (مستحقة): ${formatCurrency(debtsForYou)}
-            - ديون عليك (مستحقة): ${formatCurrency(debtsOnYou)}
-
-            **تفاصيل الدخل حسب الفئة:**
-            ${incomeString || 'لا يوجد دخل مسجل هذا الشهر.'}
-
-            **تفاصيل المصروفات حسب الفئة:**
-            ${expensesString || 'لا يوجد مصروفات هذا الشهر.'}
-
-            **معلومات إضافية عن الفئات المتاحة للمستخدم:**
-            - كل فئات الدخل المتاحة: ${allIncomeCategories || 'لا يوجد'}
-            - كل فئات المصروفات المتاحة: ${allExpenseCategories || 'لا يوجد'}
-
-            **التعليمات:**
-            1.  ابدأ بنظرة عامة سريعة على الوضع المالي للشهر.
-            2.  حلل المصروفات بعمق:
-                - ميّز بين المصاريف **الأساسية** (مثل: إيجار, فواتير, مواصلات) والمصاريف **الكمالية** (مثل: مطاعم, ترفيه, تسوق). استخدم قائمة الفئات المتاحة كدليل.
-                - حدد أكبر 3 فئات إنفاق وعلق عليها. هل هي ضرورية؟ هل يمكن تقليلها؟
-            3.  قدم ملاحظات إيجابية بناءً على البيانات (مثال: توفير جيد, سيطرة على مصاريف الترفيه).
-            4.  قدم ملاحظات تحتاج إلى انتباه، مع التركيز على الإنفاق الزائد في الفئات الكمالية.
-            5.  اختتم بخطة عمل من 2-3 خطوات واضحة وقابلة للتنفيذ للشهر القادم.
-
-            **تنسيق الإخراج (مهم جداً):**
-            استخدم التنسيق التالي بالضبط. لا تضف أي نص خارج هذه العلامات.
-
-            [HEADER]عنوان جذاب ومختصر للتحليل[/HEADER]
-            [OVERVIEW]فقرة موجزة تلخص الوضع المالي للشهر، بما في ذلك نسبة المصروفات إلى الدخل.[/OVERVIEW]
-            [POSITIVE]عنوان للقسم الإيجابي (مثال: نقاط القوة هذا الشهر)[/POSITIVE]
-            [ITEM]نقطة إيجابية أولى واضحة ومبنية على البيانات.[/ITEM]
-            [ITEM]نقطة إيجابية ثانية (إن وجدت).[/ITEM]
-            [NEGATIVE]عنوان لقسم التحسين (مثال: فرص للتحسين)[/NEGATIVE]
-            [ITEM]أول ملاحظة للتحسين، مع الإشارة لنوع المصروف (أساسي/كمالي) وتحليل أكبر فئات الإنفاق.[/ITEM]
-            [ITEM]ملاحظة ثانية للتحسين (إن وجدت).[/ITEM]
-            [PLAN]عنوان للخطة المقترحة (مثال: خطتك للشهر القادم)[/PLAN]
-            [ITEM]خطوة عملية أولى يمكن للمستخدم اتخاذها.[/ITEM]
-            [ITEM]خطوة عملية ثانية.[/ITEM]
-            `;
-    
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt,
-            });
-    
-            setAiAnalysisResult(response.text);
-    
-        } catch (error: any) {
-            console.error('Error generating AI analysis:', error);
-            
-            let errorMessageText = error.message;
-            if (error.toString().includes('API key not valid')) { 
-                errorMessageText = "مفتاح API المستخدم غير صالح أو انتهت صلاحيته. يرجى مراجعة إعدادات البيئة.";
+            if (!response.ok) {
+                const errorBody = await response.json();
+                console.error("OpenRouter API Error:", errorBody);
+                throw new Error(`API request failed with status ${response.status}`);
             }
 
-            const errorMessage = `
-            [HEADER]حدث خطأ[/HEADER]
-            [OVERVIEW]عذراً، لم نتمكن من إنشاء التحليل.[/OVERVIEW]
-            [NEGATIVE]تفاصيل الخطأ[/NEGATIVE]
-            [ITEM]${errorMessageText}[/ITEM]
-            `;
-            setAiAnalysisResult(errorMessage);
+            const data = await response.json();
+            setAnalysisResult(data.choices[0].message.content);
+        } catch (err: any) {
+            console.error(err);
+            setAnalysisResult('عذرًا، حدث خطأ أثناء تحليل بياناتك. يرجى المحاولة مرة أخرى.');
         } finally {
-            setIsAiLoading(false);
+            setAnalysisLoading(false);
         }
     };
 
-    const parsedAnalysis = useMemo(() => {
-        if (!aiAnalysisResult) return null;
-        const result: { [key: string]: any } = { positive_items: [], negative_items: [], plan_items: [] };
-        
-        const headerMatch = aiAnalysisResult.match(/\[HEADER\](.*?)\[\/HEADER\]/s);
-        result.header = headerMatch ? headerMatch[1].trim() : "التحليل المالي";
-
-        const overviewMatch = aiAnalysisResult.match(/\[OVERVIEW\](.*?)\[\/OVERVIEW\]/s);
-        result.overview = overviewMatch ? overviewMatch[1].trim() : "إليك نظرة عامة على وضعك المالي.";
-        
-        const positiveTitleMatch = aiAnalysisResult.match(/\[POSITIVE\](.*?)\[\/POSITIVE\]/s);
-        result.positive_title = positiveTitleMatch ? positiveTitleMatch[1].trim() : "نقاط إيجابية";
-
-        const negativeTitleMatch = aiAnalysisResult.match(/\[NEGATIVE\](.*?)\[\/NEGATIVE\]/s);
-        result.negative_title = negativeTitleMatch ? negativeTitleMatch[1].trim() : "نقاط تحتاج انتباه";
-        
-        const planTitleMatch = aiAnalysisResult.match(/\[PLAN\](.*?)\[\/PLAN\]/s);
-        result.plan_title = planTitleMatch ? planTitleMatch[1].trim() : "الخطة المقترحة";
-
-        const itemRegex = /\[ITEM\](.*?)\[\/ITEM\]/gs;
-        
-        const positiveSection = aiAnalysisResult.split('[POSITIVE]')[1]?.split('[NEGATIVE]')[0] || '';
-        let match;
-        while((match = itemRegex.exec(positiveSection)) !== null) {
-            result.positive_items.push(match[1].trim());
-        }
-
-        const negativeSection = aiAnalysisResult.split('[NEGATIVE]')[1]?.split('[PLAN]')[0] || '';
-        itemRegex.lastIndex = 0; // Reset regex index
-        while((match = itemRegex.exec(negativeSection)) !== null) {
-            result.negative_items.push(match[1].trim());
-        }
-        
-        const planSection = aiAnalysisResult.split('[PLAN]')[1] || '';
-        itemRegex.lastIndex = 0; // Reset regex index
-        while((match = itemRegex.exec(planSection)) !== null) {
-            result.plan_items.push(match[1].trim());
-        }
-
-        return result;
-    }, [aiAnalysisResult]);
-
-
-    const { expenseData, incomeData, debtData } = useMemo(() => {
-        const { startDate, endDate } = getDatesForPeriod(period);
-        const filteredTxs = transactions.filter(tx => {
-            const txDate = new Date(tx.date);
-            return txDate >= startDate && txDate <= endDate;
-        });
-
-        const processData = (type: 'expense' | 'income') => {
-            const relevantTxs = filteredTxs.filter(tx => tx.type === type);
-            const total = relevantTxs.reduce((sum, tx) => sum + tx.amount, 0);
-            const byCategory: { [key: string]: number } = {};
-            relevantTxs.forEach(tx => {
-                const catName = (tx as any).categories?.name || 'غير مصنف';
-                byCategory[catName] = (byCategory[catName] || 0) + tx.amount;
-            });
-            return {
-                total,
-                data: Object.entries(byCategory)
-                    .map(([name, amount]) => {
-                        const category = categories.find(c => c.name === name && c.type === type);
-                        return { name, amount, color: category?.color || '#71717a', percentage: total > 0 ? (amount / total) * 100 : 0 };
-                    })
-                    .sort((a, b) => b.amount - a.amount)
-            };
-        };
-
-        const expenseData = processData('expense');
-        const incomeData = processData('income');
-
-        const forYou = debts.filter(d => d.type === 'for_you' && !d.paid).reduce((sum, d) => sum + d.amount, 0);
-        const onYou = debts.filter(d => d.type === 'on_you' && !d.paid).reduce((sum, d) => sum + d.amount, 0);
-        const debtData = { forYou, onYou, net: forYou - onYou };
-
-        return { expenseData, incomeData, debtData };
-
-    }, [period, transactions, debts, categories]);
-
-
     return (
         <div className="space-y-6">
-            <div className="flex bg-slate-800 rounded-lg p-1 text-sm shadow-md">
+            <div className="flex bg-slate-800 rounded-lg p-1 text-sm shadow">
                 {(['this_month', 'last_month', 'this_year'] as Period[]).map(p => (
-                    <button
-                        key={p}
-                        onClick={() => setPeriod(p)}
-                        className={`w-full py-2 px-1 rounded-md transition-colors font-semibold ${period === p ? 'bg-slate-700 text-cyan-400' : 'text-slate-300 hover:bg-slate-700/50'}`}
-                    >
-                        { { this_month: 'هذا الشهر', last_month: 'الشهر الماضي', this_year: 'هذه السنة' }[p] }
+                    <button key={p} onClick={() => setPeriod(p)} className={`w-full py-2 px-1 rounded-md transition-colors font-semibold ${period === p ? 'bg-slate-700 text-cyan-400' : 'text-slate-300 hover:bg-slate-700/50'}`}>
+                        {{ 'this_month': 'هذا الشهر', 'last_month': 'الشهر الماضي', 'this_year': 'هذه السنة' }[p]}
                     </button>
                 ))}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-                 <div className="bg-slate-800 p-3 rounded-xl text-center">
-                    <p className="text-sm text-green-400">إجمالي الإيرادات</p>
-                    <h3 className="text-2xl font-extrabold text-white">
-                        {formatCurrency(incomeData.total)}
-                    </h3>
+            <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="bg-slate-800 p-3 rounded-lg">
+                    <p className="text-sm text-green-400">إجمالي الدخل</p>
+                    <p className="font-bold text-lg">{formatCurrency(reportData.totalIncome)}</p>
                 </div>
-                 <div className="bg-slate-800 p-3 rounded-xl text-center">
-                    <p className="text-sm text-red-400">إجمالي المصروفات</p>
-                    <h3 className="text-2xl font-extrabold text-white">
-                        {formatCurrency(expenseData.total)}
-                    </h3>
+                <div className="bg-slate-800 p-3 rounded-lg">
+                    <p className="text-sm text-red-400">إجمالي المصروف</p>
+                    <p className="font-bold text-lg">{formatCurrency(reportData.totalExpense)}</p>
+                </div>
+                <div className="bg-slate-800 p-3 rounded-lg">
+                    <p className="text-sm text-slate-400">الصافي</p>
+                    <p className="font-bold text-lg">{formatCurrency(reportData.totalIncome - reportData.totalExpense)}</p>
                 </div>
             </div>
-            
-            <button 
-                onClick={handleGenerateAnalysis}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold rounded-lg shadow-lg hover:opacity-90 transition-opacity"
-                disabled={isAiLoading}
-            >
-                <SparklesIcon className="w-6 h-6"/>
-                <span>تحليل بالذكاء الاصطناعي (بيانات هذا الشهر)</span>
-            </button>
-
 
             <div className="flex border-b border-slate-700">
-                <button onClick={() => setActiveTab('expense')} className={`w-1/3 py-3 text-center font-semibold transition-colors ${activeTab === 'expense' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}>المصروفات</button>
-                <button onClick={() => setActiveTab('income')} className={`w-1/3 py-3 text-center font-semibold transition-colors ${activeTab === 'income' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}>الإيرادات</button>
-                <button onClick={() => setActiveTab('debt')} className={`w-1/3 py-3 text-center font-semibold transition-colors ${activeTab === 'debt' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}>الديون</button>
+                {(['expense', 'income', 'debt'] as ActiveTab[]).map(tab => (
+                    <button key={tab} onClick={() => setActiveTab(tab)} className={`w-1/2 py-3 text-center font-semibold transition-colors ${activeTab === tab ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}>
+                        {{ 'expense': 'المصروفات', 'income': 'الإيرادات', 'debt': 'الديون' }[tab]}
+                    </button>
+                ))}
             </div>
-            
-             {loading ? <p className="text-center py-8">جاري تحميل التقارير...</p> : (
-                <div>
-                    {activeTab === 'expense' && <ReportView title="المصروفات حسب الفئة" data={expenseData.data} total={expenseData.total} />}
-                    {activeTab === 'income' && <ReportView title="الإيرادات حسب الفئة" data={incomeData.data} total={incomeData.total} />}
-                    {activeTab === 'debt' && <DebtReportView data={debtData} />}
-                </div>
+
+            {loading ? <div className="h-64 bg-slate-800 rounded-xl animate-pulse"></div> : (
+                <>
+                    {activeTab === 'expense' && <ReportView title="تحليل المصروفات" data={reportData.expenses} total={reportData.totalExpense} />}
+                    {activeTab === 'income' && <ReportView title="تحليل الإيرادات" data={reportData.incomes} total={reportData.totalIncome} />}
+                    {activeTab === 'debt' && <DebtSummary debts={debts} />}
+                </>
             )}
-
-            {isAiModalOpen && (
-                <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-                    <div className="bg-slate-800 rounded-xl p-2 w-full max-w-2xl border border-slate-700 shadow-xl">
-                         <div className="flex justify-between items-center p-4">
-                             <h3 className="text-xl font-bold flex items-center gap-2 text-cyan-400"><SparklesIcon className="w-6 h-6"/> التحليل المالي الذكي</h3>
-                             <button onClick={() => setIsAiModalOpen(false)} className="text-slate-400 hover:text-white transition-colors"><XMarkIcon className="w-6 h-6" /></button>
-                         </div>
-                         <div className="max-h-[70vh] overflow-y-auto p-4">
-                            {isAiLoading ? (
-                                <div className="text-center py-12">
-                                    <div className="w-10 h-10 border-4 border-slate-600 border-t-cyan-400 rounded-full animate-spin mx-auto mb-4"></div>
-                                    <p className="text-slate-300">جاري تحليل بياناتك المالية...</p>
-                                    <p className="text-sm text-slate-500">قد يستغرق هذا بضع ثوانٍ.</p>
-                                </div>
-                            ) : parsedAnalysis ? (
-                                <div className="space-y-6">
-                                    <div className="text-center border-b border-slate-700 pb-4">
-                                        <h2 className="text-2xl font-extrabold text-white">{parsedAnalysis.header}</h2>
-                                        <p className="text-slate-300 mt-2">{parsedAnalysis.overview}</p>
-                                    </div>
-                                    
-                                    {parsedAnalysis.positive_items.length > 0 && (
-                                        <div>
-                                            <h4 className="font-bold text-lg mb-3 flex items-center gap-2 text-green-400"><CheckCircleIcon className="w-5 h-5"/> {parsedAnalysis.positive_title}</h4>
-                                            <ul className="space-y-2 list-inside">
-                                                {parsedAnalysis.positive_items.map((item: string, i: number) => <li key={i} className="bg-green-500/10 p-3 rounded-lg text-green-300">{item}</li>)}
-                                            </ul>
-                                        </div>
-                                    )}
-
-                                    {parsedAnalysis.negative_items.length > 0 && (
-                                        <div>
-                                            <h4 className="font-bold text-lg mb-3 flex items-center gap-2 text-amber-400"><ExclamationTriangleIcon className="w-5 h-5"/> {parsedAnalysis.negative_title}</h4>
-                                             <ul className="space-y-2 list-inside">
-                                                {parsedAnalysis.negative_items.map((item: string, i: number) => <li key={i} className="bg-amber-500/10 p-3 rounded-lg text-amber-300">{item}</li>)}
-                                            </ul>
-                                        </div>
-                                    )}
-
-                                    {parsedAnalysis.plan_items.length > 0 && (
-                                         <div>
-                                            <h4 className="font-bold text-lg mb-3 flex items-center gap-2 text-cyan-400"><SparklesIcon className="w-5 h-5"/> {parsedAnalysis.plan_title}</h4>
-                                             <ul className="space-y-2 list-inside">
-                                                 {parsedAnalysis.plan_items.map((item: string, i: number) => <li key={i} className="bg-cyan-500/10 p-3 rounded-lg text-cyan-300">{item}</li>)}
-                                            </ul>
-                                        </div>
-                                    )}
-
+            
+            <button 
+                onClick={() => { setAnalysisResult(''); setAnalysisModalOpen(true); handleAnalysis(); }}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-slate-800 hover:bg-slate-700 text-cyan-400 font-bold rounded-lg transition-colors border border-slate-700"
+            >
+                <SparklesIcon className="w-6 h-6" />
+                تحليل مالي بالذكاء الاصطناعي
+            </button>
+            
+            {isAnalysisModalOpen && (
+                 <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+                    <div className="bg-slate-800 rounded-lg p-6 w-full max-w-lg border border-slate-700 shadow-xl animate-slide-up">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold flex items-center gap-2"><SparklesIcon className="w-5 h-5 text-cyan-400" /> التحليل المالي</h3>
+                            <button onClick={() => setAnalysisModalOpen(false)} className="text-slate-400 hover:text-white transition-colors"><XMarkIcon className="w-6 h-6" /></button>
+                        </div>
+                        <div className="max-h-[60vh] overflow-y-auto pr-2 text-slate-300">
+                            {analysisLoading ? (
+                                <div className="space-y-4">
+                                    <div className="h-4 bg-slate-700 rounded w-3/4 animate-pulse"></div>
+                                    <div className="h-4 bg-slate-700 rounded w-1/2 animate-pulse"></div>
+                                    <div className="h-4 bg-slate-700 rounded w-5/6 animate-pulse mt-6"></div>
+                                    <div className="h-4 bg-slate-700 rounded w-full animate-pulse"></div>
                                 </div>
                             ) : (
-                                <p className="text-center py-12 text-slate-400">لم يتمكن الذكاء الاصطناعي من إنشاء تحليل.</p>
+                                <div className="prose prose-invert max-w-none prose-p:my-2 prose-ul:my-2 prose-headings:text-cyan-400" dangerouslySetInnerHTML={{ __html: analysisResult.replace(/\n/g, '<br />') }}></div>
                             )}
-                         </div>
+                        </div>
                     </div>
-                </div>
+                 </div>
             )}
 
         </div>

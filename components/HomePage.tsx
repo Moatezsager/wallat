@@ -88,9 +88,23 @@ const YearlyChart: React.FC<{ data: { income: number, expense: number }[] }> = (
                     },
                     tooltip: {
                         rtl: true,
-                        bodyFont: { family: 'Cairo' },
-                        titleFont: { family: 'Cairo' },
+                        enabled: true,
+                        backgroundColor: 'rgba(15, 23, 42, 0.85)', // slate-900 with transparency
+                        titleFont: { family: 'Cairo', weight: 'bold', size: 14 },
+                        titleColor: '#e2e8f0', // slate-200
+                        bodyFont: { family: 'Cairo', size: 12 },
+                        bodyColor: '#cbd5e1', // slate-300
+                        padding: 10,
+                        cornerRadius: 8,
+                        borderColor: 'rgba(51, 65, 85, 0.7)', // slate-700
+                        borderWidth: 1,
+                        displayColors: true,
+                        boxPadding: 4,
                         callbacks: {
+                            title: function(tooltipItems) {
+                                const dataIndex = tooltipItems[0].dataIndex;
+                                return monthLabels[dataIndex];
+                            },
                             label: function(context) {
                                 let label = context.dataset.label || '';
                                 if (label) {
@@ -352,22 +366,10 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
     const [isMarkAsPaidConfirmOpen, setIsMarkAsPaidConfirmOpen] = useState(false);
 
     useEffect(() => {
-        const fetchDataForForm = async () => {
-            if (!isEditModalOpen) return;
-            const accPromise = supabase.from('accounts').select('*');
-            const catPromise = supabase.from('categories').select('*');
-            const [{ data: accData }, { data: catData }] = await Promise.all([accPromise, catPromise]);
-            setAccounts(accData || []);
-            setCategories(catData || []);
-        };
-        fetchDataForForm();
-    }, [isEditModalOpen]);
-
-    useEffect(() => {
         const fetchAllData = async () => {
             setLoading(true);
             try {
-                const accountsPromise = supabase.from('accounts').select('balance');
+                const accountsPromise = supabase.from('accounts').select('*');
                 const debtsPromise = supabase.from('debts').select('amount, type').eq('paid', false);
                 const lastTransactionsPromise = supabase.from('transactions').select('*, accounts:account_id(name, currency), categories(name)').order('created_at', { ascending: false }).limit(5);
 
@@ -389,6 +391,8 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
                     .not('due_date', 'is', null)
                     .order('due_date', { ascending: true })
                     .limit(3);
+                
+                const categoriesPromise = supabase.from('categories').select('*');
 
                 const [
                     { data: accountsData, error: accError },
@@ -396,17 +400,22 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
                     { data: lastTransactionsData, error: txError },
                     { data: yearlyTransactions, error: yearlyError },
                     { data: activityData, error: activityError },
-                    { data: upcomingDebtsData, error: upcomingDebtsError }
-                ] = await Promise.all([accountsPromise, debtsPromise, lastTransactionsPromise, yearlyTransactionsPromise, activityPromise, upcomingDebtsPromise]);
+                    { data: upcomingDebtsData, error: upcomingDebtsError },
+                    { data: categoriesData, error: categoriesError }
+                ] = await Promise.all([accountsPromise, debtsPromise, lastTransactionsPromise, yearlyTransactionsPromise, activityPromise, upcomingDebtsPromise, categoriesPromise]);
 
                 if (accError) throw accError;
                 if (debtError) throw debtError;
                 if (txError) throw txError;
                 if (yearlyError) throw yearlyError;
                 if (upcomingDebtsError) throw upcomingDebtsError;
+                if (categoriesError) throw categoriesError;
                 if (activityError && activityError.code !== 'PGRST116') { // Ignore 'Range not satisfactory' for single()
                      console.error("Error fetching activity", activityError.message);
                 }
+
+                setAccounts(accountsData || []);
+                setCategories(categoriesData || []);
 
                 const totalBalance = (accountsData || []).reduce((sum, acc) => sum + acc.balance, 0);
                 const debtsForYou = (debtsData || []).filter(d => d.type === 'for_you').reduce((sum, d) => sum + d.amount, 0);

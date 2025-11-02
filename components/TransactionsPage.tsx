@@ -4,7 +4,8 @@ import { Transaction, Account, Category } from '../types';
 import TransactionForm from './TransactionForm';
 import { 
     MagnifyingGlassIcon, FunnelIcon, XMarkIcon, PencilSquareIcon, TrashIcon,
-    ArrowDownIcon, ArrowUpIcon, ArrowsRightLeftIcon, iconMap 
+    ArrowDownIcon, ArrowUpIcon, ArrowsRightLeftIcon, iconMap, WalletIcon,
+    TagIcon, CalendarDaysIcon
 } from './icons';
 
 const formatCurrency = (amount: number, currency: string = 'د.ل') => {
@@ -81,7 +82,8 @@ const FilterModal: React.FC<{
     };
     
     const handleReset = () => {
-        const defaultFilters = {
+        // Fix: Explicitly type defaultFilters to match FilterValues and resolve type mismatch.
+        const defaultFilters: FilterValues = {
             types: ['income', 'expense', 'transfer'],
             date_from: '', date_to: '',
             accounts: [], categories: []
@@ -128,6 +130,81 @@ const FilterModal: React.FC<{
     );
 };
 
+const TransactionDetailContent: React.FC<{
+    transaction: Transaction;
+    onEdit: () => void;
+    onDelete: () => void;
+}> = ({ transaction, onEdit, onDelete }) => {
+    const typeInfo = {
+        income: { text: 'إيراد', color: 'text-green-400' },
+        expense: { text: 'مصروف', color: 'text-red-400' },
+        transfer: { text: 'تحويل', color: 'text-indigo-400' },
+    }[transaction.type];
+
+    const CategoryIcon = (transaction.categories?.icon && iconMap[transaction.categories.icon]) || TagIcon;
+
+    return (
+        <div className="space-y-4">
+            <div className="text-center border-b border-slate-700 pb-4">
+                <p className="text-sm text-slate-400">{typeInfo.text}</p>
+                <p className={`text-5xl font-extrabold ${typeInfo.color}`}>
+                    {transaction.type === 'expense' ? '-' : transaction.type === 'income' ? '+' : ''}{formatCurrency(transaction.amount, transaction.accounts?.currency)}
+                </p>
+                <p className="text-lg font-semibold mt-1 text-slate-300">
+                    {transaction.notes || 'لا توجد ملاحظات'}
+                </p>
+            </div>
+
+            <div className="space-y-3 text-sm">
+                {transaction.type === 'transfer' ? (
+                    <>
+                        <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded">
+                            <span className="text-slate-400 flex items-center gap-2"><WalletIcon className="w-4 h-4" /> من حساب</span>
+                            <span className="font-semibold">{transaction.accounts?.name || 'غير معروف'}</span>
+                        </div>
+                        <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded">
+                            <span className="text-slate-400 flex items-center gap-2"><WalletIcon className="w-4 h-4" /> إلى حساب</span>
+                            <span className="font-semibold">{transaction.to_accounts?.name || 'غير معروف'}</span>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded">
+                            <span className="text-slate-400 flex items-center gap-2"><WalletIcon className="w-4 h-4" /> الحساب</span>
+                            <span className="font-semibold">{transaction.accounts?.name || 'غير معروف'}</span>
+                        </div>
+                        <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded">
+                            <span className="text-slate-400 flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full flex items-center justify-center -ml-1" style={{ backgroundColor: transaction.categories?.color || '#334155' }}>
+                                   <CategoryIcon className="w-4 h-4 text-white"/>
+                                </div>
+                                الفئة
+                            </span>
+                            <span className="font-semibold">{transaction.categories?.name || 'غير مصنف'}</span>
+                        </div>
+                    </>
+                )}
+                <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded">
+                    <span className="text-slate-400 flex items-center gap-2"><CalendarDaysIcon className="w-4 h-4" /> التاريخ والوقت</span>
+                    <span className="font-semibold">
+                        {new Date(transaction.date).toLocaleString('ar-LY', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+                <button onClick={onDelete} className="py-2 px-4 bg-red-600/20 text-red-400 hover:bg-red-600/40 rounded-md transition flex items-center gap-2">
+                    <TrashIcon className="w-5 h-5" /> حذف
+                </button>
+                <button onClick={onEdit} className="py-2 px-4 bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/40 rounded-md transition flex items-center gap-2">
+                    <PencilSquareIcon className="w-5 h-5" /> تعديل
+                </button>
+            </div>
+        </div>
+    );
+};
+
+
 const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (description?: string) => void }> = ({ key, handleDatabaseChange }) => {
     const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
     const [accounts, setAccounts] = useState<Account[]>([]);
@@ -141,6 +218,8 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
     });
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [modal, setModal] = useState<{ type: 'edit' | 'delete' | null, transaction: Transaction | null }>({ type: null, transaction: null });
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [selectedTransactionForDetail, setSelectedTransactionForDetail] = useState<Transaction | null>(null);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -151,8 +230,9 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
 
             const [{ data: txData }, { data: accData }, { data: catData }] = await Promise.all([txPromise, accPromise, catPromise]);
             
-            // Fix: handle cases where Supabase returns null data instead of an empty array.
-            setAllTransactions(txData || []);
+            // Fix: The `as unknown` part of the cast is unnecessary and can hide type issues.
+            // A direct cast to `Transaction[]` is sufficient and safer.
+            setAllTransactions((txData as Transaction[]) || []);
             setAccounts(accData || []);
             setCategories(catData || []);
             setLoading(false);
@@ -197,6 +277,29 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
             return acc;
         }, { income: 0, expense: 0 });
     }, [filteredTransactions]);
+    
+    const handleOpenDetailModal = (tx: Transaction) => {
+        setSelectedTransactionForDetail(tx);
+        setIsDetailModalOpen(true);
+    };
+
+    const handleCloseDetailModal = () => {
+        setSelectedTransactionForDetail(null);
+        setIsDetailModalOpen(false);
+    };
+    
+    const handleOpenEditModalFromDetail = () => {
+        if (!selectedTransactionForDetail) return;
+        setModal({ type: 'edit', transaction: selectedTransactionForDetail });
+        handleCloseDetailModal();
+    };
+
+    const handleOpenDeleteModalFromDetail = () => {
+        if (!selectedTransactionForDetail) return;
+        setModal({ type: 'delete', transaction: selectedTransactionForDetail });
+        handleCloseDetailModal();
+    };
+
 
     const handleSave = (description: string) => {
         setModal({ type: null, transaction: null });
@@ -278,7 +381,7 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
                                 {txs.map(tx => {
                                     const CategoryIcon = tx.categories?.icon ? iconMap[tx.categories.icon] : null;
                                     return (
-                                        <button key={tx.id} onClick={() => setModal({ type: 'edit', transaction: tx })}
+                                        <button key={tx.id} onClick={() => handleOpenDetailModal(tx)}
                                             className="w-full text-right bg-slate-800 p-3 rounded-lg flex justify-between items-center hover:bg-slate-700/50 transition-colors">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
@@ -314,6 +417,16 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
                 />
             )}
             
+            {isDetailModalOpen && selectedTransactionForDetail && (
+                <Modal title="تفاصيل المعاملة" onClose={handleCloseDetailModal}>
+                    <TransactionDetailContent
+                        transaction={selectedTransactionForDetail}
+                        onEdit={handleOpenEditModalFromDetail}
+                        onDelete={handleOpenDeleteModalFromDetail}
+                    />
+                </Modal>
+            )}
+
             {modal.type === 'edit' && modal.transaction && (
                 <Modal title="تعديل المعاملة" onClose={() => setModal({ type: null, transaction: null })}>
                     {modal.transaction.type === 'transfer' ? (

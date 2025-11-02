@@ -1,3 +1,4 @@
+
 // Fix: Define the Page type as a union of string literals to avoid circular dependency.
 export type Page = 'home' | 'accounts' | 'transactions' | 'debts' | 'contacts' | 'categories' | 'reports' | 'notes';
 
@@ -24,7 +25,8 @@ export interface Transaction {
   created_at?: string;
   // For display purposes after joining
   accounts?: { name: string; currency: string } | null;
-  categories?: { name: string } | null;
+  // Fix: Add optional color and icon to categories to match more detailed queries.
+  categories?: { name: string; color?: string | null; icon?: string | null; } | null;
   to_accounts?: { name: string } | null;
 }
 
