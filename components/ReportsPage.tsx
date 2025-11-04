@@ -280,7 +280,7 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
                 .lte('date', endDate.toISOString());
 
             const prevTxPromise = supabase.from('transactions')
-                .select('amount, type, categories(name)')
+                .select('amount, type, categories(name), date')
                 .gte('date', prevStartDate.toISOString())
                 .lte('date', prevEndDate.toISOString())
                 .in('type', ['income', 'expense']);
@@ -356,7 +356,13 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
             return;
         }
 
-        const simplifiedCurrentData = transactions
+        // Sort transactions to ensure we're analyzing the most recent data.
+        const sortedCurrentTransactions = [...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const sortedPreviousTransactions = [...previousTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        
+        // Cap the number of transactions to avoid overly large API requests, especially on mobile.
+        const simplifiedCurrentData = sortedCurrentTransactions
+            .slice(0, 150)
             .filter(tx => tx.type !== 'transfer')
             .map(tx => ({
                 type: tx.type,
@@ -364,11 +370,13 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
                 category: (tx.categories as any)?.name || 'غير مصنف'
             }));
             
-        const simplifiedPrevData = previousTransactions.map(tx => ({
-            type: tx.type,
-            amount: tx.amount,
-            category: tx.categories?.name || 'غير مصنف'
-        }));
+        const simplifiedPrevData = sortedPreviousTransactions
+            .slice(0, 150)
+            .map(tx => ({
+                type: tx.type,
+                amount: tx.amount,
+                category: tx.categories?.name || 'غير مصنف'
+            }));
         
         const totalIncome = reportData.totalIncome;
         const totalExpense = reportData.totalExpense;

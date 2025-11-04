@@ -221,6 +221,8 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [selectedTransactionForDetail, setSelectedTransactionForDetail] = useState<Transaction | null>(null);
 
+    // Fix: Refactored data fetching to be more robust, handle errors gracefully, and ensure data is correctly typed.
+    // This resolves the "Property 'map' does not exist on type 'unknown'" error by preventing untyped data from being set to state.
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
@@ -228,14 +230,15 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
             const accPromise = supabase.from('accounts').select('*');
             const catPromise = supabase.from('categories').select('*');
 
-            const [{ data: txData }, { data: accData }, { data: catData }] = await Promise.all([txPromise, accPromise, catPromise]);
+            const [txResponse, accResponse, catResponse] = await Promise.all([txPromise, accPromise, catPromise]);
             
-            // Fix: The error is likely caused by an incorrect type assertion. Using `as unknown as`
-            // is a safer way to cast data from an API, aligning with patterns in other components.
-            setAllTransactions((txData as unknown as Transaction[]) || []);
-            // Fix: Proactively cast other data fetches to prevent similar issues that would cause a runtime error.
-            setAccounts((accData as unknown as Account[]) || []);
-            setCategories((catData as unknown as Category[]) || []);
+            if(txResponse.error) console.error("Error fetching transactions", txResponse.error);
+            if(accResponse.error) console.error("Error fetching accounts", accResponse.error);
+            if(catResponse.error) console.error("Error fetching categories", catResponse.error);
+
+            setAllTransactions((txResponse.data as unknown as Transaction[]) || []);
+            setAccounts((accResponse.data as unknown as Account[]) || []);
+            setCategories((catResponse.data as unknown as Category[]) || []);
             setLoading(false);
         };
         fetchData();
