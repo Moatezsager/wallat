@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Category } from '../types';
-import { PlusIcon, PencilSquareIcon, TrashIcon, XMarkIcon, iconMap } from './icons';
+import { PlusIcon, PencilSquareIcon, TrashIcon, XMarkIcon, iconMap, CurrencyDollarIcon } from './icons';
 
 // Component for the Icon Picker
 const IconPicker: React.FC<{ selectedIcon: string; onSelect: (iconName: string) => void; }> = ({ selectedIcon, onSelect }) => {
@@ -129,7 +129,7 @@ const CategoriesPage: React.FC<{ key: number, handleDatabaseChange: (description
         if (error) {
             console.error('Error fetching categories:', error.message);
         } else {
-            setCategories(data as Category[]);
+            setCategories(data as unknown as Category[]);
         }
         setLoading(false);
     }, []);
@@ -149,8 +149,8 @@ const CategoriesPage: React.FC<{ key: number, handleDatabaseChange: (description
         const description = `تم حذف فئة "${modal.category.name}"`;
         const { error } = await supabase.from('categories').delete().eq('id', modal.category.id);
         if (error) {
-            console.error('Error deleting category', error.message);
-            alert('لا يمكن حذف الفئة، قد تكون مرتبطة بمعاملات.');
+            console.error('Error deleting category:', error.message);
+            alert('لا يمكن حذف الفئة لارتباطها بمعاملات.');
         } else {
             setModal({ type: null, category: null });
             handleDatabaseChange(description);
@@ -162,52 +162,53 @@ const CategoriesPage: React.FC<{ key: number, handleDatabaseChange: (description
     return (
         <div className="relative">
             <div className="flex border-b border-slate-700 mb-4">
-                <button
-                    onClick={() => setActiveTab('expense')}
+                <button 
+                    onClick={() => setActiveTab('expense')} 
                     className={`w-1/2 py-3 text-center font-semibold transition-colors ${activeTab === 'expense' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}
                 >
-                    فئات المصروفات
+                    المصروفات
                 </button>
-                <button
-                    onClick={() => setActiveTab('income')}
+                <button 
+                    onClick={() => setActiveTab('income')} 
                     className={`w-1/2 py-3 text-center font-semibold transition-colors ${activeTab === 'income' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}
                 >
-                    فئات الإيرادات
+                    الإيرادات
                 </button>
             </div>
 
             {loading ? (
-                <p className="text-center text-slate-400 py-8">جاري تحميل الفئات...</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {[...Array(8)].map((_, i) => <div key={i} className="h-24 bg-slate-800 rounded-lg animate-pulse"></div>)}
+                </div>
             ) : filteredCategories.length === 0 ? (
                 <div className="text-center py-10">
                     <p className="text-slate-400 mb-4">لا توجد فئات في هذا القسم.</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {filteredCategories.map(cat => {
-                        const Icon = iconMap[cat.icon || 'CurrencyDollarIcon'];
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {filteredCategories.map(category => {
+                        const iconName = category.icon || 'CurrencyDollarIcon';
+                        const Icon = iconMap[iconName] || CurrencyDollarIcon; // Fallback for safety
                         return (
-                            <div key={cat.id} className="bg-slate-800 p-3 rounded-lg flex justify-between items-center">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: cat.color || '#334155' }}>
-                                        {Icon && <Icon className="w-6 h-6 text-white" />}
-                                    </div>
-                                    <span className="font-semibold">{cat.name}</span>
+                            <div key={category.id} className="bg-slate-800 p-3 rounded-lg flex flex-col items-center justify-center text-center relative group">
+                                <div className="w-12 h-12 rounded-full flex items-center justify-center mb-2" style={{ backgroundColor: category.color || '#334155' }}>
+                                    <Icon className="w-6 h-6 text-white" />
                                 </div>
-                                <div className="flex gap-1">
-                                    <button onClick={() => setModal({ type: 'edit', category: cat })} className="text-slate-400 hover:text-cyan-400 p-1"><PencilSquareIcon className="w-5 h-5"/></button>
-                                    <button onClick={() => setModal({ type: 'delete', category: cat })} className="text-slate-400 hover:text-red-400 p-1"><TrashIcon className="w-5 h-5"/></button>
+                                <p className="font-semibold text-sm break-words">{category.name}</p>
+                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                    <button onClick={() => setModal({ type: 'edit', category })} className="p-1 bg-slate-700/50 rounded-full hover:bg-slate-600"><PencilSquareIcon className="w-4 h-4 text-cyan-400"/></button>
+                                    <button onClick={() => setModal({ type: 'delete', category })} className="p-1 bg-slate-700/50 rounded-full hover:bg-slate-600"><TrashIcon className="w-4 h-4 text-red-400"/></button>
                                 </div>
                             </div>
                         );
                     })}
                 </div>
             )}
-
-            <button onClick={() => setModal({ type: 'add', category: null })} className="fixed bottom-20 right-4 h-14 w-14 bg-cyan-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-cyan-500 transition-transform transform active:scale-90 z-10">
+            
+            <button onClick={() => setModal({ type: 'add', category: null })} className="fixed bottom-20 right-4 h-14 w-14 bg-cyan-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-cyan-500 transition-transform transform active:scale-90">
                 <PlusIcon className="w-8 h-8"/>
             </button>
-
+            
             {(modal.type === 'add' || modal.type === 'edit') && (
                 <Modal title={modal.type === 'add' ? 'إضافة فئة جديدة' : 'تعديل الفئة'} onClose={() => setModal({ type: null, category: null })}>
                     <CategoryFormModal 
@@ -218,11 +219,10 @@ const CategoriesPage: React.FC<{ key: number, handleDatabaseChange: (description
                     />
                 </Modal>
             )}
-            
+
             {modal.type === 'delete' && modal.category && (
-                <Modal title="تأكيد الحذف" onClose={() => setModal({ type: null, category: null })}>
-                     <p className="text-slate-300 mb-2">هل أنت متأكد من حذف فئة "{modal.category.name}"؟</p>
-                     <p className="text-sm text-slate-400 mb-6">لن يتم حذف المعاملات المرتبطة بهذه الفئة، ولكنها ستصبح "غير مصنفة".</p>
+                 <Modal title="تأكيد الحذف" onClose={() => setModal({ type: null, category: null })}>
+                    <p className="text-slate-300 mb-6">هل أنت متأكد من حذف فئة "{modal.category.name}"؟</p>
                     <div className="flex justify-end gap-3">
                         <button onClick={() => setModal({ type: null, category: null })} className="py-2 px-4 bg-slate-600 hover:bg-slate-500 rounded-md transition">إلغاء</button>
                         <button onClick={handleDelete} className="py-2 px-4 bg-red-600 hover:bg-red-500 rounded-md transition">تأكيد الحذف</button>

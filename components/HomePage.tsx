@@ -866,8 +866,8 @@ const MonthSummaryCard: React.FC<{
     onShowMore: (summary: any, initialTab: 'expense' | 'income') => void;
 }> = ({ summary, monthName, onShowMore }) => {
     const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
-    const topExpenses = summary.expenses_by_category.slice(0, 5);
-    const topIncomes = summary.incomes_by_category.slice(0, 5);
+    const topExpenses = summary.expenses_by_category.slice(0, 3);
+    const topIncomes = summary.incomes_by_category.slice(0, 3);
 
     return (
         <div className="bg-slate-900 p-4 rounded-lg flex flex-col">
@@ -960,7 +960,8 @@ const FullSummaryModal: React.FC<{
                         {data.map((item: any) => {
                             const percentage = total > 0 ? (item.total / total) * 100 : 0;
                             const category = allCategories.find(c => c.name === item.category_name && c.type === activeTab);
-                            const CategoryIcon = category ? iconMap[category.icon || 'CurrencyDollarIcon'] : DocumentTextIcon;
+                            const iconName = category?.icon || 'CurrencyDollarIcon';
+                            const CategoryIcon = iconMap[iconName] || DocumentTextIcon;
                             
                             return (
                                 <div key={item.category_name} className="bg-slate-800 p-3 rounded-lg">

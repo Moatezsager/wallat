@@ -126,7 +126,7 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ key, handleDatabaseChange, 
             debtInfoMap.set(debt.contact_id, current);
         });
 
-        const combinedData = (contactsData as Contact[]).map(contact => {
+        const combinedData = (contactsData as unknown as Contact[]).map(contact => {
             const debts = debtInfoMap.get(contact.id) || { forYou: 0, onYou: 0 };
             return {
                 ...contact,

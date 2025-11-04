@@ -145,7 +145,7 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
         else setContact(contactData);
 
         if (debtsError) console.error("Error fetching debts:", debtsError.message);
-        else setDebts(debtsData as Debt[]);
+        else setDebts(debtsData as unknown as Debt[]);
         
         setLoading(false);
     }, [contactId]);
@@ -182,7 +182,7 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
     };
     
     const handleTogglePaid = async (debt: Debt) => {
-        const { error } = await supabase.from('debts').update({ paid: !debt.paid }).eq('id', debt.id);
+        const { error } = await supabase.from('debts').update({ paid: !debt.paid, paid_at: !debt.paid ? new Date().toISOString() : null }).eq('id', debt.id);
          if (error) {
             console.error('Error updating debt status', error.message);
             alert('حدث خطأ أثناء تحديث حالة الدين.');
@@ -239,19 +239,27 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
                         ديون عليك ({onYou > 0 ? formatCurrency(onYou) : 0})
                     </button>
                     <button onClick={() => setActiveTab('for_you')} className={`w-1/2 py-3 text-center font-semibold transition-colors ${activeTab === 'for_you' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}>
-                         ديون لك ({forYou > 0 ? formatCurrency(forYou) : 0})
+                        ديون لك ({forYou > 0 ? formatCurrency(forYou) : 0})
                     </button>
                 </div>
 
                 {filteredDebts.length > 0 ? (
                     <div className="space-y-3">
-                         {filteredDebts.map(debt => {
+                        {filteredDebts.map(debt => {
                             const status = getDebtStatus(debt.due_date);
-                            const statusClasses = { overdue: 'border-r-4 border-red-500', due_soon: 'border-r-4 border-amber-500', ok: '' };
-                            const dateColorClass = { overdue: 'text-red-400', due_soon: 'text-amber-400', ok: 'text-slate-500' };
+                            const statusClasses = {
+                                overdue: 'border-r-4 border-red-500',
+                                due_soon: 'border-r-4 border-amber-500',
+                                ok: ''
+                            };
+                            const dateColorClass = {
+                                overdue: 'text-red-400',
+                                due_soon: 'text-amber-400',
+                                ok: 'text-slate-500'
+                            }
                             return (
-                                <div key={debt.id} className={`bg-slate-800 p-3 rounded-lg flex items-center transition-colors ${statusClasses[status]}`}>
-                                   <div className="flex-grow">
+                                <div key={debt.id} className={`bg-slate-800 rounded-lg flex items-center ${statusClasses[status]}`}>
+                                    <div className="flex-grow p-3">
                                         <p className={`font-extrabold text-xl ${debt.type === 'for_you' ? 'text-green-400' : 'text-red-400'}`}>
                                             {formatCurrency(debt.amount)}
                                         </p>
@@ -260,11 +268,9 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
                                             {status !== 'ok' && <ExclamationTriangleIcon className="w-3 h-3 inline-block ml-1" />}
                                             مستحق في: {new Date(debt.due_date).toLocaleDateString('ar-LY')}
                                         </p>}
-                                   </div>
-                                   <div className="flex gap-1 items-center">
-                                        <button onClick={() => handleTogglePaid(debt)} className="p-1 rounded-full text-slate-500 hover:text-green-400" title="تعليم كمدفوع">
-                                            <CheckCircleIcon className="w-6 h-6"/>
-                                        </button>
+                                    </div>
+                                    <div className="flex gap-1 items-center pr-3">
+                                        <button onClick={() => handleTogglePaid(debt)} className="text-slate-500 hover:text-green-400 p-1 rounded-full" title="تعليم كمدفوع"><CheckCircleIcon className="w-6 h-6"/></button>
                                         <button onClick={() => setModal({ type: 'edit', debt })} className="text-slate-400 hover:text-cyan-400 p-1"><PencilSquareIcon className="w-5 h-5"/></button>
                                         <button onClick={() => setModal({ type: 'delete', debt })} className="text-slate-400 hover:text-red-400 p-1"><TrashIcon className="w-5 h-5"/></button>
                                     </div>
@@ -273,35 +279,34 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
                         })}
                     </div>
                 ) : (
-                     <p className="text-center py-8 text-slate-500">لا توجد ديون حالية في هذا القسم.</p>
+                    <p className="text-center text-slate-500 py-6">لا توجد ديون حالية في هذا القسم.</p>
                 )}
             </div>
             
-            <button onClick={() => setModal({ type: 'add', debt: null })} className="fixed bottom-20 right-4 h-14 w-14 bg-cyan-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-cyan-500 transition-transform transform active:scale-90 z-10">
+            <button onClick={() => setModal({ type: 'add', debt: null })} className="fixed bottom-20 right-4 h-14 w-14 bg-cyan-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-cyan-500 transition-transform transform active:scale-90">
                 <PlusIcon className="w-8 h-8"/>
             </button>
             
             {(modal.type === 'add' || modal.type === 'edit') && (
-                 <Modal title={modal.type === 'add' ? `إضافة دين لـ ${contact.name}` : 'تعديل الدين'} onClose={() => setModal({ type: null, debt: null })}>
+                <Modal title={modal.type === 'add' ? 'إضافة دين جديد' : 'تعديل الدين'} onClose={() => setModal({ type: null, debt: null })}>
                     <DebtForm 
                         debt={modal.debt || undefined}
                         onSave={handleSave}
                         onCancel={() => setModal({ type: null, debt: null })}
                         contactId={contactId}
                     />
-                 </Modal>
+                </Modal>
             )}
 
             {modal.type === 'delete' && modal.debt && (
                  <Modal title="تأكيد الحذف" onClose={() => setModal({ type: null, debt: null })}>
-                     <p className="text-slate-300 mb-6">هل أنت متأكد من حذف هذا الدين؟</p>
+                    <p className="text-slate-300 mb-6">هل أنت متأكد من رغبتك في حذف هذا الدين؟</p>
                     <div className="flex justify-end gap-3">
                         <button onClick={() => setModal({ type: null, debt: null })} className="py-2 px-4 bg-slate-600 hover:bg-slate-500 rounded-md transition">إلغاء</button>
                         <button onClick={handleDelete} className="py-2 px-4 bg-red-600 hover:bg-red-500 rounded-md transition">تأكيد الحذف</button>
                     </div>
-                 </Modal>
+                </Modal>
             )}
-
         </div>
     );
 };

@@ -182,6 +182,10 @@ const AnalysisResultDisplay: React.FC<{ result: any }> = ({ result }) => {
         return <p className="text-center text-slate-400">{result}</p>;
     }
 
+    if (!result || typeof result !== 'object' || !result.summary || !result.positives || !result.improvements || !result.comparison || !result.actionPlan) {
+        return <p className="text-center text-slate-400">حدث خطأ في عرض التحليل. قد يكون الرد من النموذج غير مكتمل.</p>;
+    }
+
     const { summary, positives, improvements, comparison, actionPlan } = result;
     const comparisonItems = [
         { label: "الدخل", data: comparison.income, color: "text-green-400" },

@@ -381,7 +381,7 @@ const DebtsPage: React.FC<{ key: number, handleDatabaseChange: (description?: st
             else if (debtsData) setDebts(debtsData as unknown as Debt[]);
     
             if (contactsError) console.error('Error fetching contacts:', contactsError.message);
-            else if (contactsData) setContacts(contactsData as Contact[]);
+            else if (contactsData) setContacts(contactsData as unknown as Contact[]);
 
             if (accountsError) console.error('Error fetching accounts:', accountsError.message);
             else setAccounts(accountsData || []);

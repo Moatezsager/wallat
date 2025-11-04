@@ -121,7 +121,7 @@ const AccountsPage: React.FC<{ key: number, handleDatabaseChange: (description?:
         setLoading(true);
         const { data, error } = await supabase.from('accounts').select('*').order('name');
         if (error) console.error('Error fetching accounts:', error.message);
-        else setAccounts(data as Account[]);
+        else setAccounts(data as unknown as Account[]);
         setLoading(false);
     }, []);
 

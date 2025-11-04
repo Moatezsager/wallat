@@ -230,11 +230,12 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
 
             const [{ data: txData }, { data: accData }, { data: catData }] = await Promise.all([txPromise, accPromise, catPromise]);
             
-            // Fix: The `as unknown` part of the cast is unnecessary and can hide type issues.
-            // A direct cast to `Transaction[]` is sufficient and safer.
-            setAllTransactions((txData as Transaction[]) || []);
-            setAccounts(accData || []);
-            setCategories(catData || []);
+            // Fix: The error is likely caused by an incorrect type assertion. Using `as unknown as`
+            // is a safer way to cast data from an API, aligning with patterns in other components.
+            setAllTransactions((txData as unknown as Transaction[]) || []);
+            // Fix: Proactively cast other data fetches to prevent similar issues that would cause a runtime error.
+            setAccounts((accData as unknown as Account[]) || []);
+            setCategories((catData as unknown as Category[]) || []);
             setLoading(false);
         };
         fetchData();
@@ -379,7 +380,8 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
                             <h3 className="font-semibold text-slate-400 mb-2">{date}</h3>
                             <div className="space-y-2">
                                 {txs.map(tx => {
-                                    const CategoryIcon = tx.categories?.icon ? iconMap[tx.categories.icon] : null;
+                                    const categoryIconName = tx.categories?.icon;
+                                    const CategoryIcon = (categoryIconName && iconMap.hasOwnProperty(categoryIconName)) ? iconMap[categoryIconName] : null;
                                     return (
                                         <button key={tx.id} onClick={() => handleOpenDetailModal(tx)}
                                             className="w-full text-right bg-slate-800 p-3 rounded-lg flex justify-between items-center hover:bg-slate-700/50 transition-colors">
