@@ -2,94 +2,94 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>محفظتي الاكترونية</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
+        /* Global Modern Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+
+        /* Masonry for Notes */
         .masonry-grid {
             column-count: 2;
-            column-gap: 0.75rem; /* 12px gap for mobile */
+            column-gap: 1rem;
         }
         .masonry-item {
             display: inline-block;
             width: 100%;
-            margin-bottom: 0.75rem; /* 12px gap for mobile */
+            margin-bottom: 1rem;
             break-inside: avoid;
         }
         @media (min-width: 640px) {
-            .masonry-grid { column-gap: 1rem; }
-            .masonry-item { margin-bottom: 1rem; }
+            .masonry-grid { column-gap: 1.5rem; }
+            .masonry-item { margin-bottom: 1.5rem; }
         }
         @media (min-width: 768px) { .masonry-grid { column-count: 3; } }
         @media (min-width: 1024px) { .masonry-grid { column-count: 4; } }
 
-        /* Stop Firefox from adding a scrollbar to contentEditable */
-        [contenteditable] {
-          scrollbar-width: none;
-        }
-        [contenteditable]::-webkit-scrollbar {
-          display: none;
-        }
-        
-        /* Placeholder for contentEditable */
+        /* Content Editable tweaks */
+        [contenteditable] { scrollbar-width: none; }
+        [contenteditable]::-webkit-scrollbar { display: none; }
         [contenteditable]:empty:before {
             content: attr(data-placeholder);
-            color: #94a3b8; /* slate-400 */
+            color: #94a3b8;
             cursor: text;
-            pointer-events: none; /* Allow clicking through placeholder */
-        }
-        
-        /* Fade out long note cards */
-        .note-card-content {
-            max-height: 100px; /* More compact height for mobile */
-            overflow: hidden;
-            position: relative;
-            -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
-            mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
-        }
-        
-        @media (min-width: 640px) {
-            .note-card-content {
-                max-height: 150px; /* Taller for larger screens */
-                -webkit-mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
-                mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
-            }
+            pointer-events: none;
         }
 
-        /* Styles for rich text content inside notes */
-        .prose { color: #d1d5db; }
-        .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 { color: #fff; margin-bottom: 0.5em; }
-        .prose a { color: #67e8f9; }
-        .prose strong { color: #fff; }
-        .prose blockquote {
-            border-right: 0.25em solid #52525b;
-            padding-right: 1em;
-            margin-right: 0;
-            color: #a1a1aa;
+        /* Note fade effect */
+        .note-card-content {
+            max-height: 120px;
+            overflow: hidden;
+            position: relative;
+            -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+            mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
         }
-        .prose ul, .prose ol { padding-right: 1.5em; }
-        .prose p { margin: 0.5em 0; }
-        .prose table {
-            width: 100%;
-            margin-top: 1em;
-            margin-bottom: 1em;
-            border-collapse: collapse;
+
+        /* Glassmorphism Utilities */
+        .glass {
+            background: rgba(30, 41, 59, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
         }
-        .prose th, .prose td {
-            border: 1px solid #475569; /* slate-600 */
-            padding: 0.5em 1em;
-            text-align: right;
+        
+        .glass-strong {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
-        .prose th {
-            background-color: #334155; /* slate-700 */
-            font-weight: bold;
-            color: #e2e8f0; /* slate-200 */
+
+        .glass-card {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.4) 100%);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.03);
         }
-        .prose tr:nth-child(even) {
-            background-color: #1e293b; /* slate-800 */
+
+        /* Gradient Text */
+        .text-gradient {
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-image: linear-gradient(to right, #22d3ee, #3b82f6);
         }
     </style>
     <script>
@@ -99,10 +99,18 @@
               fontFamily: {
                 sans: ['Cairo', 'sans-serif'],
               },
+              colors: {
+                  slate: {
+                      850: '#172033', 
+                      900: '#0f172a',
+                      950: '#020617',
+                  }
+              },
               animation: {
-                'fade-in': 'fadeIn 0.2s ease-out forwards',
-                'fade-in-fast': 'fadeIn 0.1s ease-out forwards',
-                'slide-up': 'slideUp 0.2s ease-out forwards',
+                'fade-in': 'fadeIn 0.4s ease-out forwards',
+                'slide-up': 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                'float': 'float 6s ease-in-out infinite',
               },
               keyframes: {
                 fadeIn: {
@@ -112,6 +120,10 @@
                 slideUp: {
                     '0%': { transform: 'translateY(20px)', opacity: 0 },
                     '100%': { transform: 'translateY(0)', opacity: 1 },
+                },
+                float: {
+                    '0%, 100%': { transform: 'translateY(0)' },
+                    '50%': { transform: 'translateY(-10px)' },
                 }
               }
             }
@@ -132,10 +144,8 @@
 }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 </head>
-<body class="bg-slate-900">
+<body class="bg-slate-950 text-slate-200 selection:bg-cyan-500/30 selection:text-cyan-100" style="background-image: radial-gradient(circle at 50% -20%, #1e293b 0%, #0f172a 40%, #020617 80%); min-height: 100vh; background-attachment: fixed;">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
 </body>

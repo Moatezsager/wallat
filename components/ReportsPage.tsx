@@ -4,11 +4,9 @@ import { Transaction, Debt, Category } from '../types';
 import type { Chart, ChartConfiguration } from 'chart.js/auto';
 import { 
     SparklesIcon, ExclamationTriangleIcon, CheckCircleIcon, XMarkIcon, 
-    ArrowTrendingUp, ArrowTrendingDown, KeyIcon 
+    ArrowTrendingUp, ArrowTrendingDown
 } from './icons';
-// Fix: Import GoogleGenAI and Type for Gemini API usage.
 import { GoogleGenAI, Type } from "@google/genai";
-
 
 type Period = 'this_month' | 'last_month' | 'this_year';
 type ActiveTab = 'expense' | 'income' | 'debt';
@@ -51,7 +49,6 @@ const getDatesForPeriod = (period: Period) => {
     return { startDate, endDate, prevStartDate, prevEndDate };
 };
 
-
 const DoughnutChart: React.FC<{ data: number[], colors: string[], labels: string[] }> = ({ data, colors, labels }) => {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const chartRef = useRef<Chart | null>(null);
@@ -70,19 +67,22 @@ const DoughnutChart: React.FC<{ data: number[], colors: string[], labels: string
                 datasets: [{
                     data: data,
                     backgroundColor: colors,
-                    borderColor: '#1e293b', 
-                    borderWidth: 2,
-                    hoverOffset: 8,
+                    borderColor: 'rgba(30, 41, 59, 1)', 
+                    borderWidth: 0,
+                    hoverOffset: 10,
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '60%',
+                cutout: '75%',
                 plugins: {
                     legend: { display: false },
                     tooltip: {
                         rtl: true,
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        padding: 12,
+                        cornerRadius: 12,
                         bodyFont: { family: 'Cairo' },
                         titleFont: { family: 'Cairo' },
                         callbacks: {
@@ -108,7 +108,6 @@ const DoughnutChart: React.FC<{ data: number[], colors: string[], labels: string
     return <div className="h-full w-full"><canvas ref={canvasRef}></canvas></div>;
 };
 
-
 const ReportView: React.FC<{ 
     title: string;
     data: { name: string; color: string | null; amount: number; percentage: number }[];
@@ -119,33 +118,42 @@ const ReportView: React.FC<{
     const chartColors = data.map(d => d.color || '#334155');
 
     return (
-        <div className="bg-slate-800 p-4 rounded-xl shadow-lg">
-            <h3 className="text-xl font-bold mb-4">{title}</h3>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-center">
-                <div className="md:col-span-2 h-56 w-56 mx-auto">
+        <div className="glass-card p-6 rounded-3xl shadow-2xl border border-white/5">
+            <h3 className="text-xl font-bold mb-6 text-white">{title}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-8 items-center">
+                <div className="md:col-span-2 h-64 w-64 mx-auto relative">
                     {total > 0 ? (
-                        <DoughnutChart data={chartData} labels={chartLabels} colors={chartColors} />
+                        <>
+                           <DoughnutChart data={chartData} labels={chartLabels} colors={chartColors} />
+                           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                               <span className="text-sm text-slate-400">الإجمالي</span>
+                               <span className="text-xl font-bold text-white">{formatCurrency(total)}</span>
+                           </div>
+                        </>
                     ) : (
-                         <div className="flex items-center justify-center h-full w-full bg-slate-700/50 rounded-full text-slate-500">
+                         <div className="flex items-center justify-center h-full w-full bg-slate-800/30 rounded-full text-slate-500 border-2 border-dashed border-slate-700">
                              لا توجد بيانات
                          </div>
                     )}
                 </div>
-                <div className="md:col-span-3 space-y-3">
+                <div className="md:col-span-3 space-y-4">
                     {data.length > 0 ? data.map(item => (
-                        <div key={item.name}>
-                            <div className="flex justify-between items-center text-sm mb-1">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color || '#334155' }}></div>
-                                    <span>{item.name}</span>
+                        <div key={item.name} className="group">
+                            <div className="flex justify-between items-center text-sm mb-2">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: item.color || '#334155' }}></div>
+                                    <span className="font-medium text-slate-200">{item.name}</span>
                                 </div>
-                                <span className="font-semibold">{formatCurrency(item.amount)}</span>
+                                <div className="text-right">
+                                    <span className="font-bold text-white block">{formatCurrency(item.amount)}</span>
+                                    <span className="text-xs text-slate-500">{item.percentage.toFixed(1)}%</span>
+                                </div>
                             </div>
-                            <div className="w-full bg-slate-700 rounded-full h-1.5">
-                                <div className="h-1.5 rounded-full" style={{ width: `${item.percentage}%`, backgroundColor: item.color || '#334155' }}></div>
+                            <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                                <div className="h-2 rounded-full transition-all duration-1000 ease-out" style={{ width: `${item.percentage}%`, backgroundColor: item.color || '#334155' }}></div>
                             </div>
                         </div>
-                    )) : <p className="text-slate-500 text-center">لا توجد بيانات لهذه الفترة.</p>}
+                    )) : <p className="text-slate-500 text-center py-10">لا توجد بيانات لهذه الفترة.</p>}
                 </div>
             </div>
         </div>
@@ -160,22 +168,21 @@ const DebtSummary: React.FC<{ debts: Debt[] }> = ({ debts }) => {
     }, [debts]);
 
     return (
-        <div className="bg-slate-800 p-4 rounded-xl shadow-lg">
-            <h3 className="text-xl font-bold mb-4">ملخص الديون الحالية</h3>
-            <div className="grid grid-cols-2 gap-4 text-center">
-                <div>
-                    <p className="text-slate-400">ديون لك</p>
-                    <p className="text-2xl font-bold text-green-400">{formatCurrency(summary.forYou)}</p>
+        <div className="glass-card p-6 rounded-3xl shadow-2xl border border-white/5">
+            <h3 className="text-xl font-bold mb-6 text-white">ملخص الديون الحالية</h3>
+            <div className="grid grid-cols-2 gap-6 text-center">
+                <div className="bg-slate-800/50 p-6 rounded-2xl border border-white/5">
+                    <p className="text-slate-400 mb-2 font-medium">ديون لك</p>
+                    <p className="text-3xl font-extrabold text-emerald-400 drop-shadow-md">{formatCurrency(summary.forYou)}</p>
                 </div>
-                <div>
-                    <p className="text-slate-400">ديون عليك</p>
-                    <p className="text-2xl font-bold text-red-400">{formatCurrency(summary.onYou)}</p>
+                <div className="bg-slate-800/50 p-6 rounded-2xl border border-white/5">
+                    <p className="text-slate-400 mb-2 font-medium">ديون عليك</p>
+                    <p className="text-3xl font-extrabold text-rose-400 drop-shadow-md">{formatCurrency(summary.onYou)}</p>
                 </div>
             </div>
         </div>
     );
 };
-
 
 const AnalysisResultDisplay: React.FC<{ result: any }> = ({ result }) => {
     if (typeof result === 'string') {
@@ -183,69 +190,69 @@ const AnalysisResultDisplay: React.FC<{ result: any }> = ({ result }) => {
     }
 
     if (!result || typeof result !== 'object' || !result.summary || !result.positives || !result.improvements || !result.comparison || !result.actionPlan) {
-        return <p className="text-center text-slate-400">حدث خطأ في عرض التحليل. قد يكون الرد من النموذج غير مكتمل.</p>;
+        return <p className="text-center text-slate-400">حدث خطأ في عرض التحليل.</p>;
     }
 
     const { summary, positives, improvements, comparison, actionPlan } = result;
     const comparisonItems = [
-        { label: "الدخل", data: comparison.income, color: "text-green-400" },
-        { label: "المصاريف", data: comparison.expense, color: "text-red-400" },
+        { label: "الدخل", data: comparison.income, color: "text-emerald-400" },
+        { label: "المصاريف", data: comparison.expense, color: "text-rose-400" },
         { label: "الصافي", data: comparison.savings, color: "text-cyan-400" },
     ];
 
     return (
         <div className="space-y-6">
-            <div className="text-center bg-slate-900/50 p-4 rounded-lg">
-                <h3 className="text-xl font-bold text-cyan-300 mb-2">🇱🇾 ملخص وضعك المالي</h3>
-                <p className="text-slate-300 leading-relaxed">{summary}</p>
+            <div className="text-center bg-gradient-to-br from-slate-900 to-slate-800 p-6 rounded-2xl border border-white/10 shadow-lg">
+                <h3 className="text-xl font-bold text-cyan-300 mb-3">🇱🇾 ملخص وضعك المالي</h3>
+                <p className="text-slate-200 leading-relaxed text-lg">{summary}</p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-4">
-                <div className="bg-slate-900/50 p-4 rounded-lg space-y-3">
-                    <h4 className="font-bold text-lg text-green-400 flex items-center gap-2"><CheckCircleIcon className="w-6 h-6"/> نقاط القوة</h4>
+                <div className="bg-slate-900/60 p-5 rounded-2xl border border-white/5 space-y-4">
+                    <h4 className="font-bold text-lg text-emerald-400 flex items-center gap-2 border-b border-white/5 pb-2"><CheckCircleIcon className="w-6 h-6"/> نقاط القوة</h4>
                     {positives.map((item: any, i: number) => (
                         <div key={i} className="text-sm">
-                            <p className="font-semibold text-slate-200">{item.title}</p>
+                            <p className="font-bold text-white mb-1">{item.title}</p>
                             <p className="text-slate-400">{item.description}</p>
                         </div>
                     ))}
                 </div>
-                <div className="bg-slate-900/50 p-4 rounded-lg space-y-3">
-                    <h4 className="font-bold text-lg text-amber-400 flex items-center gap-2"><ExclamationTriangleIcon className="w-6 h-6"/> نقاط للتحسين</h4>
+                <div className="bg-slate-900/60 p-5 rounded-2xl border border-white/5 space-y-4">
+                    <h4 className="font-bold text-lg text-amber-400 flex items-center gap-2 border-b border-white/5 pb-2"><ExclamationTriangleIcon className="w-6 h-6"/> نقاط للتحسين</h4>
                     {improvements.map((item: any, i: number) => (
                          <div key={i} className="text-sm">
-                            <p className="font-semibold text-slate-200">{item.title}</p>
+                            <p className="font-bold text-white mb-1">{item.title}</p>
                             <p className="text-slate-400">{item.description}</p>
                         </div>
                     ))}
                 </div>
             </div>
 
-             <div className="bg-slate-900/50 p-4 rounded-lg">
-                <h4 className="font-bold text-lg text-cyan-400 mb-3">📊 مقارنة بالفترة الماضية</h4>
-                <div className="grid grid-cols-3 gap-4 text-center">
+             <div className="bg-slate-900/60 p-5 rounded-2xl border border-white/5">
+                <h4 className="font-bold text-lg text-cyan-400 mb-4 text-center">📊 مقارنة بالفترة الماضية</h4>
+                <div className="grid grid-cols-3 gap-4 text-center divide-x divide-x-reverse divide-white/10">
                     {comparisonItems.map(item => (
-                        <div key={item.label}>
-                            <p className="text-sm text-slate-400">{item.label}</p>
-                            <div className={`flex items-center justify-center gap-1 font-bold text-lg ${item.color}`}>
-                                {item.data.trend === 'up' ? <ArrowTrendingUp className="w-5 h-5"/> : <ArrowTrendingDown className="w-5 h-5"/>}
-                                <span>{formatCurrency(Math.abs(item.data.value))}</span>
+                        <div key={item.label} className="px-2">
+                            <p className="text-sm text-slate-400 mb-1">{item.label}</p>
+                            <div className={`flex flex-col items-center justify-center font-bold text-lg ${item.color}`}>
+                                <span className="text-xl">{formatCurrency(Math.abs(item.data.value))}</span>
+                                {item.data.trend === 'up' ? <ArrowTrendingUp className="w-5 h-5 mt-1"/> : <ArrowTrendingDown className="w-5 h-5 mt-1"/>}
                             </div>
                         </div>
                     ))}
                 </div>
             </div>
 
-             <div className="bg-slate-900/50 p-4 rounded-lg space-y-4">
-                <h4 className="font-bold text-lg text-cyan-400">✨ خطة مقترحة ليك</h4>
+             <div className="bg-gradient-to-br from-cyan-900/30 to-blue-900/30 p-6 rounded-2xl border border-cyan-500/20 space-y-4">
+                <h4 className="font-bold text-lg text-cyan-300 flex items-center gap-2"><SparklesIcon className="w-5 h-5"/> خطة مقترحة ليك</h4>
                 {actionPlan.map((item: any, i: number) => (
-                    <div key={i} className="flex items-start gap-3">
-                        <div className="bg-cyan-900/50 text-cyan-300 rounded-full h-8 w-8 flex-shrink-0 flex items-center justify-center mt-1">
-                            <KeyIcon className="w-5 h-5" />
+                    <div key={i} className="flex items-start gap-4 bg-slate-900/40 p-3 rounded-xl">
+                        <div className="bg-cyan-500 text-slate-900 rounded-full h-8 w-8 flex-shrink-0 flex items-center justify-center font-bold shadow-lg shadow-cyan-500/30">
+                            {i + 1}
                         </div>
                         <div>
-                            <p className="font-bold text-slate-200">{item.title}</p>
-                            <p className="text-sm text-slate-400 leading-relaxed">{item.description}</p>
+                            <p className="font-bold text-white mb-1">{item.title}</p>
+                            <p className="text-sm text-slate-300 leading-relaxed">{item.description}</p>
                         </div>
                     </div>
                 ))}
@@ -254,14 +261,12 @@ const AnalysisResultDisplay: React.FC<{ result: any }> = ({ result }) => {
     );
 };
 
-
 const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
     const [period, setPeriod] = useState<Period>('this_month');
     const [activeTab, setActiveTab] = useState<ActiveTab>('expense');
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [previousTransactions, setPreviousTransactions] = useState<any[]>([]);
     const [debts, setDebts] = useState<Debt[]>([]);
-    const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
     
     // AI Analysis State
@@ -286,14 +291,12 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
                 .in('type', ['income', 'expense']);
             
             const debtPromise = supabase.from('debts').select('*');
-            const catPromise = supabase.from('categories').select('*');
 
             const [
                 { data: txData, error: txError },
                 { data: prevTxData, error: prevTxError },
-                { data: debtData, error: debtError },
-                { data: catData, error: catError }
-            ] = await Promise.all([txPromise, prevTxPromise, debtPromise, catPromise]);
+                { data: debtData, error: debtError }
+            ] = await Promise.all([txPromise, prevTxPromise, debtPromise]);
 
             if (txError) console.error("Error fetching transactions:", txError.message);
             else setTransactions((txData as any) || []);
@@ -302,10 +305,7 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
             else setPreviousTransactions(prevTxData || []);
 
             if (debtError) console.error("Error fetching debts:", debtError.message);
-            else setDebts(debtData || []);
-            
-            if (catError) console.error("Error fetching categories:", catError.message);
-            else setCategories(catData || []);
+            else setDebts(debtData as unknown as Debt[] || []);
 
             setLoading(false);
         };
@@ -356,11 +356,9 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
             return;
         }
 
-        // Sort transactions to ensure we're analyzing the most recent data.
         const sortedCurrentTransactions = [...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         const sortedPreviousTransactions = [...previousTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         
-        // Cap the number of transactions to avoid overly large API requests, especially on mobile.
         const simplifiedCurrentData = sortedCurrentTransactions
             .slice(0, 150)
             .filter(tx => tx.type !== 'transfer')
@@ -419,16 +417,8 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
                 { "title": "عنوان الخطوة الثالثة", "description": "شرح واضح ومبسط للخطوة الثالثة." }
               ]
             }
-
-            **إرشادات هامة:**
-            - قدم 2 نقاط قوة و 2 نقاط للتحسين.
-            - قدم خطة عمل من 3 خطوات واضحة وقابلة للتنفيذ.
-            - كن دقيقاً في تحليلك، وفرّق بين المصاريف الأساسية والكمالية.
-            - إذا كانت المصاريف أعلى من الدخل، اجعلها نقطة تحسين رئيسية.
-            - حافظ على اللهجة الليبية والأسلوب الإيجابي والمشجع.
         `;
 
-        // Fix: Replace OpenRouter API call with Google Gemini API call
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -440,10 +430,7 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
                         type: Type.ARRAY,
                         items: {
                             type: Type.OBJECT,
-                            properties: {
-                                title: { type: Type.STRING },
-                                description: { type: Type.STRING }
-                            },
+                            properties: { title: { type: Type.STRING }, description: { type: Type.STRING } },
                             required: ['title', 'description']
                         }
                     },
@@ -451,40 +438,16 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
                         type: Type.ARRAY,
                         items: {
                             type: Type.OBJECT,
-                            properties: {
-                                title: { type: Type.STRING },
-                                description: { type: Type.STRING }
-                            },
+                            properties: { title: { type: Type.STRING }, description: { type: Type.STRING } },
                             required: ['title', 'description']
                         }
                     },
                     comparison: {
                         type: Type.OBJECT,
                         properties: {
-                            income: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    value: { type: Type.NUMBER },
-                                    trend: { type: Type.STRING }
-                                },
-                                required: ['value', 'trend']
-                            },
-                            expense: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    value: { type: Type.NUMBER },
-                                    trend: { type: Type.STRING }
-                                },
-                                required: ['value', 'trend']
-                            },
-                            savings: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    value: { type: Type.NUMBER },
-                                    trend: { type: Type.STRING }
-                                },
-                                required: ['value', 'trend']
-                            }
+                            income: { type: Type.OBJECT, properties: { value: { type: Type.NUMBER }, trend: { type: Type.STRING } }, required: ['value', 'trend'] },
+                            expense: { type: Type.OBJECT, properties: { value: { type: Type.NUMBER }, trend: { type: Type.STRING } }, required: ['value', 'trend'] },
+                            savings: { type: Type.OBJECT, properties: { value: { type: Type.NUMBER }, trend: { type: Type.STRING } }, required: ['value', 'trend'] }
                         },
                         required: ['income', 'expense', 'savings']
                     },
@@ -492,10 +455,7 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
                         type: Type.ARRAY,
                         items: {
                             type: Type.OBJECT,
-                            properties: {
-                                title: { type: Type.STRING },
-                                description: { type: Type.STRING }
-                            },
+                            properties: { title: { type: Type.STRING }, description: { type: Type.STRING } },
                             required: ['title', 'description']
                         }
                     }
@@ -504,7 +464,7 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
             };
 
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-pro', // Using a more capable model for structured JSON output
+                model: 'gemini-2.5-flash',
                 contents: prompt,
                 config: {
                     responseMimeType: "application/json",
@@ -531,92 +491,77 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
     };
 
     return (
-        <div className="space-y-6">
-            <div className="flex bg-slate-800 rounded-lg p-1 text-sm shadow">
+        <div className="space-y-6 pb-20">
+            <div className="glass-card p-1 rounded-xl flex shadow-lg">
                 {(['this_month', 'last_month', 'this_year'] as Period[]).map(p => (
-                    <button key={p} onClick={() => setPeriod(p)} className={`w-full py-2 px-1 rounded-md transition-colors font-semibold ${period === p ? 'bg-slate-700 text-cyan-400' : 'text-slate-300 hover:bg-slate-700/50'}`}>
+                    <button key={p} onClick={() => setPeriod(p)} className={`w-full py-2.5 rounded-lg text-sm font-bold transition-all duration-300 ${period === p ? 'bg-slate-800 text-cyan-400 shadow-inner' : 'text-slate-400 hover:text-white'}`}>
                         {{ 'this_month': 'هذا الشهر', 'last_month': 'الشهر الماضي', 'this_year': 'هذه السنة' }[p]}
                     </button>
                 ))}
             </div>
 
-            <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="bg-slate-800 p-3 rounded-lg">
-                    <p className="text-sm text-green-400">إجمالي الدخل</p>
-                    <p className="font-bold text-lg">{formatCurrency(reportData.totalIncome)}</p>
+            <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="glass-card p-4 rounded-2xl border border-white/5">
+                    <p className="text-xs text-emerald-400 font-bold mb-1">الدخل</p>
+                    <p className="font-extrabold text-lg text-white tracking-tight">{formatCurrency(reportData.totalIncome)}</p>
                 </div>
-                <div className="bg-slate-800 p-3 rounded-lg">
-                    <p className="text-sm text-red-400">إجمالي المصروف</p>
-                    <p className="font-bold text-lg">{formatCurrency(reportData.totalExpense)}</p>
+                <div className="glass-card p-4 rounded-2xl border border-white/5">
+                    <p className="text-xs text-rose-400 font-bold mb-1">المصروف</p>
+                    <p className="font-extrabold text-lg text-white tracking-tight">{formatCurrency(reportData.totalExpense)}</p>
                 </div>
-                <div className="bg-slate-800 p-3 rounded-lg">
-                    <p className="text-sm text-slate-400">الصافي</p>
-                    <p className="font-bold text-lg">{formatCurrency(reportData.totalIncome - reportData.totalExpense)}</p>
+                <div className="glass-card p-4 rounded-2xl border border-white/5">
+                    <p className="text-xs text-cyan-400 font-bold mb-1">الصافي</p>
+                    <p className="font-extrabold text-lg text-white tracking-tight">{formatCurrency(reportData.totalIncome - reportData.totalExpense)}</p>
                 </div>
             </div>
 
-            <div className="flex border-b border-slate-700">
+            <div className="flex border-b border-slate-800">
                 {(['expense', 'income', 'debt'] as ActiveTab[]).map(tab => (
-                    <button key={tab} onClick={() => setActiveTab(tab)} className={`w-1/2 py-3 text-center font-semibold transition-colors ${activeTab === tab ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}>
-                        {{ 'expense': 'المصروفات', 'income': 'الإيرادات', 'debt': 'الديون' }[tab]}
+                    <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-3 text-center font-bold transition-colors ${activeTab === tab ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}>
+                        {{ 'expense': 'المصاريف', 'income': 'الإيرادات', 'debt': 'الديون' }[tab]}
                     </button>
                 ))}
             </div>
 
-            {loading ? <div className="h-64 bg-slate-800 rounded-xl animate-pulse"></div> : (
-                <>
-                    {activeTab === 'expense' && <ReportView title="تحليل المصروفات" data={reportData.expenses} total={reportData.totalExpense} />}
-                    {activeTab === 'income' && <ReportView title="تحليل الإيرادات" data={reportData.incomes} total={reportData.totalIncome} />}
-                    {activeTab === 'debt' && <DebtSummary debts={debts} />}
-                </>
-            )}
+            <div className="pt-6">
+                {activeTab === 'expense' && <ReportView title="توزيع المصاريف" data={reportData.expenses} total={reportData.totalExpense} />}
+                {activeTab === 'income' && <ReportView title="مصادر الدخل" data={reportData.incomes} total={reportData.totalIncome} />}
+                {activeTab === 'debt' && <DebtSummary debts={debts} />}
+            </div>
             
-            <button 
-                onClick={() => { setAnalysisModalOpen(true); handleAnalysis(); }}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-slate-800 hover:bg-slate-700 text-cyan-400 font-bold rounded-lg transition-colors border border-slate-700"
-            >
-                <SparklesIcon className="w-6 h-6" />
-                تحليل مالي بالذكاء الاصطناعي
-            </button>
-            
-            {isAnalysisModalOpen && (
-                 <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-                    <div className="bg-slate-800 rounded-xl p-1 w-full max-w-2xl border border-slate-700 shadow-xl animate-slide-up flex flex-col">
-                        <div className="flex justify-between items-center p-4">
-                            <h3 className="text-xl font-bold flex items-center gap-2 text-cyan-300"><SparklesIcon className="w-6 h-6" /> التحليل المالي الذكي</h3>
-                            <button onClick={() => setAnalysisModalOpen(false)} className="text-slate-400 hover:text-white transition-colors"><XMarkIcon className="w-6 h-6" /></button>
-                        </div>
-                        <div className="max-h-[70vh] overflow-y-auto p-4 bg-slate-900/50 rounded-b-lg">
-                            {analysisLoading ? (
-                                <div className="space-y-6 animate-pulse p-4">
-                                     <div className="space-y-2">
-                                        <div className="h-5 w-1/3 bg-slate-700 rounded"></div>
-                                        <div className="h-4 w-full bg-slate-700 rounded"></div>
-                                        <div className="h-4 w-5/6 bg-slate-700 rounded"></div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <div className="h-5 w-1/2 bg-slate-700 rounded"></div>
-                                            <div className="h-4 w-full bg-slate-700 rounded"></div>
-                                        </div>
-                                         <div className="space-y-2">
-                                            <div className="h-5 w-1/2 bg-slate-700 rounded"></div>
-                                            <div className="h-4 w-full bg-slate-700 rounded"></div>
-                                        </div>
-                                    </div>
-                                     <div className="space-y-2">
-                                        <div className="h-5 w-1/3 bg-slate-700 rounded"></div>
-                                        <div className="h-8 w-full bg-slate-700 rounded"></div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <AnalysisResultDisplay result={analysisResult} />
-                            )}
-                        </div>
-                    </div>
-                 </div>
-            )}
+            <div className="mt-8 text-center">
+                 <button onClick={() => { setAnalysisModalOpen(true); if(!analysisResult) handleAnalysis(); }} className="w-full md:w-auto py-4 px-8 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-2xl font-bold shadow-xl shadow-fuchsia-900/20 transition-transform hover:scale-105 flex items-center justify-center gap-3 mx-auto">
+                    <SparklesIcon className="w-6 h-6 animate-pulse" />
+                    <span>طلب تحليل ذكي (AI)</span>
+                </button>
+            </div>
 
+            {isAnalysisModalOpen && (
+                <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+                    <div className="bg-slate-900 rounded-3xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-white/10 shadow-2xl animate-slide-up relative custom-scrollbar">
+                         <button onClick={() => setAnalysisModalOpen(false)} className="absolute top-4 left-4 p-2 rounded-full bg-slate-800 hover:bg-slate-700 transition-colors z-10">
+                            <XMarkIcon className="w-6 h-6 text-slate-400" />
+                        </button>
+                        
+                        <div className="text-center mb-8">
+                            <div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-fuchsia-500/20">
+                                <SparklesIcon className="w-8 h-8 text-white" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-white">المستشار المالي الذكي</h2>
+                            <p className="text-slate-400 mt-2">تحليل فوري لبياناتك المالية باستخدام الذكاء الاصطناعي</p>
+                        </div>
+
+                        {analysisLoading ? (
+                            <div className="py-12 text-center space-y-4">
+                                <div className="w-16 h-16 border-4 border-fuchsia-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                                <p className="text-slate-300 animate-pulse">جاري تحليل بياناتك المالية...</p>
+                            </div>
+                        ) : (
+                             <AnalysisResultDisplay result={analysisResult} />
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

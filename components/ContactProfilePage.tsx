@@ -283,7 +283,10 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
                 )}
             </div>
             
-            <button onClick={() => setModal({ type: 'add', debt: null })} className="fixed bottom-20 right-4 h-14 w-14 bg-cyan-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-cyan-500 transition-transform transform active:scale-90">
+            <button 
+                onClick={() => setModal({ type: 'add', debt: null })} 
+                className="fixed bottom-24 md:bottom-10 left-6 h-16 w-16 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-[24px] shadow-2xl shadow-cyan-500/30 flex items-center justify-center hover:scale-110 transition-all z-30 border border-white/20"
+            >
                 <PlusIcon className="w-8 h-8"/>
             </button>
             

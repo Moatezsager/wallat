@@ -7,13 +7,13 @@ import AccountsPage from './components/AccountsPage';
 import TransactionsPage from './components/TransactionsPage';
 import DebtsPage from './components/DebtsPage';
 import ContactsPage from './components/ContactsPage';
-import ContactProfilePage from './components/ContactProfilePage'; // Import the new page
+import ContactProfilePage from './components/ContactProfilePage';
 import CategoriesPage from './components/CategoriesPage';
 import ReportsPage from './components/ReportsPage';
-// Fix: Correctly import the NotesPage component.
 import NotesPage from './components/NotesPage';
 import BottomNav from './components/BottomNav';
 import { supabase } from './lib/supabase';
+import { WalletIcon } from './components/icons';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -28,7 +28,6 @@ function App() {
   const [activeContactName, setActiveContactName] = useState<string>('');
   
   useEffect(() => {
-    // Check local storage on initial load for persistent auth
     if (localStorage.getItem('app_authenticated') === 'true') {
       setIsAuthenticated(true);
     }
@@ -41,7 +40,7 @@ function App() {
       setIsAuthenticated(true);
       setAuthError('');
     } else {
-      setAuthError('كلمة المرور غير صحيحة. حاول مرة أخرى.');
+      setAuthError('كلمة المرور غير صحيحة');
       setPasswordInput('');
     }
   };
@@ -50,13 +49,11 @@ function App() {
   const handleDatabaseChange = useCallback(async (description?: string) => {
     if (description) {
       const now = new Date();
-      // Format date as YYYY-MM-DD
       const activity_date = now.toISOString().split('T')[0];
-      // Format time as HH:MM:SS
       const activity_time = now.toTimeString().split(' ')[0];
 
       const { error } = await supabase.from('activities').upsert({
-        id: 1, // Always update the first record as requested
+        id: 1,
         activity_date,
         activity_time,
         description,
@@ -66,7 +63,6 @@ function App() {
         console.error("Error logging activity:", error.message);
       }
     }
-    // This key change is what triggers re-fetching in child components
     setKey(prevKey => prevKey + 1);
   }, []);
 
@@ -103,7 +99,6 @@ function App() {
     };
 
     fetchAppData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, isAuthenticated]);
 
   const handleSelectContact = async (contactId: string) => {
@@ -112,7 +107,7 @@ function App() {
         const { data, error } = await supabase.from('contacts').select('name').eq('id', contactId).single();
         if (error) throw error;
         setActiveContactName(data?.name || 'ملف شخصي');
-        setActivePage('contacts'); // Ensure the page is switched
+        setActivePage('contacts');
     } catch(e) {
         console.error("Error fetching contact name", e);
         setActiveContactName('ملف شخصي');
@@ -138,46 +133,46 @@ function App() {
     }
 
     switch (activePage) {
-      case 'home':
-        return <HomePage key={key} handleDatabaseChange={handleDatabaseChange} setActivePage={setActivePage} />;
-      case 'accounts':
-        return <AccountsPage key={key} handleDatabaseChange={handleDatabaseChange} />;
-      case 'transactions':
-        return <TransactionsPage key={key} handleDatabaseChange={handleDatabaseChange} />;
-      case 'debts':
-        return <DebtsPage key={key} handleDatabaseChange={handleDatabaseChange} onSelectContact={handleSelectContact} />;
-      case 'contacts':
-        return <ContactsPage key={key} handleDatabaseChange={handleDatabaseChange} onSelectContact={handleSelectContact} />;
-      case 'categories':
-        return <CategoriesPage key={key} handleDatabaseChange={handleDatabaseChange} />;
-      case 'reports':
-        return <ReportsPage key={key} />;
-      case 'notes':
-        return <NotesPage key={key} handleDatabaseChange={handleDatabaseChange} />;
-      default:
-        return <HomePage key={key} handleDatabaseChange={handleDatabaseChange} setActivePage={setActivePage}/>;
+      case 'home': return <HomePage key={key} handleDatabaseChange={handleDatabaseChange} setActivePage={setActivePage} />;
+      case 'accounts': return <AccountsPage key={key} handleDatabaseChange={handleDatabaseChange} />;
+      case 'transactions': return <TransactionsPage key={key} handleDatabaseChange={handleDatabaseChange} />;
+      case 'debts': return <DebtsPage key={key} handleDatabaseChange={handleDatabaseChange} onSelectContact={handleSelectContact} />;
+      case 'contacts': return <ContactsPage key={key} handleDatabaseChange={handleDatabaseChange} onSelectContact={handleSelectContact} />;
+      case 'categories': return <CategoriesPage key={key} handleDatabaseChange={handleDatabaseChange} />;
+      case 'reports': return <ReportsPage key={key} />;
+      case 'notes': return <NotesPage key={key} handleDatabaseChange={handleDatabaseChange} />;
+      default: return <HomePage key={key} handleDatabaseChange={handleDatabaseChange} setActivePage={setActivePage}/>;
     }
   };
   
   if (!isAuthenticated) {
     return (
-      <div className="bg-slate-900 text-white min-h-screen font-sans flex items-center justify-center p-4" dir="rtl">
-        <div className="w-full max-w-sm bg-slate-800 p-8 rounded-xl shadow-lg border border-slate-700 text-center animate-fade-in">
-          <h1 className="text-2xl font-bold text-cyan-400 mb-2">محفظتي الاكترونية</h1>
-          <p className="text-slate-400 mb-6">الرجاء إدخال كلمة المرور للوصول.</p>
-          <form onSubmit={handlePasswordSubmit}>
-            <input
-              type="password"
-              value={passwordInput}
-              onChange={(e) => setPasswordInput(e.target.value)}
-              className="w-full bg-slate-700 border border-slate-600 rounded-md p-3 text-white text-center text-lg tracking-widest focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              placeholder="••••"
-              autoFocus
-            />
-            {authError && <p className="text-red-400 text-sm mt-3">{authError}</p>}
+      <div className="min-h-screen font-sans flex items-center justify-center p-4 relative overflow-hidden" dir="rtl">
+         {/* Ambient background elements */}
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/20 rounded-full blur-[100px] animate-pulse-slow"></div>
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[100px] animate-pulse-slow" style={{animationDelay: '2s'}}></div>
+
+        <div className="glass-card w-full max-w-sm p-8 rounded-3xl shadow-2xl text-center animate-slide-up relative z-10">
+          <div className="w-20 h-20 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-2xl mx-auto mb-8 flex items-center justify-center shadow-lg shadow-cyan-500/30 rotate-3 hover:rotate-0 transition-transform duration-500">
+             <WalletIcon className="w-10 h-10 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">أهلاً بعودتك</h1>
+          <p className="text-slate-400 mb-8 text-sm font-medium">أدخل رمز المرور للمتابعة</p>
+          <form onSubmit={handlePasswordSubmit} className="space-y-6">
+            <div className="relative group">
+                <input
+                type="password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                className="w-full bg-slate-950/50 border border-slate-700/50 rounded-2xl p-4 text-white text-center text-2xl tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 transition-all placeholder-slate-700 group-hover:border-slate-600"
+                placeholder="••••"
+                autoFocus
+                />
+            </div>
+            {authError && <p className="text-rose-400 text-sm font-medium animate-bounce bg-rose-500/10 py-2 rounded-lg border border-rose-500/20">{authError}</p>}
             <button
               type="submit"
-              className="w-full mt-6 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-4 rounded-lg transition-colors"
+              className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-4 rounded-2xl transition-all transform active:scale-95 shadow-lg shadow-cyan-500/20"
             >
               دخول
             </button>
@@ -188,7 +183,7 @@ function App() {
   }
 
   return (
-    <div className="bg-slate-900 text-white min-h-screen font-sans" dir="rtl">
+    <div className="min-h-screen font-sans pb-24 md:pb-0" dir="rtl">
       <Header 
         activePage={activePage} 
         onMenuClick={() => setSidebarOpen(true)}
@@ -197,7 +192,7 @@ function App() {
         onBack={handleBackToContacts}
       />
       <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} activePage={activePage} setActivePage={setActivePage} />
-      <main className="p-4 pb-20">
+      <main className="max-w-5xl mx-auto p-4 md:p-6 animate-fade-in">
         {renderPage()}
       </main>
       <BottomNav activePage={activePage} setActivePage={setActivePage} debtNotificationCount={debtNotificationCount} />

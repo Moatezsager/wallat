@@ -15,12 +15,21 @@ const NavButton: React.FC<{
     onClick: () => void;
     notificationCount?: number;
 }> = ({ label, icon, isActive, onClick, notificationCount }) => (
-    <button onClick={onClick} className={`relative flex flex-col items-center justify-center w-full pt-2 pb-1 transition-colors duration-200 ${isActive ? 'text-cyan-400' : 'text-slate-400 hover:text-cyan-400'}`}>
-        {icon}
-        <span className={`text-xs mt-1 ${isActive ? 'font-bold' : 'font-normal'}`}>{label}</span>
+    <button 
+        onClick={onClick} 
+        className={`relative flex flex-col items-center justify-center w-full h-full transition-all duration-300 ${isActive ? 'text-cyan-400' : 'text-slate-400 hover:text-slate-200'}`}
+    >
+        <div className={`transition-all duration-300 p-1 rounded-xl ${isActive ? 'bg-cyan-500/10 -translate-y-1' : ''}`}>
+             {/* Glow effect */}
+            {isActive && <div className="absolute inset-0 bg-cyan-400/20 blur-lg rounded-full"></div>}
+            <div className="relative z-10">
+                {icon}
+            </div>
+        </div>
+        <span className={`text-[10px] font-bold mt-1 transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-60'}`}>{label}</span>
         {notificationCount > 0 && (
-            <span className="absolute top-1 right-1/2 translate-x-3/4 h-4 w-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-slate-800">
-                {notificationCount}
+            <span className="absolute top-2 right-1/2 translate-x-3 h-2.5 w-2.5 bg-rose-500 border border-slate-900 rounded-full flex items-center justify-center">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
             </span>
         )}
     </button>
@@ -36,8 +45,8 @@ const BottomNav: React.FC<BottomNavProps> = ({ activePage, setActivePage, debtNo
     ];
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 h-16 bg-slate-800/80 backdrop-blur-sm border-t border-slate-700 z-10">
-            <div className="flex justify-around items-center h-full max-w-md mx-auto">
+        <div className="md:hidden fixed bottom-5 left-4 right-4 z-30 flex justify-center pointer-events-none">
+            <div className="glass-strong rounded-3xl h-18 w-full max-w-sm shadow-2xl shadow-black/50 flex justify-around items-center overflow-visible px-2 pointer-events-auto border border-white/10 py-2 backdrop-blur-xl">
                 {navItems.map(item => (
                     <NavButton 
                         key={item.page}

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Transaction, Account, Category } from '../types';
@@ -46,11 +47,11 @@ const TransactionIcon: React.FC<{ type: Transaction['type'], className?: string 
 };
 
 const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; }> = ({ children, title, onClose }) => (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-        <div className="bg-slate-800 rounded-lg p-6 w-full max-w-md border border-slate-700 shadow-xl animate-slide-up">
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+        <div className="glass-card bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-white/10 shadow-2xl animate-slide-up">
             <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold">{title}</h3>
-                <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors"><XMarkIcon className="w-6 h-6" /></button>
+                <h3 className="text-xl font-bold text-white">{title}</h3>
+                <button onClick={onClose} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 transition-colors"><XMarkIcon className="w-5 h-5 text-slate-400" /></button>
             </div>
             {children}
         </div>
@@ -82,7 +83,6 @@ const FilterModal: React.FC<{
     };
     
     const handleReset = () => {
-        // Fix: Explicitly type defaultFilters to match FilterValues and resolve type mismatch.
         const defaultFilters: FilterValues = {
             types: ['income', 'expense', 'transfer'],
             date_from: '', date_to: '',
@@ -95,36 +95,36 @@ const FilterModal: React.FC<{
 
     return (
         <Modal title="تصفية المعاملات" onClose={onClose}>
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+            <div className="space-y-5 max-h-[60vh] overflow-y-auto pr-2">
                 <div>
-                    <label className="text-sm font-medium text-slate-300 mb-2 block">نوع المعاملة</label>
+                    <label className="text-sm font-medium text-slate-400 mb-2 block">نوع المعاملة</label>
                     <div className="flex gap-2">
                         {(['expense', 'income', 'transfer'] as Transaction['type'][]).map(type => (
                             <button key={type} onClick={() => handleTypeToggle(type)}
-                                className={`w-full p-2 rounded-md text-sm transition-colors ${tempFilters.types.includes(type) ? 'bg-cyan-600 text-white' : 'bg-slate-700 hover:bg-slate-600'}`}>
+                                className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium transition-colors border ${tempFilters.types.includes(type) ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>
                                 {{expense: 'مصروف', income: 'دخل', transfer: 'تحويل'}[type]}
                             </button>
                         ))}
                     </div>
                 </div>
                 <div>
-                    <label className="text-sm font-medium text-slate-300 mb-2 block">نطاق التاريخ</label>
-                    <div className="flex gap-2">
-                        <input type="date" value={tempFilters.date_from} onChange={e => setTempFilters(f => ({...f, date_from: e.target.value}))} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" />
-                        <input type="date" value={tempFilters.date_to} onChange={e => setTempFilters(f => ({...f, date_to: e.target.value}))} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" />
+                    <label className="text-sm font-medium text-slate-400 mb-2 block">نطاق التاريخ</label>
+                    <div className="flex gap-3">
+                        <input type="date" value={tempFilters.date_from} onChange={e => setTempFilters(f => ({...f, date_from: e.target.value}))} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
+                        <input type="date" value={tempFilters.date_to} onChange={e => setTempFilters(f => ({...f, date_to: e.target.value}))} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
                     </div>
                 </div>
                  <div>
-                    <label htmlFor="account" className="text-sm font-medium text-slate-300 mb-2 block">الحساب</label>
-                     <select id="account" value={tempFilters.accounts[0] || ''} onChange={e => setTempFilters(f => ({...f, accounts: e.target.value ? [e.target.value] : []}))} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white">
+                    <label htmlFor="account" className="text-sm font-medium text-slate-400 mb-2 block">الحساب</label>
+                     <select id="account" value={tempFilters.accounts[0] || ''} onChange={e => setTempFilters(f => ({...f, accounts: e.target.value ? [e.target.value] : []}))} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
                         <option value="">كل الحسابات</option>
                         {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
                     </select>
                 </div>
             </div>
-            <div className="flex justify-between items-center pt-6 mt-4 border-t border-slate-700">
-                <button onClick={handleReset} className="py-2 px-4 text-slate-400 hover:text-white rounded-md transition text-sm">إعادة تعيين</button>
-                <button onClick={() => onApply(tempFilters)} className="py-2 px-6 bg-cyan-600 hover:bg-cyan-500 rounded-md transition">تطبيق</button>
+            <div className="flex justify-between items-center pt-6 mt-4 border-t border-white/10">
+                <button onClick={handleReset} className="py-2 px-4 text-slate-400 hover:text-white transition font-medium text-sm">إعادة تعيين</button>
+                <button onClick={() => onApply(tempFilters)} className="py-2.5 px-6 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl transition font-bold shadow-lg shadow-cyan-500/20">تطبيق</button>
             </div>
         </Modal>
     );
@@ -144,13 +144,13 @@ const TransactionDetailContent: React.FC<{
     const CategoryIcon = (transaction.categories?.icon && iconMap[transaction.categories.icon]) || TagIcon;
 
     return (
-        <div className="space-y-4">
-            <div className="text-center border-b border-slate-700 pb-4">
-                <p className="text-sm text-slate-400">{typeInfo.text}</p>
-                <p className={`text-5xl font-extrabold ${typeInfo.color}`}>
+        <div className="space-y-6">
+            <div className="text-center border-b border-white/10 pb-6">
+                <p className="text-sm text-slate-400 font-medium mb-1">{typeInfo.text}</p>
+                <p className={`text-5xl font-extrabold tracking-tight ${typeInfo.color} drop-shadow-sm`}>
                     {transaction.type === 'expense' ? '-' : transaction.type === 'income' ? '+' : ''}{formatCurrency(transaction.amount, transaction.accounts?.currency)}
                 </p>
-                <p className="text-lg font-semibold mt-1 text-slate-300">
+                <p className="text-lg font-semibold mt-3 text-slate-200 bg-slate-800/50 py-2 px-4 rounded-xl inline-block">
                     {transaction.notes || 'لا توجد ملاحظات'}
                 </p>
             </div>
@@ -158,45 +158,45 @@ const TransactionDetailContent: React.FC<{
             <div className="space-y-3 text-sm">
                 {transaction.type === 'transfer' ? (
                     <>
-                        <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded">
+                        <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-white/5">
                             <span className="text-slate-400 flex items-center gap-2"><WalletIcon className="w-4 h-4" /> من حساب</span>
-                            <span className="font-semibold">{transaction.accounts?.name || 'غير معروف'}</span>
+                            <span className="font-bold text-white">{transaction.accounts?.name || 'غير معروف'}</span>
                         </div>
-                        <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded">
+                        <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-white/5">
                             <span className="text-slate-400 flex items-center gap-2"><WalletIcon className="w-4 h-4" /> إلى حساب</span>
-                            <span className="font-semibold">{transaction.to_accounts?.name || 'غير معروف'}</span>
+                            <span className="font-bold text-white">{transaction.to_accounts?.name || 'غير معروف'}</span>
                         </div>
                     </>
                 ) : (
                     <>
-                        <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded">
+                        <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-white/5">
                             <span className="text-slate-400 flex items-center gap-2"><WalletIcon className="w-4 h-4" /> الحساب</span>
-                            <span className="font-semibold">{transaction.accounts?.name || 'غير معروف'}</span>
+                            <span className="font-bold text-white">{transaction.accounts?.name || 'غير معروف'}</span>
                         </div>
-                        <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded">
+                        <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-white/5">
                             <span className="text-slate-400 flex items-center gap-2">
                                 <div className="w-6 h-6 rounded-full flex items-center justify-center -ml-1" style={{ backgroundColor: transaction.categories?.color || '#334155' }}>
-                                   <CategoryIcon className="w-4 h-4 text-white"/>
+                                   <CategoryIcon className="w-3 h-3 text-white"/>
                                 </div>
                                 الفئة
                             </span>
-                            <span className="font-semibold">{transaction.categories?.name || 'غير مصنف'}</span>
+                            <span className="font-bold text-white">{transaction.categories?.name || 'غير مصنف'}</span>
                         </div>
                     </>
                 )}
-                <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded">
+                <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-white/5">
                     <span className="text-slate-400 flex items-center gap-2"><CalendarDaysIcon className="w-4 h-4" /> التاريخ والوقت</span>
-                    <span className="font-semibold">
+                    <span className="font-bold text-white">
                         {new Date(transaction.date).toLocaleString('ar-LY', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </span>
                 </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4">
-                <button onClick={onDelete} className="py-2 px-4 bg-red-600/20 text-red-400 hover:bg-red-600/40 rounded-md transition flex items-center gap-2">
+            <div className="flex justify-end gap-3 pt-2">
+                <button onClick={onDelete} className="flex-1 py-3 px-4 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 rounded-xl transition flex items-center justify-center gap-2 font-bold">
                     <TrashIcon className="w-5 h-5" /> حذف
                 </button>
-                <button onClick={onEdit} className="py-2 px-4 bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/40 rounded-md transition flex items-center gap-2">
+                <button onClick={onEdit} className="flex-1 py-3 px-4 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 rounded-xl transition flex items-center justify-center gap-2 font-bold">
                     <PencilSquareIcon className="w-5 h-5" /> تعديل
                 </button>
             </div>
@@ -221,8 +221,6 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [selectedTransactionForDetail, setSelectedTransactionForDetail] = useState<Transaction | null>(null);
 
-    // Fix: Refactored data fetching to be more robust, handle errors gracefully, and ensure data is correctly typed.
-    // This resolves the "Property 'map' does not exist on type 'unknown'" error by preventing untyped data from being set to state.
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
@@ -266,12 +264,12 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
     }, [allTransactions, filters, searchTerm]);
     
     const groupedTransactions = useMemo(() => {
-        return filteredTransactions.reduce((acc, tx) => {
+        return filteredTransactions.reduce((acc: Record<string, Transaction[]>, tx) => {
             const dateKey = formatDateGroup(tx.date);
             if (!acc[dateKey]) acc[dateKey] = [];
             acc[dateKey].push(tx);
             return acc;
-        }, {} as Record<string, Transaction[]>);
+        }, {});
     }, [filteredTransactions]);
 
     const summary = useMemo(() => {
@@ -347,61 +345,61 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
     }, [filters]);
 
     return (
-        <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="bg-slate-800 p-2 rounded-lg">
-                    <p className="text-xs text-green-400">الدخل</p>
-                    <p className="font-bold text-sm">{formatCurrency(summary.income)}</p>
+        <div className="space-y-6">
+            <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="glass-card p-4 rounded-2xl border border-white/5">
+                    <p className="text-xs text-emerald-400 font-bold mb-1">الدخل</p>
+                    <p className="font-extrabold text-lg tracking-tight">{formatCurrency(summary.income)}</p>
                 </div>
-                <div className="bg-slate-800 p-2 rounded-lg">
-                    <p className="text-xs text-red-400">المصروف</p>
-                    <p className="font-bold text-sm">{formatCurrency(summary.expense)}</p>
+                <div className="glass-card p-4 rounded-2xl border border-white/5">
+                    <p className="text-xs text-rose-400 font-bold mb-1">المصروف</p>
+                    <p className="font-extrabold text-lg tracking-tight">{formatCurrency(summary.expense)}</p>
                 </div>
-                <div className="bg-slate-800 p-2 rounded-lg">
-                    <p className="text-xs text-slate-400">الصافي</p>
-                    <p className="font-bold text-sm">{formatCurrency(summary.income - summary.expense)}</p>
+                <div className="glass-card p-4 rounded-2xl border border-white/5">
+                    <p className="text-xs text-cyan-400 font-bold mb-1">الصافي</p>
+                    <p className="font-extrabold text-lg tracking-tight">{formatCurrency(summary.income - summary.expense)}</p>
                 </div>
             </div>
-            <div className="flex gap-2 items-center">
-                <div className="relative flex-grow">
-                    <MagnifyingGlassIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+            <div className="flex gap-3 items-center">
+                <div className="relative flex-grow group">
+                    <MagnifyingGlassIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-cyan-400 transition-colors pointer-events-none" />
                     <input type="text" placeholder="ابحث..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                        className="w-full bg-slate-800 p-2 pr-10 rounded-lg text-white border border-slate-700 focus:border-cyan-500 focus:ring-0 transition" />
+                        className="w-full bg-slate-900/50 p-3 pr-12 rounded-2xl text-white border border-slate-700 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none transition shadow-inner" />
                 </div>
-                <button onClick={() => setIsFilterModalOpen(true)} className="relative flex-shrink-0 flex items-center gap-2 bg-slate-800 py-2 px-4 rounded-lg text-slate-300 hover:bg-slate-700 transition border border-slate-700">
+                <button onClick={() => setIsFilterModalOpen(true)} className={`relative flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-2xl transition-all ${activeFilterCount > 0 ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50' : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700'}`}>
                     <FunnelIcon className="w-5 h-5"/>
-                    {activeFilterCount > 0 && <span className="absolute -top-1 -right-1 h-4 w-4 bg-cyan-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-slate-900">{activeFilterCount}</span>}
+                    {activeFilterCount > 0 && <span className="absolute -top-1 -right-1 h-4 w-4 bg-cyan-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">{activeFilterCount}</span>}
                 </button>
             </div>
             
-            {loading ? <p className="text-center py-8 text-slate-400">جاري تحميل المعاملات...</p>
-            : Object.keys(groupedTransactions).length === 0 ? <p className="text-center py-8 text-slate-500">لا توجد معاملات تطابق بحثك.</p>
+            {loading ? <div className="space-y-3">{[...Array(5)].map((_,i) => <div key={i} className="h-20 bg-slate-800/50 rounded-2xl animate-pulse"></div>)}</div>
+            : Object.keys(groupedTransactions).length === 0 ? <div className="text-center py-16 bg-slate-900/20 rounded-3xl border-dashed border-2 border-slate-800 text-slate-500">لا توجد معاملات تطابق بحثك.</div>
             : (
-                <div className="space-y-4">
-                    {Object.entries(groupedTransactions).map(([date, txs]) => (
+                <div className="space-y-6 pb-20">
+                    {Object.entries(groupedTransactions).map(([date, txs]: [string, Transaction[]]) => (
                         <div key={date}>
-                            <h3 className="font-semibold text-slate-400 mb-2">{date}</h3>
+                            <h3 className="font-bold text-sm text-slate-500 mb-3 px-2 sticky top-16 backdrop-blur-md bg-slate-950/30 rounded-lg inline-block z-10">{date}</h3>
                             <div className="space-y-2">
                                 {txs.map(tx => {
                                     const categoryIconName = tx.categories?.icon;
                                     const CategoryIcon = (categoryIconName && iconMap.hasOwnProperty(categoryIconName)) ? iconMap[categoryIconName] : null;
                                     return (
                                         <button key={tx.id} onClick={() => handleOpenDetailModal(tx)}
-                                            className="w-full text-right bg-slate-800 p-3 rounded-lg flex justify-between items-center hover:bg-slate-700/50 transition-colors">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                                                    tx.type === 'income' ? 'bg-green-500/20 text-green-400' : 
-                                                    tx.type === 'expense' ? 'bg-red-500/20 text-red-400' : 'bg-indigo-500/20 text-indigo-400'
+                                            className="w-full text-right glass-card p-4 rounded-2xl flex justify-between items-center hover:bg-white/5 transition-all group border-transparent hover:border-white/10">
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-md transition-transform group-hover:scale-110 ${
+                                                    tx.type === 'income' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 
+                                                    tx.type === 'expense' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
                                                 }`}>
                                                     {CategoryIcon ? <CategoryIcon className="w-6 h-6"/> : <TransactionIcon type={tx.type} />}
                                                 </div>
                                                 <div>
-                                                    <p className="font-semibold">{tx.notes || tx.categories?.name || (tx.type === 'transfer' ? `تحويل إلى ${tx.to_accounts?.name}` : 'معاملة')}</p>
-                                                    <p className="text-sm text-slate-400">{tx.accounts?.name || 'حساب محذوف'}</p>
+                                                    <p className="font-bold text-white text-base mb-0.5 line-clamp-1">{tx.notes || tx.categories?.name || (tx.type === 'transfer' ? `تحويل إلى ${tx.to_accounts?.name}` : 'معاملة')}</p>
+                                                    <p className="text-xs text-slate-400 font-medium">{tx.accounts?.name || 'حساب محذوف'}</p>
                                                 </div>
                                             </div>
-                                            <p className={`font-bold text-lg ${tx.type === 'income' ? 'text-green-400' : tx.type === 'expense' ? 'text-red-400' : ''}`}>
-                                                {formatCurrency(tx.amount, tx.accounts?.currency)}
+                                            <p className={`font-extrabold text-lg whitespace-nowrap ${tx.type === 'income' ? 'text-emerald-400' : tx.type === 'expense' ? 'text-rose-400' : 'text-indigo-400'}`}>
+                                                {formatCurrency(tx.amount)}
                                             </p>
                                         </button>
                                     );
@@ -450,10 +448,10 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
 
             {modal.type === 'delete' && modal.transaction && (
                  <Modal title="تأكيد الحذف" onClose={() => setModal({ type: null, transaction: null })}>
-                    <p className="text-slate-300 mb-6">هل أنت متأكد من حذف هذه المعاملة؟ سيتم التراجع عن تأثيرها على رصيد الحساب.</p>
-                    <div className="flex justify-end gap-3">
-                        <button onClick={() => setModal({ type: null, transaction: null })} className="py-2 px-4 bg-slate-600 hover:bg-slate-500 rounded-md transition">إلغاء</button>
-                        <button onClick={handleDelete} className="py-2 px-4 bg-red-600 hover:bg-red-500 rounded-md transition">تأكيد الحذف</button>
+                    <p className="text-slate-300 mb-8">هل أنت متأكد من حذف هذه المعاملة؟ سيتم التراجع عن تأثيرها على رصيد الحساب.</p>
+                    <div className="flex justify-end gap-4">
+                        <button onClick={() => setModal({ type: null, transaction: null })} className="py-3 px-6 text-slate-400 font-bold hover:text-white transition">إلغاء</button>
+                        <button onClick={handleDelete} className="py-3 px-6 bg-rose-600 hover:bg-rose-500 text-white rounded-xl transition shadow-lg shadow-rose-900/20 font-bold">تأكيد الحذف</button>
                     </div>
                 </Modal>
             )}

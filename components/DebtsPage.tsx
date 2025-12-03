@@ -29,7 +29,7 @@ const getDueDateInfo = (dueDate: string | null): { text: string; colorClass: str
 
     if (diffDays < 0) {
         const days = Math.abs(diffDays);
-        return { text: `متأخر منذ ${days} ${days === 1 ? 'يوم' : 'أيام'}`, colorClass: 'text-red-400', isUrgent: true };
+        return { text: `متأخر منذ ${days} ${days === 1 ? 'يوم' : 'أيام'}`, colorClass: 'text-rose-400', isUrgent: true };
     }
     if (diffDays === 0) {
         return { text: 'مستحق اليوم', colorClass: 'text-amber-400 font-bold', isUrgent: true };
@@ -37,7 +37,7 @@ const getDueDateInfo = (dueDate: string | null): { text: string; colorClass: str
     if (diffDays <= 7) {
         return { text: `بعد ${diffDays} ${diffDays === 1 ? 'يوم' : 'أيام'}`, colorClass: 'text-amber-400', isUrgent: true };
     }
-    return { text: `في ${new Date(dueDate).toLocaleDateString('ar-LY', {day: '2-digit', month: 'short'})}`, colorClass: 'text-slate-500', isUrgent: false };
+    return { text: `في ${new Date(dueDate).toLocaleDateString('ar-LY', {day: '2-digit', month: 'short'})}`, colorClass: 'text-slate-400', isUrgent: false };
 };
 
 
@@ -57,11 +57,11 @@ const formatCurrency = (amount: number) => {
 };
 
 const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; }> = ({ children, title, onClose }) => (
-    <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-        <div className="bg-slate-800 rounded-lg p-6 w-full max-w-md border border-slate-700 shadow-xl animate-slide-up">
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold">{title}</h3>
-                <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors"><XMarkIcon className="w-6 h-6" /></button>
+    <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+        <div className="glass-card bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-white/10 shadow-2xl animate-slide-up">
+            <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-white">{title}</h3>
+                <button onClick={onClose} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 transition-colors"><XMarkIcon className="w-5 h-5 text-slate-400" /></button>
             </div>
             {children}
         </div>
@@ -111,34 +111,34 @@ const DebtForm: React.FC<{
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">نوع الدين</label>
-                <div className="flex gap-4">
-                    <button type="button" onClick={() => setType('on_you')} className={`w-full p-2 rounded-md ${type === 'on_you' ? 'bg-red-500 text-white' : 'bg-slate-700'}`}>دين عليك</button>
-                    <button type="button" onClick={() => setType('for_you')} className={`w-full p-2 rounded-md ${type === 'for_you' ? 'bg-green-500 text-white' : 'bg-slate-700'}`}>دين لك</button>
+                <label className="block text-sm font-medium text-slate-300 mb-2">نوع الدين</label>
+                <div className="flex gap-3">
+                    <button type="button" onClick={() => setType('on_you')} className={`flex-1 py-3 rounded-xl transition font-bold ${type === 'on_you' ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/20' : 'bg-slate-800 text-slate-400'}`}>دين عليك</button>
+                    <button type="button" onClick={() => setType('for_you')} className={`flex-1 py-3 rounded-xl transition font-bold ${type === 'for_you' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'bg-slate-800 text-slate-400'}`}>دين لك</button>
                 </div>
             </div>
             <div>
                 <label htmlFor="amount" className="block text-sm font-medium text-slate-300 mb-1">المبلغ</label>
-                <input type="number" step="0.01" id="amount" value={amount} onChange={e => setAmount(e.target.value)} required className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white focus:ring-cyan-500 focus:border-cyan-500" />
+                <input type="number" step="0.01" id="amount" value={amount} onChange={e => setAmount(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
             </div>
             <div>
                 <label htmlFor="contact" className="block text-sm font-medium text-slate-300 mb-1">جهة الاتصال (اختياري)</label>
-                <select id="contact" value={contactId} onChange={e => setContactId(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white focus:ring-cyan-500 focus:border-cyan-500">
+                <select id="contact" value={contactId} onChange={e => setContactId(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
                     <option value="">اختر اسم</option>
                     {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
             </div>
             <div>
                 <label htmlFor="due_date" className="block text-sm font-medium text-slate-300 mb-1">تاريخ الاستحقاق (اختياري)</label>
-                <input type="date" id="due_date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white focus:ring-cyan-500 focus:border-cyan-500" />
+                <input type="date" id="due_date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
             </div>
             <div>
                 <label htmlFor="description" className="block text-sm font-medium text-slate-300 mb-1">الوصف (اختياري)</label>
-                <textarea id="description" value={description} onChange={e => setDescription(e.target.value)} rows={2} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white focus:ring-cyan-500 focus:border-cyan-500"></textarea>
+                <textarea id="description" value={description} onChange={e => setDescription(e.target.value)} rows={2} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none"></textarea>
             </div>
             <div className="flex justify-end gap-3 pt-4">
-                <button type="button" onClick={onCancel} className="py-2 px-4 bg-slate-600 hover:bg-slate-500 rounded-md transition">إلغاء</button>
-                <button type="submit" disabled={isSaving} className="w-full py-2 px-4 bg-cyan-600 hover:bg-cyan-500 rounded-md transition disabled:bg-slate-500 disabled:cursor-not-allowed">
+                <button type="button" onClick={onCancel} className="py-3 px-6 text-slate-400 hover:text-white font-bold transition">إلغاء</button>
+                <button type="submit" disabled={isSaving} className="flex-1 py-3 px-6 bg-cyan-600 hover:bg-cyan-500 rounded-xl transition font-bold text-white shadow-lg shadow-cyan-900/20 disabled:bg-slate-500">
                     {isSaving ? 'جاري الحفظ...' : 'حفظ'}
                 </button>
             </div>
@@ -168,32 +168,32 @@ const SettleDebtModal: React.FC<{
     const actionText = debt.type === 'on_you' ? 'خصم من' : 'إيداع في';
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-            <p className="text-center text-slate-300">
-                تسوية دين لـ <span className="font-bold text-white">{debt.contacts?.name || 'شخص ما'}</span>
+        <form onSubmit={handleSubmit} className="space-y-6">
+            <p className="text-center text-slate-300 text-lg">
+                تسوية دين لـ <span className="font-bold text-white block mt-1 text-xl">{debt.contacts?.name || 'شخص ما'}</span>
             </p>
-            <div className="bg-slate-700/50 p-3 rounded-lg text-center">
-                <p className="text-sm text-slate-400">المبلغ</p>
-                <p className={`text-3xl font-extrabold ${debt.type === 'on_you' ? 'text-red-400' : 'text-green-400'}`}>
+            <div className="bg-slate-800/50 p-4 rounded-2xl text-center border border-white/5">
+                <p className="text-sm text-slate-400 font-medium mb-1">المبلغ</p>
+                <p className={`text-4xl font-extrabold ${debt.type === 'on_you' ? 'text-rose-400' : 'text-emerald-400'}`}>
                     {formatCurrency(debt.amount)}
                 </p>
             </div>
             <div>
-                <label htmlFor="account" className="block text-sm font-medium text-slate-300 mb-1">{actionText} حساب</label>
+                <label htmlFor="account" className="block text-sm font-medium text-slate-300 mb-2">{actionText} حساب</label>
                 <select 
                     id="account" 
                     value={selectedAccountId} 
                     onChange={e => setSelectedAccountId(e.target.value)} 
                     required 
-                    className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white focus:ring-cyan-500 focus:border-cyan-500"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none"
                 >
                     <option value="" disabled>اختر حساب</option>
                     {accounts.map(acc => <option key={acc.id} value={acc.id}>{`${acc.name} (${formatCurrency(acc.balance)})`}</option>)}
                 </select>
             </div>
              <div className="flex justify-end gap-3 pt-4">
-                <button type="button" onClick={onCancel} className="py-2 px-4 bg-slate-600 hover:bg-slate-500 rounded-md transition">إلغاء</button>
-                <button type="submit" disabled={isSaving} className="w-full py-2 px-4 bg-cyan-600 hover:bg-cyan-500 rounded-md transition disabled:bg-slate-500">
+                <button type="button" onClick={onCancel} className="py-3 px-6 text-slate-400 hover:text-white font-bold transition">إلغاء</button>
+                <button type="submit" disabled={isSaving} className="flex-1 py-3 px-6 bg-cyan-600 hover:bg-cyan-500 rounded-xl transition font-bold text-white shadow-lg shadow-cyan-900/20 disabled:bg-slate-500">
                     {isSaving ? 'جاري التأكيد...' : 'تأكيد التسوية'}
                 </button>
             </div>
@@ -212,61 +212,53 @@ const DebtDetailContent: React.FC<{ debt: Debt, onSelectContact: (contactId: str
     };
 
     return (
-        <div className="space-y-4">
-            <div className="text-center border-b border-slate-700 pb-4">
-                <p className="text-sm text-slate-400">{debt.description || (debt.type === 'on_you' ? 'مبلغ مستحق عليك' : 'مبلغ مستحق لك')}</p>
-                <p className={`text-5xl font-extrabold ${debt.type === 'on_you' ? 'text-red-400' : 'text-green-400'}`}>
+        <div className="space-y-6">
+            <div className="text-center border-b border-white/10 pb-6">
+                <p className="text-sm text-slate-400 font-medium mb-1">{debt.description || (debt.type === 'on_you' ? 'مبلغ مستحق عليك' : 'مبلغ مستحق لك')}</p>
+                <p className={`text-5xl font-extrabold tracking-tight ${debt.type === 'on_you' ? 'text-rose-400' : 'text-emerald-400'}`}>
                     {formatCurrency(debt.amount)}
                 </p>
-                <div className="text-lg font-semibold mt-1">
+                <div className="text-xl font-bold mt-3">
                     {debt.contacts?.name && debt.contact_id ? (
                         <>
-                            <span>لـ </span>
-                            <button onClick={handleContactClick} className="text-cyan-400 hover:text-cyan-300 hover:underline focus:outline-none">
+                            <span className="text-slate-300">لـ </span>
+                            <button onClick={handleContactClick} className="text-cyan-400 hover:text-cyan-300 underline decoration-cyan-500/30 hover:decoration-cyan-500 transition-all focus:outline-none">
                                 {debt.contacts.name}
                             </button>
                         </>
                     ) : (
-                        <span>غير مرتبط بجهة اتصال</span>
+                        <span className="text-slate-500">غير مرتبط بجهة اتصال</span>
                     )}
                 </div>
             </div>
             
-            <div className="space-y-2 text-sm">
-                <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded">
-                    <span className="text-slate-400">الحالة</span>
-                    <span className={`font-semibold px-2 py-0.5 rounded-full text-xs ${debt.paid ? 'bg-green-500/20 text-green-400' : dueDateInfo.colorClass}`}>
+            <div className="space-y-3 text-sm">
+                <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-white/5">
+                    <span className="text-slate-400 font-medium">الحالة</span>
+                    <span className={`font-bold px-3 py-1 rounded-lg text-xs ${debt.paid ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-300'}`}>
                         {debt.paid ? 'مدفوع' : dueDateInfo.text}
                     </span>
                 </div>
-                <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded">
-                    <span className="text-slate-400">تاريخ الاستحقاق</span>
-                    <span className="font-semibold">
+                <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-white/5">
+                    <span className="text-slate-400 font-medium">تاريخ الاستحقاق</span>
+                    <span className="font-bold text-white">
                         {debt.due_date ? new Date(debt.due_date).toLocaleDateString('ar-LY', { day: 'numeric', month: 'long', year: 'numeric' }) : 'غير محدد'}
                     </span>
                 </div>
                  {debt.account_id && debt.accounts && (
-                    <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded">
-                        <span className="text-slate-400">تم الإقراض من حساب</span>
-                        <span className="font-semibold">
+                    <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-white/5">
+                        <span className="text-slate-400 font-medium">تم الإقراض من حساب</span>
+                        <span className="font-bold text-white">
                             {debt.accounts.name}
                         </span>
                     </div>
                 )}
-                 <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded">
-                    <span className="text-slate-400">تاريخ الإنشاء</span>
-                    <span className="font-semibold">
+                 <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-white/5">
+                    <span className="text-slate-400 font-medium">تاريخ الإنشاء</span>
+                    <span className="font-bold text-white">
                         {new Date(debt.created_at).toLocaleDateString('ar-LY', { day: 'numeric', month: 'long', year: 'numeric' })}
                     </span>
                 </div>
-                {debt.paid && debt.paid_at && (
-                     <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded">
-                        <span className="text-slate-400">تاريخ التسديد</span>
-                        <span className="font-semibold text-green-400">
-                            {new Date(debt.paid_at).toLocaleString('ar-LY', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                    </div>
-                )}
             </div>
         </div>
     );
@@ -311,29 +303,29 @@ const DebtFilterModal: React.FC<{
         <Modal title="تصفية الديون" onClose={onClose}>
             <div className="space-y-6">
                 <div>
-                    <label className="text-sm font-medium text-slate-300 mb-2 block">حالة السداد</label>
-                    <div className="flex bg-slate-700 rounded-lg p-1 text-sm">
+                    <label className="text-sm font-medium text-slate-400 mb-2 block">حالة السداد</label>
+                    <div className="flex gap-2">
                         {statusOptions.map(({ key, label }) => (
-                            <button key={key} onClick={() => setTempFilters(f => ({ ...f, status: key }))} className={`w-full py-2 px-1 rounded-md transition-colors font-semibold ${tempFilters.status === key ? 'bg-slate-600 text-cyan-400' : 'text-slate-300 hover:bg-slate-600/50'}`}>
+                            <button key={key} onClick={() => setTempFilters(f => ({ ...f, status: key }))} className={`flex-1 py-2 px-2 rounded-xl text-sm transition-colors font-bold border ${tempFilters.status === key ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>
                                 {label}
                             </button>
                         ))}
                     </div>
                 </div>
                 <div>
-                    <label className="text-sm font-medium text-slate-300 mb-2 block">حالة الاستحقاق (للديون الحالية)</label>
-                    <div className="flex bg-slate-700 rounded-lg p-1 text-sm">
+                    <label className="text-sm font-medium text-slate-400 mb-2 block">حالة الاستحقاق</label>
+                    <div className="flex gap-2">
                         {dueDateStatusOptions.map(({ key, label }) => (
-                           <button key={key} onClick={() => setTempFilters(f => ({ ...f, dueDateStatus: key }))} className={`w-full py-2 px-1 rounded-md transition-colors font-semibold ${tempFilters.dueDateStatus === key ? 'bg-slate-600 text-cyan-400' : 'text-slate-300 hover:bg-slate-600/50'}`}>
+                           <button key={key} onClick={() => setTempFilters(f => ({ ...f, dueDateStatus: key }))} className={`flex-1 py-2 px-2 rounded-xl text-sm transition-colors font-bold border ${tempFilters.dueDateStatus === key ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>
                                 {label}
                             </button>
                         ))}
                     </div>
                 </div>
             </div>
-            <div className="flex justify-between items-center pt-6 mt-4 border-t border-slate-700">
-                <button onClick={handleReset} className="py-2 px-4 text-slate-400 hover:text-white rounded-md transition text-sm">إعادة تعيين</button>
-                <button onClick={handleApply} className="py-2 px-6 bg-cyan-600 hover:bg-cyan-500 rounded-md transition">تطبيق</button>
+            <div className="flex justify-between items-center pt-6 mt-4 border-t border-white/10">
+                <button onClick={handleReset} className="py-2 px-4 text-slate-400 hover:text-white font-bold text-sm">إعادة تعيين</button>
+                <button onClick={handleApply} className="py-2.5 px-6 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl transition font-bold shadow-lg">تطبيق</button>
             </div>
         </Modal>
     );
@@ -531,68 +523,68 @@ const DebtsPage: React.FC<{ key: number, handleDatabaseChange: (description?: st
 
     return (
         <div className="relative">
-            <div className="flex border-b border-slate-700 mb-4">
+            <div className="glass-card p-1 rounded-xl flex mb-6">
                 <button 
                     onClick={() => setActiveTab('for_you')} 
-                    className={`w-1/2 py-3 text-center font-semibold transition-colors ${activeTab === 'for_you' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}
+                    className={`w-1/2 py-2.5 rounded-lg text-center font-bold transition-all duration-300 ${activeTab === 'for_you' ? 'bg-emerald-500/20 text-emerald-400 shadow-inner' : 'text-slate-400 hover:text-white'}`}
                 >
                     ديون لك
                 </button>
                 <button 
                     onClick={() => setActiveTab('on_you')} 
-                    className={`w-1/2 py-3 text-center font-semibold transition-colors ${activeTab === 'on_you' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400'}`}
+                    className={`w-1/2 py-2.5 rounded-lg text-center font-bold transition-all duration-300 ${activeTab === 'on_you' ? 'bg-rose-500/20 text-rose-400 shadow-inner' : 'text-slate-400 hover:text-white'}`}
                 >
                     ديون عليك
                 </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="bg-slate-800 p-3 rounded-xl text-center">
-                    <p className="text-sm text-slate-400">الباقي</p>
-                    <h3 className={`text-2xl font-extrabold ${activeTab === 'for_you' ? 'text-green-400' : 'text-red-400'}`}>
+            <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="glass-card p-4 rounded-2xl text-center border border-white/5">
+                    <p className="text-xs text-slate-400 font-bold mb-1">الباقي</p>
+                    <h3 className={`text-2xl font-extrabold tracking-tight ${activeTab === 'for_you' ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {formatCurrency(remainingTotal)}
                     </h3>
                 </div>
-                 <div className="bg-slate-800 p-3 rounded-xl text-center">
-                    <p className="text-sm text-slate-400">خالص</p>
-                    <h3 className="text-2xl font-extrabold text-slate-500">
+                 <div className="glass-card p-4 rounded-2xl text-center border border-white/5">
+                    <p className="text-xs text-slate-400 font-bold mb-1">خالص</p>
+                    <h3 className="text-2xl font-extrabold text-slate-500 tracking-tight line-through decoration-2 decoration-slate-700">
                         {formatCurrency(paidTotal)}
                     </h3>
                 </div>
             </div>
 
-            <div className="flex gap-2 items-center mb-4">
-                <div className="relative flex-grow">
-                    <MagnifyingGlassIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+            <div className="flex gap-3 items-center mb-6">
+                <div className="relative flex-grow group">
+                    <MagnifyingGlassIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none group-focus-within:text-cyan-400 transition-colors" />
                     <input 
                         type="text" 
-                        placeholder="ابحث بالاسم أو الوصف..." 
+                        placeholder="ابحث..." 
                         value={searchTerm} 
                         onChange={e => setSearchTerm(e.target.value)}
-                        className="w-full bg-slate-800 p-2 pr-10 rounded-lg text-white border border-slate-700 focus:border-cyan-500 focus:ring-0 transition"
+                        className="w-full bg-slate-900/50 p-3 pr-12 rounded-2xl text-white border border-slate-700 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none transition"
                     />
                 </div>
-                <button onClick={() => setIsFilterModalOpen(true)} className="relative flex-shrink-0 flex items-center gap-2 bg-slate-800 py-2 px-4 rounded-lg text-slate-300 hover:bg-slate-700 transition border border-slate-700">
+                <button onClick={() => setIsFilterModalOpen(true)} className={`relative flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-2xl transition-all ${activeFilterCount > 0 ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50' : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700'}`}>
                     <FunnelIcon className="w-5 h-5"/>
-                    {activeFilterCount > 0 && <span className="absolute -top-1 -right-1 h-4 w-4 bg-cyan-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-slate-900">{activeFilterCount}</span>}
+                    {activeFilterCount > 0 && <span className="absolute -top-1 -right-1 h-4 w-4 bg-cyan-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">{activeFilterCount}</span>}
                 </button>
             </div>
 
 
             {loading ? (
-                <div className="space-y-3 mt-4">
-                    {[...Array(3)].map((_, i) => <div key={i} className="h-20 bg-slate-800 rounded-lg animate-pulse"></div>)}
+                <div className="space-y-3">
+                    {[...Array(3)].map((_, i) => <div key={i} className="h-24 bg-slate-800/50 rounded-2xl animate-pulse"></div>)}
                 </div>
             ) : displayedDebts.length === 0 ? (
-                 <div className="text-center py-10">
-                    <p className="text-slate-400 mb-4">{searchTerm || activeFilterCount > 0 ? 'لا توجد ديون تطابق بحثك.' : 'لا يوجد ديون في هذا القسم.'}</p>
-                    <button onClick={() => { setEditingDebt(undefined); setIsFormModalOpen(true); }} className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-4 rounded-lg inline-flex items-center">
+                 <div className="text-center py-16 bg-slate-900/20 rounded-3xl border-dashed border-2 border-slate-800">
+                    <p className="text-slate-500 mb-6 text-lg">{searchTerm || activeFilterCount > 0 ? 'لا توجد ديون تطابق بحثك.' : 'لا يوجد ديون في هذا القسم.'}</p>
+                    <button onClick={() => { setEditingDebt(undefined); setIsFormModalOpen(true); }} className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-6 rounded-xl inline-flex items-center shadow-lg shadow-cyan-900/20 transition-transform hover:scale-105">
                         <PlusIcon className="w-5 h-5 ml-2" />
                         إضافة دين
                     </button>
                 </div>
             ) : (
-                <div className="space-y-3">
+                <div className="space-y-3 pb-20">
                     {displayedDebts.map(debt => {
                          const status = getDebtStatus(debt.due_date);
                          const statusClasses = {
@@ -601,35 +593,37 @@ const DebtsPage: React.FC<{ key: number, handleDatabaseChange: (description?: st
                              ok: ''
                          };
                          const dateColorClass = {
-                             overdue: 'text-red-400',
-                             due_soon: 'text-amber-400',
-                             ok: 'text-slate-500'
+                             overdue: 'text-rose-400 font-bold',
+                             due_soon: 'text-amber-400 font-bold',
+                             ok: 'text-slate-400'
                          }
                         return (
                         <div 
                             key={debt.id} 
                             onClick={() => setDetailsDebt(debt)}
-                            className={`bg-slate-800 rounded-lg flex items-center transition-colors cursor-pointer ${!debt.paid && statusClasses[status]} ${debt.paid ? 'opacity-60' : 'hover:bg-slate-700/50'}`}
+                            className={`glass-card p-4 rounded-2xl flex items-center transition-all cursor-pointer group border border-white/5 hover:border-white/10 hover:bg-white/5 ${!debt.paid && statusClasses[status]} ${debt.paid ? 'opacity-50 grayscale' : ''}`}
                         >
-                           <div className="flex-grow p-3">
-                                <p className={`font-extrabold text-xl ${debt.paid ? 'text-slate-500 line-through' : debt.type === 'for_you' ? 'text-green-400' : 'text-red-400'}`}>
-                                    {formatCurrency(debt.amount)}
-                                </p>
-                                <p className={`text-sm ${debt.paid ? 'text-slate-600' : 'text-slate-300'}`}>{debt.contacts?.name || debt.description || 'دين'}</p>
-                                {debt.due_date && !debt.paid && <p className={`text-xs ${dateColorClass[status]}`}>
-                                    {status !== 'ok' && <ExclamationTriangleIcon className="w-3 h-3 inline-block ml-1" />}
-                                    مستحق في: {new Date(debt.due_date).toLocaleDateString('ar-LY')}
+                           <div className="flex-grow">
+                                <div className="flex justify-between items-start mb-1">
+                                    <p className={`font-extrabold text-xl tracking-tight ${debt.paid ? 'text-slate-500 line-through' : debt.type === 'for_you' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        {formatCurrency(debt.amount)}
+                                    </p>
+                                </div>
+                                <p className={`text-sm font-medium mb-1 ${debt.paid ? 'text-slate-500' : 'text-white'}`}>{debt.contacts?.name || debt.description || 'دين'}</p>
+                                {debt.due_date && !debt.paid && <p className={`text-xs flex items-center gap-1 mt-1 ${dateColorClass[status]}`}>
+                                    {status !== 'ok' && <ExclamationTriangleIcon className="w-3.5 h-3.5" />}
+                                    {status === 'ok' ? 'استحقاق: ' : ''}{new Date(debt.due_date).toLocaleDateString('ar-LY')}
                                 </p>}
                            </div>
-                           <div className="flex gap-1 items-center pr-3">
-                                <button onClick={(e) => { e.stopPropagation(); handleDebtAction(debt); }} className={`p-1 rounded-full ${debt.paid ? 'text-green-500' : 'text-slate-500 hover:text-green-400'}`} title={debt.paid ? 'تعليم كغير مدفوع' : 'تسوية الدين'}>
+                           <div className="flex gap-2 items-center mr-4">
+                                <button onClick={(e) => { e.stopPropagation(); handleDebtAction(debt); }} className={`p-2 rounded-full transition-colors ${debt.paid ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400 hover:bg-emerald-500/20 hover:text-emerald-400'}`} title={debt.paid ? 'تعليم كغير مدفوع' : 'تسوية الدين'}>
                                     <CheckCircleIcon className="w-6 h-6"/>
                                 </button>
                                 {!debt.paid && (
-                                    <>
-                                    <button onClick={(e) => { e.stopPropagation(); setEditingDebt(debt); setIsFormModalOpen(true); }} className="text-slate-400 hover:text-cyan-400 p-1"><PencilSquareIcon className="w-5 h-5"/></button>
-                                    <button onClick={(e) => { e.stopPropagation(); setDeletingDebt(debt); }} className="text-slate-400 hover:text-red-400 p-1"><TrashIcon className="w-5 h-5"/></button>
-                                    </>
+                                    <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onClick={(e) => { e.stopPropagation(); setEditingDebt(debt); setIsFormModalOpen(true); }} className="text-slate-400 hover:text-cyan-400 transition"><PencilSquareIcon className="w-5 h-5"/></button>
+                                        <button onClick={(e) => { e.stopPropagation(); setDeletingDebt(debt); }} className="text-slate-400 hover:text-rose-400 transition"><TrashIcon className="w-5 h-5"/></button>
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -637,7 +631,10 @@ const DebtsPage: React.FC<{ key: number, handleDatabaseChange: (description?: st
                 </div>
             )}
             
-            <button onClick={() => { setEditingDebt(undefined); setIsFormModalOpen(true); }} className="fixed bottom-20 right-4 h-14 w-14 bg-cyan-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-cyan-500 transition-transform transform active:scale-90">
+            <button 
+                onClick={() => { setEditingDebt(undefined); setIsFormModalOpen(true); }} 
+                className="fixed bottom-24 md:bottom-10 left-6 h-16 w-16 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-[24px] shadow-2xl shadow-cyan-500/30 flex items-center justify-center hover:scale-110 transition-all z-30 border border-white/20"
+            >
                 <PlusIcon className="w-8 h-8"/>
             </button>
 
@@ -654,10 +651,10 @@ const DebtsPage: React.FC<{ key: number, handleDatabaseChange: (description?: st
             
             {deletingDebt && (
                  <Modal title="تأكيد الحذف" onClose={() => setDeletingDebt(null)}>
-                    <p className="text-slate-300 mb-6">هل أنت متأكد من رغبتك في حذف هذا الدين؟</p>
-                    <div className="flex justify-end gap-3">
-                        <button onClick={() => setDeletingDebt(null)} className="py-2 px-4 bg-slate-600 hover:bg-slate-500 rounded-md transition">إلغاء</button>
-                        <button onClick={handleDelete} className="py-2 px-4 bg-red-600 hover:bg-red-500 rounded-md transition">تأكيد الحذف</button>
+                    <p className="text-slate-300 mb-8 text-lg">هل أنت متأكد من رغبتك في حذف هذا الدين؟</p>
+                    <div className="flex justify-end gap-4">
+                        <button onClick={() => setDeletingDebt(null)} className="py-3 px-6 text-slate-400 font-bold hover:text-white transition">إلغاء</button>
+                        <button onClick={handleDelete} className="py-3 px-6 bg-rose-600 hover:bg-rose-500 text-white rounded-xl transition font-bold shadow-lg shadow-rose-900/20">حذف</button>
                     </div>
                 </Modal>
             )}

@@ -60,12 +60,12 @@ const ContactForm: React.FC<{
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
-            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="الاسم الكامل" required className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" />
-            <input type="tel" value={phone || ''} onChange={e => setPhone(e.target.value)} placeholder="رقم الهاتف (اختياري)" className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" />
-            <input type="text" value={address || ''} onChange={e => setAddress(e.target.value)} placeholder="العنوان (اختياري)" className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" />
+            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="الاسم الكامل" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
+            <input type="tel" value={phone || ''} onChange={e => setPhone(e.target.value)} placeholder="رقم الهاتف (اختياري)" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
+            <input type="text" value={address || ''} onChange={e => setAddress(e.target.value)} placeholder="العنوان (اختياري)" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
             <div className="flex justify-end gap-3 pt-4">
-                <button type="button" onClick={onCancel} className="py-2 px-4 bg-slate-600 hover:bg-slate-500 rounded-md transition">إلغاء</button>
-                <button type="submit" disabled={isSaving} className="py-2 px-4 bg-cyan-600 hover:bg-cyan-500 rounded-md transition disabled:bg-slate-500">
+                <button type="button" onClick={onCancel} className="py-2 px-4 text-slate-400 hover:text-white font-bold transition">إلغاء</button>
+                <button type="submit" disabled={isSaving} className="py-2 px-6 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl transition font-bold shadow-lg">
                     {isSaving ? 'جاري الحفظ...' : 'حفظ'}
                 </button>
             </div>
@@ -74,11 +74,11 @@ const ContactForm: React.FC<{
 };
 
 const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; }> = ({ children, title, onClose }) => (
-    <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-        <div className="bg-slate-800 rounded-lg p-6 w-full max-w-md border border-slate-700 shadow-xl animate-slide-up">
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold">{title}</h3>
-                <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors"><XMarkIcon className="w-6 h-6" /></button>
+    <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+        <div className="glass-card bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-white/10 shadow-2xl animate-slide-up">
+            <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-white">{title}</h3>
+                <button onClick={onClose} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 transition-colors"><XMarkIcon className="w-5 h-5 text-slate-400" /></button>
             </div>
             {children}
         </div>
@@ -184,56 +184,59 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ key, handleDatabaseChange, 
 
     return (
         <div className="relative">
-            <div className="relative mb-4">
-                <MagnifyingGlassIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <div className="relative mb-6 group">
+                <MagnifyingGlassIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-cyan-400 transition-colors" />
                 <input
                     type="text"
                     placeholder="ابحث بالاسم أو رقم الهاتف..."
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 pr-10 pl-4 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full bg-slate-900/50 p-3 pr-12 rounded-2xl text-white border border-slate-700 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none transition shadow-inner"
                 />
             </div>
             {loading && allContactsWithDebts.length === 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {[...Array(4)].map((_, i) => <div key={i} className="h-44 bg-slate-800 rounded-xl animate-pulse"></div>)}
+                    {[...Array(4)].map((_, i) => <div key={i} className="h-32 bg-slate-800/50 rounded-2xl animate-pulse"></div>)}
                 </div>
             ) : filteredContacts.length === 0 ? (
-                <div className="text-center py-10">
-                    <p className="text-slate-400 mb-4">{searchTerm ? "لا يوجد أسماء تطابق بحثك." : "لم تقم بإضافة أي أسماء بعد."}</p>
-                     <button onClick={() => setModal({ type: 'add', contact: null })} className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-4 rounded-lg inline-flex items-center">
+                <div className="text-center py-16 bg-slate-900/20 rounded-3xl border-dashed border-2 border-slate-800">
+                    <p className="text-slate-500 mb-6 text-lg">{searchTerm ? "لا يوجد أسماء تطابق بحثك." : "لم تقم بإضافة أي أسماء بعد."}</p>
+                     <button onClick={() => setModal({ type: 'add', contact: null })} className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-6 rounded-xl inline-flex items-center shadow-lg transition-transform hover:scale-105">
                         <PlusIcon className="w-5 h-5 ml-2" />
                         إضافة اسم جديد
                     </button>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-24">
                     {filteredContacts.map(contact => (
-                        <div key={contact.id} className="relative bg-slate-800 rounded-xl shadow-lg transition-colors border border-slate-700/50 group hover:border-cyan-500/50">
-                             <button onClick={() => onSelectContact(contact.id)} className="w-full text-right p-4 flex flex-col gap-4 focus:outline-none">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 bg-cyan-800 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-cyan-300 text-xl">
+                        <div key={contact.id} className="relative glass-card rounded-2xl p-1 hover:bg-white/5 transition-all group border border-white/5 hover:border-white/10">
+                             <button onClick={() => onSelectContact(contact.id)} className="w-full text-right p-4 flex items-center justify-between focus:outline-none">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-14 h-14 bg-gradient-to-br from-cyan-600 to-blue-700 rounded-2xl flex-shrink-0 flex items-center justify-center font-bold text-white text-xl shadow-lg">
                                         {getInitials(contact.name)}
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-xl text-white">{contact.name}</h3>
-                                        {contact.phone && <p className="text-sm text-slate-400">{contact.phone}</p>}
+                                        <h3 className="font-bold text-lg text-white mb-1">{contact.name}</h3>
+                                        {contact.netBalance !== 0 && (
+                                            <div className={`text-sm font-bold flex items-center gap-1 ${contact.netBalance > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                <ScaleIcon className="w-3.5 h-3.5"/>
+                                                <span dir="ltr">{formatCurrency(Math.abs(contact.netBalance))}</span>
+                                                <span>{contact.netBalance > 0 ? '(لك)' : '(عليك)'}</span>
+                                            </div>
+                                        )}
+                                        {contact.netBalance === 0 && contact.phone && <p className="text-sm text-slate-500">{contact.phone}</p>}
                                     </div>
                                 </div>
-                                <div className={`flex items-center justify-center gap-2 p-3 rounded-lg ${contact.netBalance > 0 ? 'bg-green-500/10 text-green-400' : contact.netBalance < 0 ? 'bg-red-500/10 text-red-400' : 'bg-slate-700 text-slate-400'}`}>
-                                    <ScaleIcon className="w-5 h-5"/>
-                                    <span className="text-sm font-medium">الرصيد الصافي:</span>
-                                    <span className="font-bold text-lg">{formatCurrency(contact.netBalance)}</span>
-                                </div>
                             </button>
-                            <div className="absolute top-2 left-2" ref={openMenuId === contact.id ? menuRef : null}>
-                                <button onClick={() => setOpenMenuId(openMenuId === contact.id ? null : contact.id)} className="text-slate-500 hover:text-white p-2 rounded-full group-hover:text-slate-300 transition-colors">
-                                    <EllipsisVerticalIcon className="w-5 h-5"/>
+                            
+                            <div className="absolute top-4 left-4" ref={openMenuId === contact.id ? menuRef : null}>
+                                <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === contact.id ? null : contact.id); }} className="p-2 text-slate-500 hover:text-white rounded-full hover:bg-white/10 transition-colors">
+                                    <EllipsisVerticalIcon className="w-6 h-6"/>
                                 </button>
                                 {openMenuId === contact.id && (
-                                    <div className="absolute left-0 mt-2 w-32 bg-slate-900 border border-slate-700 rounded-md shadow-lg z-10 animate-fade-in-fast">
-                                       <button onClick={() => { setModal({ type: 'edit', contact }); setOpenMenuId(null); }} className="flex items-center gap-2 w-full text-right px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 rounded-t-md"><PencilSquareIcon className="w-4 h-4"/> تعديل</button>
-                                       <button onClick={() => { setModal({ type: 'delete', contact }); setOpenMenuId(null); }} className="flex items-center gap-2 w-full text-right px-4 py-2 text-sm text-red-400 hover:bg-slate-700 rounded-b-md"><TrashIcon className="w-4 h-4"/> حذف</button>
+                                    <div className="absolute left-0 mt-2 w-36 bg-slate-900 border border-white/10 rounded-xl shadow-xl z-10 animate-fade-in overflow-hidden">
+                                       <button onClick={() => { setModal({ type: 'edit', contact }); setOpenMenuId(null); }} className="flex items-center gap-3 w-full text-right px-4 py-3 text-sm text-slate-300 hover:bg-white/10 transition"><PencilSquareIcon className="w-4 h-4"/> تعديل</button>
+                                       <button onClick={() => { setModal({ type: 'delete', contact }); setOpenMenuId(null); }} className="flex items-center gap-3 w-full text-right px-4 py-3 text-sm text-rose-400 hover:bg-white/10 transition"><TrashIcon className="w-4 h-4"/> حذف</button>
                                     </div>
                                 )}
                             </div>
@@ -242,7 +245,10 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ key, handleDatabaseChange, 
                 </div>
             )}
 
-            <button onClick={() => setModal({ type: 'add', contact: null })} className="fixed bottom-20 right-4 h-14 w-14 bg-cyan-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-cyan-500 transition-transform transform active:scale-90 z-10">
+            <button 
+                onClick={() => setModal({ type: 'add', contact: null })} 
+                className="fixed bottom-24 md:bottom-10 left-6 h-16 w-16 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-[24px] shadow-2xl shadow-cyan-500/30 flex items-center justify-center hover:scale-110 transition-all z-30 border border-white/20"
+            >
                 <PlusIcon className="w-8 h-8"/>
             </button>
 
@@ -254,10 +260,10 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ key, handleDatabaseChange, 
             )}
             {modal.type === 'delete' && modal.contact && (
                 <Modal title="تأكيد الحذف" onClose={() => setModal({ type: null, contact: null })}>
-                    <p className="text-slate-300 mb-6">هل أنت متأكد من حذف "{modal.contact.name}"؟</p>
-                    <div className="flex justify-end gap-3">
-                        <button onClick={() => setModal({ type: null, contact: null })} className="py-2 px-4 bg-slate-600 hover:bg-slate-500 rounded-md transition">إلغاء</button>
-                        <button onClick={handleDelete} className="py-2 px-4 bg-red-600 hover:bg-red-500 rounded-md transition">تأكيد الحذف</button>
+                    <p className="text-slate-300 mb-8 text-lg">هل أنت متأكد من حذف "<span className="font-bold text-white">{modal.contact.name}</span>"؟</p>
+                    <div className="flex justify-end gap-4">
+                        <button onClick={() => setModal({ type: null, contact: null })} className="py-3 px-6 text-slate-400 font-bold hover:text-white transition">إلغاء</button>
+                        <button onClick={handleDelete} className="py-3 px-6 bg-rose-600 hover:bg-rose-500 text-white rounded-xl transition font-bold shadow-lg">تأكيد الحذف</button>
                     </div>
                 </Modal>
             )}

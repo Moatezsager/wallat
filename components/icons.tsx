@@ -2,6 +2,7 @@ import React from 'react';
 
 type IconProps = { className?: string };
 
+// Heroicons v2 Outline
 export const HomeIcon: React.FC<IconProps> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
     <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
@@ -16,7 +17,7 @@ export const TransactionsIcon: React.FC<IconProps> = ({ className }) => (
 
 export const DebtsIcon: React.FC<IconProps> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h6m-6 2.25h6M12 9.75l.487.033a6.375 6.375 0 0 1 5.966 5.966l.033.487M12 9.75v8.25" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182.79-.623 1.77-1.012 2.768-1.012 1.135 0 2.136.474 2.861 1.255" />
     </svg>
 );
 
@@ -224,22 +225,27 @@ export const PaintBrushIcon: React.FC<IconProps> = ({ className }) => (
 );
 export const BoldIcon: React.FC<IconProps> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-    <path d="M14 12a4 4 0 0 0 0-8H6v8" /><path d="M15 20a4 4 0 0 0 0-8H6v8Z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3.75h8.25a5.25 5.25 0 0 1 0 10.5H12m-5.25 6h8.25a5.25 5.25 0 0 0 0-10.5H12m-5.25-6v16.5" />
   </svg>
 );
 export const ItalicIcon: React.FC<IconProps> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-    <line x1="19" y1="4" x2="10" y2="4" /><line x1="14" y1="20" x2="5" y2="20" /><line x1="15" y1="4" x2="9" y2="20" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 4.5h1.5a.75.75 0 0 1 .75.75v.75m0 0h.75a.75.75 0 0 1 .75.75v.75m0 0h.75a.75.75 0 0 1 .75.75v.75m0 0h.75a.75.75 0 0 1 .75.75v.75m0 0h.75a.75.75 0 0 1 .75.75v.75m0 0h.75a.75.75 0 0 1 .75.75v.75m0 0h1.5" />
+    {/* Simplified italic logic or custom path if strict Heroicons is required. Using standard italic approximation for clarity. */}
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 4.5h-6.75M15 19.5H8.25M13.5 4.5L10.5 19.5" />
   </svg>
 );
 export const UnderlineIcon: React.FC<IconProps> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-    <path d="M6 4v6a6 6 0 0 0 12 0V4" /><line x1="4" y1="20" x2="20" y2="20" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+     <path strokeLinecap="round" strokeLinejoin="round" d="M6 5.25V12a6 6 0 1012 0V5.25" />
+     <path strokeLinecap="round" strokeLinejoin="round" d="M4 19.5h16" />
   </svg>
 );
 export const StrikethroughIcon: React.FC<IconProps> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-    <path d="M16 4H9a3 3 0 0 0-2.83 2" /><path d="M14 12a4 4 0 0 1 0 8H6" /><line x1="4" y1="12" x2="20" y2="12" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 12h.008v.008H12V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5M12 17.25a5.25 5.25 0 0 1-5.25-5.25m10.5 0a5.25 5.25 0 0 0-5.25-5.25" />
   </svg>
 );
 export const ListBulletIcon: React.FC<IconProps> = ({ className }) => (
@@ -249,12 +255,12 @@ export const ListBulletIcon: React.FC<IconProps> = ({ className }) => (
 );
 export const QueueListIcon: React.FC<IconProps> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-    <line x1="10" x2="21" y1="6" y2="6" /><line x1="10" x2="21" y1="12" y2="12" /><line x1="10" x2="21" y1="18" y2="18" /><path d="M4 6h1v4" /><path d="M4 10h2" /><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" />
   </svg>
 );
 export const ChatBubbleLeftQuoteIcon: React.FC<IconProps> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-    <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.75-2-2.5-2S3 3.75 3 5" /><path d="M14 21c3 0 7-1 7-8V5c0-1.25-.75-2-2.5-2S14 3.75 14 5" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 9.75a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375m-13.5 3.01c0 1.6 1.123 2.994 2.707 3.227 1.017.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 0 1 .778-.332 48.294 48.294 0 0 0 5.83-.498c1.585-.233 2.708-1.626 2.708-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
   </svg>
 );
 export const ArrowTrendingUp: React.FC<IconProps> = ({ className }) => (
@@ -290,6 +296,12 @@ export const TagIcon: React.FC<IconProps> = ({ className }) => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3z" />
     <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" />
   </svg>
+);
+
+export const ChartBarSquareIcon: React.FC<IconProps> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+    </svg>
 );
 
 
@@ -336,7 +348,7 @@ export const iconMap: { [key: string]: React.FC<IconProps> } = {
     KeyIcon,
     CalendarDaysIcon,
     TagIcon,
-    // Fix: Add missing icons to the map.
     ArrowTrendingUp,
     ArrowTrendingDown,
+    ChartBarSquareIcon,
 };

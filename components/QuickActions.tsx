@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Account, Category, Contact, Debt } from '../types';
-// Fix: Add missing icon imports
 import { 
     PlusIcon, XMarkIcon, ArrowUpIcon, ArrowDownIcon, HandRaisedIcon, UserPlusIcon, ArrowLeftIcon, AccountsIcon, ScaleIcon, ArrowsRightLeftIcon, CurrencyDollarIcon 
 } from './icons';
@@ -10,14 +9,14 @@ type ModalType = 'expense' | 'income' | 'transfer' | 'add-debt' | 'settle-debt' 
 
 const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; showBackButton?: boolean; onBack?: () => void; }> = 
 ({ children, title, onClose, showBackButton, onBack }) => (
-    <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-        <div className="bg-slate-800 rounded-lg p-6 w-full max-w-md border border-slate-700 shadow-xl animate-slide-up">
-            <div className="flex justify-between items-center mb-4">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+        <div className="glass-card bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-white/10 shadow-2xl animate-slide-up">
+            <div className="flex justify-between items-center mb-6">
                  {showBackButton ? (
-                    <button onClick={onBack} className="text-slate-400 hover:text-white transition-colors"><ArrowLeftIcon className="w-6 h-6" /></button>
-                ) : <div className="w-6"></div>}
-                <h3 className="text-lg font-bold text-center">{title}</h3>
-                <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors"><XMarkIcon className="w-6 h-6" /></button>
+                    <button onClick={onBack} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"><ArrowLeftIcon className="w-5 h-5" /></button>
+                ) : <div className="w-9"></div>}
+                <h3 className="text-xl font-bold text-white text-center">{title}</h3>
+                <button onClick={onClose} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"><XMarkIcon className="w-5 h-5" /></button>
             </div>
             {children}
         </div>
@@ -52,17 +51,17 @@ const AddAccountModal: React.FC<{
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
-            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="اسم الحساب" required className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" />
-            <select value={type} onChange={e => setType(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white">
+            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="اسم الحساب" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
+            <select value={type} onChange={e => setType(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
                 <option value="بنكي">بنكي</option>
                 <option value="نقدي">نقدي</option>
                 <option value="مخصص">مخصص</option>
             </select>
-            <input type="number" step="0.01" value={balance} onChange={e => setBalance(e.target.value)} placeholder="الرصيد الافتتاحي" required className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" />
+            <input type="number" step="0.01" value={balance} onChange={e => setBalance(e.target.value)} placeholder="الرصيد الافتتاحي" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
             <div className="flex justify-end gap-3 pt-4">
-                <button type="button" onClick={onCancel} className="py-2 px-4 bg-slate-600 hover:bg-slate-500 rounded-md transition">إلغاء</button>
-                <button type="submit" disabled={isSaving} className="py-2 px-4 bg-cyan-600 hover:bg-cyan-500 rounded-md transition disabled:bg-slate-500">
-                    {isSaving ? 'جاري الحفظ...' : 'حفظ الحساب'}
+                <button type="button" onClick={onCancel} className="py-3 px-6 text-slate-400 hover:text-white font-bold transition">إلغاء</button>
+                <button type="submit" disabled={isSaving} className="py-3 px-8 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl transition shadow-lg font-bold disabled:opacity-70">
+                    {isSaving ? 'جاري الحفظ...' : 'حفظ'}
                 </button>
             </div>
         </form>
@@ -135,20 +134,20 @@ const TransactionModal: React.FC<{
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
-             {error && <p className="text-red-400 text-sm">{error}</p>}
-            <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="المبلغ" required className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" />
-            <select value={accountId} onChange={e => setAccountId(e.target.value)} required className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white">
+             {error && <p className="text-rose-400 text-sm font-bold bg-rose-500/10 p-2 rounded-lg">{error}</p>}
+            <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="المبلغ" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
+            <select value={accountId} onChange={e => setAccountId(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
                 <option value="" disabled>اختر الحساب</option>
                 {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
             </select>
-            <select value={categoryId} onChange={e => setCategoryId(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white">
+            <select value={categoryId} onChange={e => setCategoryId(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
                 <option value="">اختر الفئة</option>
                 {filteredCategories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
             </select>
-            <input type="date" value={date} onChange={e => setDate(e.target.value)} required className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" />
-            <input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="ملاحظات (اختياري)" className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" />
-            <div className="flex justify-end pt-2">
-                 <button type="submit" disabled={isSaving} className="w-full py-2 px-4 bg-cyan-600 hover:bg-cyan-500 rounded-md transition disabled:bg-slate-500">
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
+            <input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="ملاحظات (اختياري)" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
+            <div className="flex justify-end pt-4">
+                 <button type="submit" disabled={isSaving} className="w-full py-3 px-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 rounded-xl transition font-bold text-white shadow-lg disabled:opacity-70">
                     {isSaving ? 'جاري الحفظ...' : 'حفظ'}
                 </button>
             </div>
@@ -221,25 +220,25 @@ const TransferModal: React.FC<{
     
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
-             {error && <p className="text-red-400 text-sm">{error}</p>}
+             {error && <p className="text-rose-400 text-sm font-bold bg-rose-500/10 p-2 rounded-lg">{error}</p>}
              <div>
-                <label className="text-sm">من حساب</label>
-                <select value={fromAccountId} onChange={e => setFromAccountId(e.target.value)} required className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white">
+                <label className="text-sm text-slate-400 mb-1 block">من حساب</label>
+                <select value={fromAccountId} onChange={e => setFromAccountId(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
                     <option value="" disabled>اختر حساب المصدر</option>
                     {accounts.map(acc => <option key={acc.id} value={acc.id}>{`${acc.name} (${acc.balance} ${acc.currency})`}</option>)}
                 </select>
              </div>
              <div>
-                <label className="text-sm">إلى حساب</label>
-                <select value={toAccountId} onChange={e => setToAccountId(e.target.value)} required className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white">
+                <label className="text-sm text-slate-400 mb-1 block">إلى حساب</label>
+                <select value={toAccountId} onChange={e => setToAccountId(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
                     <option value="" disabled>اختر حساب الوجهة</option>
                     {accounts.filter(a => a.id !== fromAccountId).map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
                 </select>
             </div>
-            <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="المبلغ" required className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" />
-            <input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="ملاحظات (اختياري)" className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" />
-            <div className="flex justify-end pt-2">
-                 <button type="submit" disabled={isSaving} className="w-full py-2 px-4 bg-cyan-600 hover:bg-cyan-500 rounded-md transition disabled:bg-slate-500">
+            <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="المبلغ" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
+            <input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="ملاحظات (اختياري)" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
+            <div className="flex justify-end pt-4">
+                 <button type="submit" disabled={isSaving} className="w-full py-3 px-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 rounded-xl transition font-bold text-white shadow-lg disabled:opacity-70">
                     {isSaving ? 'جاري التحويل...' : 'تأكيد التحويل'}
                 </button>
             </div>
@@ -247,7 +246,6 @@ const TransferModal: React.FC<{
     );
 }
 
-// And so on for AddDebtWizard and SettleDebtWizard...
 const AddDebtWizard: React.FC<{
     contacts: Contact[];
     accounts: Account[];
@@ -329,7 +327,7 @@ const AddDebtWizard: React.FC<{
                 linkedTxId = newTransaction.id;
             }
     
-            // Insert the debt record, including the linked transaction ID and account ID if it exists
+            // Insert the debt record
             await supabase.from('debts').insert({
                 contact_id: selectedContact.id,
                 type: debtType,
@@ -344,23 +342,25 @@ const AddDebtWizard: React.FC<{
             onSuccess();
         } catch (err: any) {
             console.error('Error saving debt:', err.message);
-            // Optionally, show an alert to the user
             alert('حدث خطأ أثناء حفظ الدين. يرجى المحاولة مرة أخرى.');
         }
     };
 
     if (step === 1) {
         return (
-            <div className="space-y-3">
-                <input type="text" placeholder="ابحث عن اسم..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" />
-                <div className="max-h-60 overflow-y-auto">
-                    {filteredContacts.map(c => <button key={c.id} onClick={() => handleSelectContact(c)} className="w-full text-right p-2 hover:bg-slate-700 rounded">{c.name}</button>)}
+            <div className="space-y-4">
+                <input type="text" placeholder="ابحث عن اسم..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
+                <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-2">
+                    {filteredContacts.map(c => <button key={c.id} onClick={() => handleSelectContact(c)} className="w-full text-right p-3 hover:bg-slate-800 rounded-xl border border-transparent hover:border-white/5 transition-all flex items-center justify-between group">
+                        <span className="font-bold">{c.name}</span>
+                        <ArrowLeftIcon className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity text-cyan-400"/>
+                    </button>)}
                 </div>
-                 <button onClick={() => setShowNewContact(!showNewContact)} className="text-cyan-400 text-sm mt-2">{showNewContact ? 'إلغاء' : 'أو إضافة جهة اتصال جديدة'}</button>
+                 <button onClick={() => setShowNewContact(!showNewContact)} className="text-cyan-400 text-sm mt-2 font-bold hover:underline">{showNewContact ? 'إلغاء' : 'أو إضافة جهة اتصال جديدة'}</button>
                 {showNewContact && (
-                    <div className="flex gap-2 mt-2">
-                        <input type="text" value={newContactName} onChange={e => setNewContactName(e.target.value)} placeholder="اسم جهة الاتصال" className="flex-grow bg-slate-700 border border-slate-600 rounded-md p-2 text-white" />
-                        <button onClick={handleAddNewContact} className="bg-cyan-600 p-2 rounded-md"><UserPlusIcon className="w-5 h-5"/></button>
+                    <div className="flex gap-2 mt-2 animate-fade-in">
+                        <input type="text" value={newContactName} onChange={e => setNewContactName(e.target.value)} placeholder="اسم جهة الاتصال" className="flex-grow bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
+                        <button onClick={handleAddNewContact} className="bg-cyan-600 hover:bg-cyan-500 text-white p-3 rounded-xl transition shadow-lg"><UserPlusIcon className="w-5 h-5"/></button>
                     </div>
                 )}
             </div>
@@ -369,22 +369,22 @@ const AddDebtWizard: React.FC<{
 
     if (step === 2) {
         return (
-            <div className="space-y-4">
-                 <p className="text-center text-slate-400">إضافة دين لـ <span className="font-bold text-white">{selectedContact?.name}</span></p>
+            <div className="space-y-4 animate-slide-up">
+                 <p className="text-center text-slate-400">إضافة دين لـ <span className="font-bold text-white text-lg block mt-1">{selectedContact?.name}</span></p>
                  <div className="flex gap-4">
-                    <button type="button" onClick={() => setDebtType('on_you')} className={`w-full p-2 rounded-md ${debtType === 'on_you' ? 'bg-red-500 text-white' : 'bg-slate-700'}`}>دين عليك</button>
-                    <button type="button" onClick={() => setDebtType('for_you')} className={`w-full p-2 rounded-md ${debtType === 'for_you' ? 'bg-green-500 text-white' : 'bg-slate-700'}`}>دين لك</button>
+                    <button type="button" onClick={() => setDebtType('on_you')} className={`w-full py-3 rounded-xl transition font-bold ${debtType === 'on_you' ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/20' : 'bg-slate-800 text-slate-400'}`}>دين عليك</button>
+                    <button type="button" onClick={() => setDebtType('for_you')} className={`w-full py-3 rounded-xl transition font-bold ${debtType === 'for_you' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'bg-slate-800 text-slate-400'}`}>دين لك</button>
                 </div>
-                 <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="المبلغ" required className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" />
+                 <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="المبلغ" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
                  {debtType === 'for_you' && (
-                     <select value={linkedAccountId} onChange={e => setLinkedAccountId(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white">
+                     <select value={linkedAccountId} onChange={e => setLinkedAccountId(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
                          <option value="">خصم من حساب (اختياري)</option>
                          {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
                      </select>
                  )}
-                 <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" />
-                 <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="الوصف (اختياري)" className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" />
-                 <button onClick={handleSaveDebt} className="w-full py-2 px-4 bg-cyan-600 hover:bg-cyan-500 rounded-md transition">حفظ الدين</button>
+                 <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
+                 <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="الوصف (اختياري)" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
+                 <button onClick={handleSaveDebt} className="w-full py-3 px-4 bg-cyan-600 hover:bg-cyan-500 rounded-xl transition font-bold text-white shadow-lg mt-2">حفظ الدين</button>
             </div>
         );
     }
@@ -484,39 +484,44 @@ const SettleDebtWizard: React.FC<{
     
     if(step === 1) {
         return (
-             <div className="max-h-80 overflow-y-auto space-y-2">
+             <div className="max-h-80 overflow-y-auto space-y-3 custom-scrollbar">
                  {aggregatedDebts.map(({ contact, for_you, on_you, for_you_debts, on_you_debts }) => (
                     <React.Fragment key={contact.id}>
-                        {on_you > 0 && <button onClick={() => handleSelect({contact, type: 'on_you', total: on_you, debts: on_you_debts})} className="w-full flex justify-between items-center p-2 hover:bg-slate-700 rounded"><span className="font-semibold">{contact.name}</span><span className="text-red-400 font-bold">{on_you} د.ل</span></button>}
-                        {for_you > 0 && <button onClick={() => handleSelect({contact, type: 'for_you', total: for_you, debts: for_you_debts})} className="w-full flex justify-between items-center p-2 hover:bg-slate-700 rounded"><span className="font-semibold">{contact.name}</span><span className="text-green-400 font-bold">{for_you} د.ل</span></button>}
+                        {on_you > 0 && <button onClick={() => handleSelect({contact, type: 'on_you', total: on_you, debts: on_you_debts})} className="w-full flex justify-between items-center p-3 hover:bg-slate-800 rounded-xl border border-white/5 hover:border-white/10 transition-all group">
+                            <span className="font-bold text-white group-hover:text-cyan-400 transition-colors">{contact.name}</span>
+                            <span className="text-rose-400 font-bold bg-rose-500/10 px-2 py-1 rounded-lg">{on_you} د.ل</span>
+                        </button>}
+                        {for_you > 0 && <button onClick={() => handleSelect({contact, type: 'for_you', total: for_you, debts: for_you_debts})} className="w-full flex justify-between items-center p-3 hover:bg-slate-800 rounded-xl border border-white/5 hover:border-white/10 transition-all group">
+                            <span className="font-bold text-white group-hover:text-cyan-400 transition-colors">{contact.name}</span>
+                            <span className="text-emerald-400 font-bold bg-emerald-500/10 px-2 py-1 rounded-lg">{for_you} د.ل</span>
+                        </button>}
                     </React.Fragment>
                 ))}
-                {aggregatedDebts.length === 0 && <p className="text-slate-400 text-center py-4">لا توجد ديون غير مسددة.</p>}
+                {aggregatedDebts.length === 0 && <p className="text-slate-400 text-center py-8">لا توجد ديون غير مسددة.</p>}
             </div>
         );
     }
     
     if(step === 2 && selectedInfo) {
          return (
-             <div className="space-y-4">
-                 <p className="text-center text-slate-400">تسوية دين مع <span className="font-bold text-white">{selectedInfo.contact.name}</span></p>
-                 <div className="bg-slate-700/50 p-2 rounded text-center">
-                    <span className="text-sm">إجمالي المستحق: </span>
-                    <span className={`font-bold text-lg ${selectedInfo.type === 'on_you' ? 'text-red-400' : 'text-green-400'}`}>{selectedInfo.total} د.ل</span>
+             <div className="space-y-4 animate-slide-up">
+                 <p className="text-center text-slate-400">تسوية دين مع <span className="font-bold text-white text-lg block mt-1">{selectedInfo.contact.name}</span></p>
+                 <div className="bg-slate-800/50 p-4 rounded-2xl text-center border border-white/5">
+                    <span className="text-sm text-slate-400 block mb-1">إجمالي المستحق</span>
+                    <span className={`font-extrabold text-3xl ${selectedInfo.type === 'on_you' ? 'text-rose-400' : 'text-emerald-400'}`}>{selectedInfo.total} <span className="text-lg">د.ل</span></span>
                  </div>
-                 <input type="number" step="0.01" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} placeholder="المبلغ" required className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" />
-                 <select value={paymentAccountId} onChange={e => setPaymentAccountId(e.target.value)} required className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white">
+                 <input type="number" step="0.01" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} placeholder="المبلغ المدفوع" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
+                 <select value={paymentAccountId} onChange={e => setPaymentAccountId(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
                     <option value="" disabled>اختر حساب الدفع</option>
                     {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
                 </select>
-                <button onClick={handleSettle} className="w-full py-2 px-4 bg-cyan-600 hover:bg-cyan-500 rounded-md transition">تأكيد التسوية</button>
+                <button onClick={handleSettle} className="w-full py-3 px-4 bg-cyan-600 hover:bg-cyan-500 rounded-xl transition font-bold text-white shadow-lg mt-2">تأكيد التسوية</button>
              </div>
          );
     }
     return null;
 }
 
-// Main Component
 const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }> = ({ onActionSuccess }) => {
     const [isFabOpen, setIsFabOpen] = useState(false);
     const [activeModal, setActiveModal] = useState<ModalType | null>(null);
@@ -573,14 +578,14 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
 
     const fabActions = [
         // Core Transactions
-        { label: 'إضافة مصروف', icon: <ArrowUpIcon className="w-6 h-6"/>, action: () => openModal('expense'), color: 'bg-red-500' },
-        { label: 'إضافة إيراد', icon: <ArrowDownIcon className="w-6 h-6"/>, action: () => openModal('income'), color: 'bg-green-500' },
-        { label: 'تحويل', icon: <ArrowsRightLeftIcon className="w-6 h-6"/>, action: () => openModal('transfer'), color: 'bg-indigo-500' },
+        { label: 'إضافة مصروف', icon: <ArrowUpIcon className="w-6 h-6"/>, action: () => openModal('expense'), gradient: 'from-rose-500 to-pink-600' },
+        { label: 'إضافة إيراد', icon: <ArrowDownIcon className="w-6 h-6"/>, action: () => openModal('income'), gradient: 'from-emerald-500 to-teal-600' },
+        { label: 'تحويل', icon: <ArrowsRightLeftIcon className="w-6 h-6"/>, action: () => openModal('transfer'), gradient: 'from-violet-500 to-indigo-600' },
         // Debt Management
-        { label: 'إضافة دين', icon: <HandRaisedIcon className="w-6 h-6"/>, action: () => openModal('add-debt'), color: 'bg-amber-500' },
-        { label: 'تسوية دين', icon: <ScaleIcon className="w-6 h-6"/>, action: () => openModal('settle-debt'), color: 'bg-sky-500' },
+        { label: 'إضافة دين', icon: <HandRaisedIcon className="w-6 h-6"/>, action: () => openModal('add-debt'), gradient: 'from-amber-500 to-orange-600' },
+        { label: 'تسوية دين', icon: <ScaleIcon className="w-6 h-6"/>, action: () => openModal('settle-debt'), gradient: 'from-sky-500 to-blue-600' },
         // Entity Creation
-        { label: 'إضافة حساب', icon: <AccountsIcon className="w-6 h-6"/>, action: () => openModal('add-account'), color: 'bg-blue-500' },
+        { label: 'إضافة حساب', icon: <AccountsIcon className="w-6 h-6"/>, action: () => openModal('add-account'), gradient: 'from-slate-600 to-slate-700' },
     ];
     
     const modalTitles: Record<ModalType, string> = {
@@ -615,25 +620,25 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
         <>
             {/* Scrim Overlay */}
             <div
-                className={`fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-10 transition-opacity duration-300 ease-in-out ${isFabOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                className={`fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-30 transition-opacity duration-300 ease-in-out ${isFabOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 onClick={() => setIsFabOpen(false)}
                 aria-hidden="true"
             />
             
-            {/* FAB and Actions Container */}
-            <div className="fixed bottom-20 right-4 z-20 flex flex-col items-end gap-4">
+            {/* FAB and Actions Container - Moved to Left Side for better UX with RTL Sidebar */}
+            <div className="fixed bottom-24 md:bottom-10 left-6 z-30 flex flex-col items-start gap-5">
                 {/* Actions List */}
-                <div className={`flex flex-col-reverse items-end gap-4 transition-all duration-300 ${isFabOpen ? 'visible' : 'invisible'}`}>
+                <div className={`flex flex-col-reverse items-start gap-4 transition-all duration-300 ${isFabOpen ? 'visible' : 'invisible'}`}>
                     {fabActions.map((action, index) => (
                         <div
                             key={index}
-                            className={`flex items-center gap-3 transition-all duration-300 ease-out ${isFabOpen ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'}`}
+                            className={`flex items-center gap-4 transition-all duration-300 ease-out ${isFabOpen ? 'translate-x-0 opacity-100' : '-translate-x-8 opacity-0'}`}
                             style={{ transitionDelay: `${index * 40}ms` }}
                         >
-                            <span className="bg-slate-800 text-white text-sm py-1 px-3 rounded-md shadow-lg whitespace-nowrap">{action.label}</span>
-                            <button onClick={action.action} className={`${action.color} h-12 w-12 rounded-full text-white flex items-center justify-center flex-shrink-0 shadow-lg hover:opacity-90 transition-transform hover:scale-105 active:scale-95`}>
+                            <button onClick={action.action} className={`bg-gradient-to-br ${action.gradient} h-12 w-12 rounded-2xl text-white flex items-center justify-center flex-shrink-0 shadow-lg shadow-black/30 hover:brightness-110 transition-all hover:scale-105 active:scale-95 border border-white/10`}>
                                 {action.icon}
                             </button>
+                            <span className="bg-slate-800/80 backdrop-blur-md text-white text-sm font-bold py-1.5 px-4 rounded-xl shadow-lg whitespace-nowrap border border-white/5">{action.label}</span>
                         </div>
                     ))}
                 </div>
@@ -641,12 +646,14 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
                 {/* FAB Button */}
                 <button
                     onClick={() => setIsFabOpen(!isFabOpen)}
-                    className="h-16 w-16 bg-cyan-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-cyan-500 transition-all duration-300 transform hover:scale-105 active:scale-95 z-10"
+                    className="group relative h-16 w-16 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-[24px] shadow-2xl shadow-cyan-500/30 flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 z-10 border border-white/20 overflow-hidden"
                     aria-haspopup="true"
                     aria-expanded={isFabOpen}
                     aria-label={isFabOpen ? 'إغلاق الإجراءات السريعة' : 'فتح الإجراءات السريعة'}
                 >
-                    <PlusIcon className={`w-8 h-8 transition-transform duration-300 ease-in-out ${isFabOpen ? 'rotate-45' : ''}`} />
+                    {/* Shine effect */}
+                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-500 rounded-[24px]" />
+                    <PlusIcon className={`w-8 h-8 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${isFabOpen ? 'rotate-[135deg]' : ''}`} />
                 </button>
             </div>
             
