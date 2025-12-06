@@ -7,7 +7,7 @@ import {
     TrashIcon, BoldIcon, ItalicIcon, UnderlineIcon, StrikethroughIcon,
     ListBulletIcon, QueueListIcon, ChatBubbleLeftQuoteIcon, PlusIcon, ArrowLeftIcon, 
     ClipboardDocumentIcon, CopyIcon, UndoIcon, RedoIcon, AlignLeftIcon, AlignCenterIcon, AlignRightIcon,
-    Heading1Icon, Heading2Icon, CheckSquareIcon, CalendarDaysIcon
+    Heading1Icon, Heading2Icon, CheckSquareIcon, CalendarDaysIcon, PencilSquareIcon
 } from './icons';
 
 // Enhanced Modern Color Palette with Gradients
@@ -148,7 +148,12 @@ const NotesPage: React.FC<{ key: number; handleDatabaseChange: (description?: st
     const [notes, setNotes] = useState<Note[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [editorState, setEditorState] = useState<{ mode: 'closed' | 'adding'; note: null } | { mode: 'editing'; note: Note }>({ mode: 'closed', note: null });
+    
+    // Updated state to handle modes
+    const [editorState, setEditorState] = useState<{ 
+        mode: 'closed' | 'adding' | 'viewing' | 'editing'; 
+        note: Note | null 
+    }>({ mode: 'closed', note: null });
 
     const fetchNotes = useCallback(async () => {
         setLoading(true);
@@ -264,7 +269,8 @@ const NotesPage: React.FC<{ key: number; handleDatabaseChange: (description?: st
                             title="المثبتة"
                             icon={<SolidPinIcon className="w-4 h-4 text-cyan-400" />}
                             notes={pinnedNotes}
-                            onEdit={(note) => setEditorState({ mode: 'editing', note })}
+                            // Change: Click opens view mode
+                            onClick={(note) => setEditorState({ mode: 'viewing', note })}
                             onDelete={handleDeleteNote}
                             onUpdateField={handleUpdateNoteField}
                         />
@@ -273,7 +279,8 @@ const NotesPage: React.FC<{ key: number; handleDatabaseChange: (description?: st
                          <NotesSection 
                             title={pinnedNotes.length > 0 ? "أخرى" : undefined}
                             notes={otherNotes}
-                            onEdit={(note) => setEditorState({ mode: 'editing', note })}
+                            // Change: Click opens view mode
+                            onClick={(note) => setEditorState({ mode: 'viewing', note })}
                             onDelete={handleDeleteNote}
                             onUpdateField={handleUpdateNoteField}
                         />
@@ -293,7 +300,17 @@ const NotesPage: React.FC<{ key: number; handleDatabaseChange: (description?: st
                 <PlusIcon className="w-8 h-8 text-white group-hover:rotate-90 transition-transform duration-300"/>
             </button>
 
-            {editorState.mode !== 'closed' && (
+            {/* Render Viewer or Editor based on state */}
+            {editorState.mode === 'viewing' && editorState.note && (
+                <NoteViewerModal 
+                    note={editorState.note}
+                    onClose={() => setEditorState({ mode: 'closed', note: null })}
+                    onEdit={() => setEditorState({ mode: 'editing', note: editorState.note })}
+                    onDelete={handleDeleteNote}
+                />
+            )}
+
+            {(editorState.mode === 'editing' || editorState.mode === 'adding') && (
                 <NoteEditorModal 
                     key={editorState.note?.id || 'new-note'}
                     note={editorState.note}
@@ -310,10 +327,10 @@ const NotesSection: React.FC<{
     title?: string;
     icon?: React.ReactNode;
     notes: Note[];
-    onEdit: (note: Note) => void;
+    onClick: (note: Note) => void;
     onDelete: (id: string) => void;
     onUpdateField: (id: string, updates: Partial<Note>) => void;
-}> = ({ title, icon, notes, onEdit, onDelete, onUpdateField }) => (
+}> = ({ title, icon, notes, onClick, onDelete, onUpdateField }) => (
     <div>
         {title && (
             <h2 className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 px-2">
@@ -326,7 +343,7 @@ const NotesSection: React.FC<{
                 <NoteCard 
                     key={note.id}
                     note={note}
-                    onEdit={() => onEdit(note)}
+                    onClick={() => onClick(note)}
                     onDelete={() => onDelete(note.id)}
                     onUpdateField={(updates) => onUpdateField(note.id, updates)}
                 />
@@ -337,10 +354,10 @@ const NotesSection: React.FC<{
 
 const NoteCard: React.FC<{
     note: Note;
-    onEdit: () => void;
+    onClick: () => void;
     onDelete: () => void;
     onUpdateField: (updates: Partial<Note>) => void;
-}> = ({ note, onEdit, onDelete, onUpdateField }) => {
+}> = ({ note, onClick, onDelete, onUpdateField }) => {
 
     const [title, content] = useMemo(() => {
         const tempDiv = document.createElement('div');
@@ -362,12 +379,10 @@ const NoteCard: React.FC<{
         return [titleText, cleanContent];
     }, [note.note_text]);
 
-    const theme = NOTE_THEMES.find(t => t.bg === note.color) || NOTE_THEMES[0];
-
     return (
         <div className="masonry-item group perspective-1000">
             <div 
-                onClick={onEdit}
+                onClick={onClick}
                 className="relative rounded-2xl cursor-pointer overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-black/50 border border-white/5"
                 style={{ backgroundColor: note.color }}
             >
@@ -403,6 +418,104 @@ const NoteCard: React.FC<{
                             <TrashIcon className="w-4 h-4"/>
                         </button>
                     </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- New Component: Note Viewer Modal ---
+const NoteViewerModal: React.FC<{
+    note: Note;
+    onClose: () => void;
+    onEdit: () => void;
+    onDelete: (id: string) => void;
+}> = ({ note, onClose, onEdit, onDelete }) => {
+    const contentRef = useRef<HTMLDivElement>(null);
+    const [wordCount, setWordCount] = useState(0);
+    const [copied, setCopied] = useState(false);
+
+    const [title, content] = useMemo(() => {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = note.note_text;
+        
+        const heading = tempDiv.querySelector('h1');
+        let titleText = '';
+        if (heading) {
+            titleText = heading.textContent || '';
+            heading.remove();
+        }
+        
+        return [titleText, tempDiv.innerHTML];
+    }, [note.note_text]);
+
+    useEffect(() => {
+        // Calculate words for display
+        if (contentRef.current) {
+            const text = contentRef.current.innerText || "";
+            setWordCount(text.trim().split(/\s+/).filter(w => w.length > 0).length);
+        }
+    }, [note.note_text]);
+
+    const handleCopy = () => {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = note.note_text;
+        const text = tempDiv.innerText || tempDiv.textContent || '';
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    }
+
+    return (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-0 sm:p-4 animate-fade-in">
+            <div 
+                className="w-full h-full flex flex-col sm:max-w-3xl sm:h-[85vh] sm:rounded-[2rem] shadow-2xl transition-colors duration-500 relative overflow-hidden" 
+                style={{ backgroundColor: note.color }}
+            >
+                {/* Header */}
+                <div className="flex justify-between items-center p-4 bg-black/10 backdrop-blur-md border-b border-white/5 shrink-0 z-10">
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-black/20 text-white transition-colors">
+                        <ArrowLeftIcon className="w-6 h-6"/>
+                    </button>
+                    
+                    <div className="flex items-center gap-3">
+                        <span className="text-[10px] text-white/50 font-mono hidden sm:inline-block">
+                            {new Date(note.updated_at).toLocaleString('ar-LY')}
+                        </span>
+                        <div className="w-px h-6 bg-white/10 mx-1 hidden sm:block"></div>
+                        
+                        <button onClick={handleCopy} className="p-2 rounded-full hover:bg-black/20 text-white/80 hover:text-white transition flex items-center gap-1" title="نسخ النص">
+                            {copied ? <CheckSquareIcon className="w-5 h-5 text-emerald-300"/> : <CopyIcon className="w-5 h-5"/>}
+                        </button>
+                        
+                        <button onClick={onEdit} className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/10 shadow-sm" title="تعديل">
+                            <PencilSquareIcon className="w-5 h-5"/>
+                        </button>
+                    </div>
+                </div>
+
+                {/* Content Area */}
+                <div className="flex-grow flex flex-col overflow-y-auto custom-scrollbar relative">
+                    <div className="max-w-2xl mx-auto w-full px-6 py-10">
+                        {title && (
+                            <h1 className="text-3xl sm:text-4xl font-bold text-white mb-6 leading-tight border-b border-white/5 pb-4">
+                                {title}
+                            </h1>
+                        )}
+                        <div 
+                            ref={contentRef}
+                            className="prose prose-invert prose-lg max-w-none text-slate-100/90 leading-relaxed"
+                            dangerouslySetInnerHTML={{ __html: content }}
+                        />
+                    </div>
+                </div>
+                
+                {/* Footer Info */}
+                <div className="bg-slate-900/50 backdrop-blur-xl border-t border-white/10 p-3 pb-safe shrink-0 flex justify-between items-center px-6">
+                    <span className="text-xs text-white/40">{wordCount} كلمة</span>
+                    <button onClick={() => { if(window.confirm('حذف الملاحظة؟')) { onDelete(note.id); onClose(); } }} className="p-2 -mr-2 rounded-full hover:bg-rose-500/10 text-white/30 hover:text-rose-400 transition">
+                        <TrashIcon className="w-4 h-4"/>
+                    </button>
                 </div>
             </div>
         </div>
@@ -474,9 +587,6 @@ const NoteEditorModal: React.FC<{
     }
 
     const modalRef = useRef<HTMLDivElement>(null);
-    // Don't auto-save on click outside to prevent accidental saves of partial edits, rely on the close/back button
-    // But for a "Google Keep" feel, auto-save is better. Let's keep it manual via button for now for "Control".
-    // Actually, user asked for "Control", so manual save/back is clearer.
     
     // Auto-resize title
     const handleTitleInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
