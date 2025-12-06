@@ -30,7 +30,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActiv
 
     const mainNavItems = [
         { page: 'home', label: 'الرئيسية', icon: <HomeIcon className="w-6 h-6" /> },
-        { page: 'accounts', label: 'الحسابات', icon: <AccountsIcon className="w-6 h-6" /> },
+        { page: 'accounts', label: 'الحسابات', icon: <WalletIcon className="w-6 h-6" /> },
         { page: 'transactions', label: 'المعاملات', icon: <TransactionsIcon className="w-6 h-6" /> },
         { page: 'debts', label: 'الديون', icon: <CurrencyDollarIcon className="w-6 h-6" /> },
         { page: 'contacts', label: 'جهات الاتصال', icon: <ContactsIcon className="w-6 h-6" /> },
