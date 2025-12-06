@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Account, Category, Contact, Debt } from '../types';
@@ -620,25 +621,27 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
         <>
             {/* Scrim Overlay */}
             <div
-                className={`fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-30 transition-opacity duration-300 ease-in-out ${isFabOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                className={`fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 transition-opacity duration-300 ease-in-out ${isFabOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 onClick={() => setIsFabOpen(false)}
                 aria-hidden="true"
             />
             
-            {/* FAB and Actions Container - Moved to Left Side for better UX with RTL Sidebar */}
-            <div className="fixed bottom-24 md:bottom-10 left-6 z-30 flex flex-col items-start gap-5">
+            {/* FAB and Actions Container */}
+            <div className="fixed bottom-28 md:bottom-10 left-6 z-50 flex flex-col items-center gap-4 pointer-events-none">
                 {/* Actions List */}
-                <div className={`flex flex-col-reverse items-start gap-4 transition-all duration-300 ${isFabOpen ? 'visible' : 'invisible'}`}>
+                <div className={`flex flex-col-reverse items-center gap-3 transition-all duration-300 mb-2 ${isFabOpen ? 'translate-y-0 opacity-100 pointer-events-auto' : 'translate-y-4 opacity-0 pointer-events-none'}`}>
                     {fabActions.map((action, index) => (
                         <div
                             key={index}
-                            className={`flex items-center gap-4 transition-all duration-300 ease-out ${isFabOpen ? 'translate-x-0 opacity-100' : '-translate-x-8 opacity-0'}`}
-                            style={{ transitionDelay: `${index * 40}ms` }}
+                            className="flex items-center gap-3"
+                            style={{ transitionDelay: `${isFabOpen ? index * 30 : 0}ms` }}
                         >
-                            <button onClick={action.action} className={`bg-gradient-to-br ${action.gradient} h-12 w-12 rounded-2xl text-white flex items-center justify-center flex-shrink-0 shadow-lg shadow-black/30 hover:brightness-110 transition-all hover:scale-105 active:scale-95 border border-white/10`}>
+                             <span className="bg-slate-900/90 text-slate-200 text-xs font-bold py-1.5 px-3 rounded-lg shadow-xl backdrop-blur-md border border-slate-700 whitespace-nowrap animate-fade-in">
+                                {action.label}
+                            </span>
+                             <button onClick={action.action} className={`h-11 w-11 rounded-full text-white flex items-center justify-center shadow-lg shadow-black/50 hover:brightness-110 transition-all hover:scale-110 active:scale-95 border border-white/10 bg-gradient-to-br ${action.gradient}`}>
                                 {action.icon}
                             </button>
-                            <span className="bg-slate-800/80 backdrop-blur-md text-white text-sm font-bold py-1.5 px-4 rounded-xl shadow-lg whitespace-nowrap border border-white/5">{action.label}</span>
                         </div>
                     ))}
                 </div>
@@ -646,14 +649,13 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
                 {/* FAB Button */}
                 <button
                     onClick={() => setIsFabOpen(!isFabOpen)}
-                    className="group relative h-16 w-16 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-[24px] shadow-2xl shadow-cyan-500/30 flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 z-10 border border-white/20 overflow-hidden"
+                    className={`pointer-events-auto group relative h-14 w-14 md:h-16 md:w-16 bg-slate-900 rounded-full shadow-[0_0_20px_rgba(8,145,178,0.4)] flex items-center justify-center transition-all duration-300 z-50 border border-cyan-500/30 overflow-visible hover:scale-105 active:scale-95 ${isFabOpen ? 'rotate-45 bg-slate-800 border-rose-500/50 text-rose-500 shadow-rose-500/20' : 'text-cyan-400'}`}
                     aria-haspopup="true"
                     aria-expanded={isFabOpen}
                     aria-label={isFabOpen ? 'إغلاق الإجراءات السريعة' : 'فتح الإجراءات السريعة'}
                 >
-                    {/* Shine effect */}
-                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-500 rounded-[24px]" />
-                    <PlusIcon className={`w-8 h-8 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${isFabOpen ? 'rotate-[135deg]' : ''}`} />
+                    {!isFabOpen && <span className="absolute inset-0 rounded-full border border-cyan-400/30 animate-ping-slow"></span>}
+                    <PlusIcon className="w-8 h-8 transition-transform duration-300" />
                 </button>
             </div>
             

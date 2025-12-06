@@ -1,4 +1,5 @@
 
+// ... keep imports ...
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Account, Debt, Transaction, Page, Category } from '../types';
@@ -10,6 +11,7 @@ import {
 } from './icons';
 import type { Chart, ChartConfiguration } from 'chart.js/auto';
 
+// ... keep helper functions and chart components ...
 const formatCurrency = (amount: number, currency: string = 'د.ل') => {
     const options: Intl.NumberFormatOptions = { style: 'currency', currency: 'LYD' };
     if (amount % 1 === 0) { options.minimumFractionDigits = 0; options.maximumFractionDigits = 0; } 
@@ -132,69 +134,69 @@ const DoughnutChart: React.FC<{ income: number, expense: number }> = ({ income, 
 
 
 const MonthlySummaryModal: React.FC<{ 
-    isOpen: boolean; 
     onClose: () => void; 
     year: number; 
     setActivePage: (page: Page) => void; 
-}> = ({ isOpen, onClose, year, setActivePage }) => {
+}> = ({ onClose, year, setActivePage }) => {
     const [month, setMonth] = useState(new Date().getMonth());
     const [stats, setStats] = useState({ income: 0, expense: 0, topCategories: [] as any[] });
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
 
     useEffect(() => {
-        if (!isOpen) return;
-
         const fetchData = async () => {
             setLoading(true);
-            const startDate = new Date(year, month, 1);
-            const endDate = new Date(year, month + 1, 0, 23, 59, 59);
+            try {
+                const startDate = new Date(year, month, 1);
+                const endDate = new Date(year, month + 1, 0, 23, 59, 59);
 
-            const { data, error } = await supabase
-                .from('transactions')
-                .select('amount, type, categories(name, color, icon)')
-                .gte('date', startDate.toISOString())
-                .lte('date', endDate.toISOString());
+                const { data, error } = await supabase
+                    .from('transactions')
+                    .select('amount, type, categories(name, color, icon)')
+                    .gte('date', startDate.toISOString())
+                    .lte('date', endDate.toISOString());
 
-            if (error) {
-                console.error(error);
-                setLoading(false);
-                return;
-            }
-
-            let inc = 0, exp = 0;
-            const categoryMap = new Map<string, any>();
-
-            data.forEach((tx: any) => {
-                if (tx.type === 'income') inc += tx.amount;
-                else if (tx.type === 'expense') exp += tx.amount;
-
-                // Group for top list
-                if (tx.type === activeTab) {
-                    const catName = tx.categories?.name || 'غير مصنف';
-                    const current = categoryMap.get(catName) || { 
-                        name: catName, 
-                        amount: 0, 
-                        color: tx.categories?.color || '#64748b',
-                        icon: tx.categories?.icon
-                    };
-                    current.amount += tx.amount;
-                    categoryMap.set(catName, current);
+                if (error) {
+                    throw error;
                 }
-            });
 
-            const topCats = Array.from(categoryMap.values())
-                .sort((a, b) => b.amount - a.amount)
-                .slice(0, 4);
+                let inc = 0, exp = 0;
+                const categoryMap = new Map<string, any>();
 
-            setStats({ income: inc, expense: exp, topCategories: topCats });
-            setLoading(false);
+                if (data) {
+                    data.forEach((tx: any) => {
+                        if (tx.type === 'income') inc += tx.amount;
+                        else if (tx.type === 'expense') exp += tx.amount;
+
+                        // Group for top list
+                        if (tx.type === activeTab) {
+                            const catName = tx.categories?.name || 'غير مصنف';
+                            const current = categoryMap.get(catName) || { 
+                                name: catName, 
+                                amount: 0, 
+                                color: tx.categories?.color || '#64748b',
+                                icon: tx.categories?.icon
+                            };
+                            current.amount += tx.amount;
+                            categoryMap.set(catName, current);
+                        }
+                    });
+                }
+
+                const topCats = Array.from(categoryMap.values())
+                    .sort((a, b) => b.amount - a.amount)
+                    .slice(0, 4);
+
+                setStats({ income: inc, expense: exp, topCategories: topCats });
+            } catch (err) {
+                console.error("Error fetching summary:", err);
+            } finally {
+                setLoading(false);
+            }
         };
 
         fetchData();
-    }, [isOpen, month, year, activeTab]);
-
-    if (!isOpen) return null;
+    }, [month, year, activeTab]);
 
     const net = stats.income - stats.expense;
     const totalForTab = activeTab === 'expense' ? stats.expense : stats.income;
@@ -429,24 +431,26 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
 
             {/* Top Status Bar: Last Activity */}
             {lastActivity && (
-                <div className="glass-card rounded-2xl p-2.5 px-4 flex items-center justify-between border border-white/5 bg-slate-900/60 backdrop-blur-md shadow-sm">
-                     <div className="flex items-center gap-3 overflow-hidden">
-                        <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse shrink-0"></div>
-                        <p className="text-xs md:text-sm text-slate-300 truncate font-medium">
-                            <span className="text-slate-500 ml-2">آخر نشاط:</span>
-                            {lastActivity.description}
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 text-[10px] text-slate-400 font-mono">
-                         <div className="flex items-center gap-1 bg-slate-800/50 px-2 py-1 rounded-lg border border-white/5 shadow-sm">
-                            <CalendarDaysIcon className="w-3 h-3 text-cyan-500/70" />
-                            <span className="tracking-tighter">{new Date(lastActivity.date).toLocaleDateString('ar-LY')}</span>
+                <div className="glass-card rounded-2xl p-3 px-4 border border-white/5 bg-slate-900/60 backdrop-blur-md shadow-sm flex flex-col gap-1.5 animate-fade-in">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-1">
+                        <div className="flex items-center gap-2">
+                             <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse shrink-0 shadow-[0_0_8px_rgba(6,182,212,0.6)]"></div>
+                             <span className="text-xs text-cyan-400 font-bold tracking-wide">آخر نشاط</span>
                         </div>
-                        <div className="flex items-center gap-1 bg-slate-800/50 px-2 py-1 rounded-lg border border-white/5 shadow-sm">
-                            <ClockIcon className="w-3 h-3 text-cyan-500/70" />
-                            <span>{lastActivity.time.slice(0, 5)}</span>
+                        <div className="flex items-center gap-2 shrink-0 text-[10px] text-slate-400 font-mono">
+                             <div className="flex items-center gap-1 bg-slate-800/50 px-2 py-0.5 rounded-lg border border-white/5 shadow-sm">
+                                <CalendarDaysIcon className="w-3 h-3 text-cyan-500/70" />
+                                <span className="tracking-tighter">{new Date(lastActivity.date).toLocaleDateString('ar-LY')}</span>
+                            </div>
+                            <div className="flex items-center gap-1 bg-slate-800/50 px-2 py-0.5 rounded-lg border border-white/5 shadow-sm">
+                                <ClockIcon className="w-3 h-3 text-cyan-500/70" />
+                                <span>{lastActivity.time.slice(0, 5)}</span>
+                            </div>
                         </div>
                     </div>
+                    <p className="text-sm text-slate-200 font-medium pr-1 leading-relaxed">
+                        {lastActivity.description}
+                    </p>
                 </div>
             )}
 
@@ -551,17 +555,17 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
 
             {/* Financial Flow Chart */}
             <div className="glass-card rounded-[2rem] p-6 relative border border-white/5">
-                <div className="flex justify-between items-center mb-6">
+                <div className="flex justify-between items-center mb-6 relative z-10">
                     <div>
                          <h2 className="text-lg font-bold text-white">التدفق المالي</h2>
                     </div>
                     <div className="flex items-center gap-2">
                          <button 
                             onClick={() => setIsSummaryModalOpen(true)}
-                            className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg font-bold text-xs transition-all flex items-center gap-1 border border-white/5"
+                            className="bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 px-4 py-2 rounded-xl font-bold text-xs transition-all flex items-center gap-2 hover:scale-105 active:scale-95" 
                         >
-                            <ChartBarSquareIcon className="w-4 h-4" />
-                            الموجز
+                            <ChartBarSquareIcon className="w-5 h-5" />
+                            الموجز الشهري
                         </button>
                         <div className="flex items-center gap-1 bg-slate-900/50 rounded-lg p-0.5 border border-white/5">
                              <button onClick={() => setCurrentYear(y => y - 1)} className="p-1 text-slate-500 hover:text-white transition"><ChevronRightIcon className="w-3 h-3"/></button>
@@ -624,12 +628,15 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
                     <TransactionForm transaction={selectedTransaction} onSave={() => { setIsEditModalOpen(false); handleDatabaseChange('تعديل معاملة'); }} onCancel={() => setIsEditModalOpen(false)} accounts={accounts} categories={categories} />
                 </Modal>
             )}
-             <MonthlySummaryModal 
-                isOpen={isSummaryModalOpen} 
-                onClose={() => setIsSummaryModalOpen(false)} 
-                year={currentYear}
-                setActivePage={setActivePage}
-            />
+            
+            {/* Conditional Rendering for Summary Modal */}
+            {isSummaryModalOpen && (
+                <MonthlySummaryModal 
+                    onClose={() => setIsSummaryModalOpen(false)} 
+                    year={currentYear}
+                    setActivePage={setActivePage}
+                />
+            )}
         </div>
     );
 };

@@ -273,10 +273,6 @@ const AccountsPage: React.FC<{ key: number, handleDatabaseChange: (description?:
                             {formatCurrency(totalWealth)}
                         </h1>
                     </div>
-                     <button onClick={() => setModal({ type: 'add', account: null })} className="bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold py-3 px-5 rounded-2xl shadow-lg shadow-cyan-500/20 transition-all hover:scale-105 flex items-center gap-2 active:scale-95">
-                        <PlusIcon className="w-5 h-5" />
-                        <span className="hidden md:inline">إضافة حساب</span>
-                    </button>
                 </div>
             </div>
 
@@ -356,6 +352,14 @@ const AccountsPage: React.FC<{ key: number, handleDatabaseChange: (description?:
                     );
                 })}
             </div>}
+            
+            <button 
+                onClick={() => setModal({ type: 'add', account: null })} 
+                className="fixed bottom-28 md:bottom-10 left-6 h-14 w-14 md:h-16 md:w-16 bg-slate-900 rounded-full shadow-[0_0_20px_rgba(8,145,178,0.4)] flex items-center justify-center transition-all duration-300 z-50 border border-cyan-500/30 overflow-visible hover:scale-105 active:scale-95 text-cyan-400 group"
+            >
+                <span className="absolute inset-0 rounded-full border border-cyan-400/30 animate-ping-slow"></span>
+                <PlusIcon className="w-8 h-8 transition-transform duration-300 group-hover:rotate-90"/>
+            </button>
 
             {/* Modals */}
             {(modal.type === 'add' || modal.type === 'edit') && (

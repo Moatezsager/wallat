@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Note } from '../types';
@@ -228,9 +229,10 @@ const NotesPage: React.FC<{ key: number; handleDatabaseChange: (description?: st
 
             <button 
                 onClick={() => setEditorState({ mode: 'adding', note: null })} 
-                className="fixed bottom-24 md:bottom-10 left-6 h-16 w-16 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-[24px] shadow-2xl shadow-cyan-500/30 flex items-center justify-center hover:scale-110 transition-all z-30 border border-white/20"
+                className="fixed bottom-28 md:bottom-10 left-6 h-14 w-14 md:h-16 md:w-16 bg-slate-900 rounded-full shadow-[0_0_20px_rgba(8,145,178,0.4)] flex items-center justify-center transition-all duration-300 z-50 border border-cyan-500/30 overflow-visible hover:scale-105 active:scale-95 text-cyan-400 group"
             >
-                <PlusIcon className="w-8 h-8"/>
+                <span className="absolute inset-0 rounded-full border border-cyan-400/30 animate-ping-slow"></span>
+                <PlusIcon className="w-8 h-8 transition-transform duration-300 group-hover:rotate-90"/>
             </button>
 
             {editorState.mode !== 'closed' && (
