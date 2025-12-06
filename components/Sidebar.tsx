@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Page } from '../types';
-import { HomeIcon, AccountsIcon, TransactionsIcon, CurrencyDollarIcon, ContactsIcon, CategoriesIcon, ReportsIcon, ClipboardDocumentIcon, ChartPieIcon } from './icons';
+import { HomeIcon, AccountsIcon, TransactionsIcon, CurrencyDollarIcon, ContactsIcon, CategoriesIcon, ReportsIcon, ClipboardDocumentIcon, ChartPieIcon, WalletIcon } from './icons';
 
 interface SidebarProps {
     isOpen: boolean;
@@ -52,7 +52,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActiv
 
                     <div className="flex items-center gap-4 mb-10 px-2 relative z-10">
                         <div className="w-10 h-10 bg-gradient-to-tr from-cyan-400 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
-                             <div className="w-4 h-4 bg-white rounded-full opacity-90"></div>
+                             <WalletIcon className="w-6 h-6 text-white" />
                         </div>
                         <h2 className="text-2xl font-bold text-white tracking-tight">محفظتي</h2>
                     </div>

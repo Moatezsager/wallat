@@ -424,10 +424,10 @@ const AccountsPage: React.FC<{ key: number, handleDatabaseChange: (description?:
                             <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full blur-[50px] pointer-events-none"></div>
                             
                             {/* Card Header: Chip & Actions */}
-                            <div className="relative z-20 flex justify-between items-start mb-8">
+                            <div className="relative z-30 flex justify-between items-start mb-8">
                                 <img src="https://cdn-icons-png.flaticon.com/512/6404/6404078.png" alt="Chip" className="w-10 h-10 opacity-80 invert" />
                                 
-                                <div className="relative">
+                                <div className="relative z-50">
                                     <button 
                                         onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === acc.id ? null : acc.id); }} 
                                         className="p-2 rounded-full hover:bg-white/10 transition backdrop-blur-md"

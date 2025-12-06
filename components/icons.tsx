@@ -312,7 +312,7 @@ export const SparklesIcon: React.FC<IconProps> = ({ className }) => (
   </IconWrapper>
 );
 
-// --- Finance Specific Icons (New) ---
+// --- Finance Specific Icons ---
 
 export const UtensilsIcon: React.FC<IconProps> = ({ className }) => (
   <IconWrapper className={className}>
@@ -581,6 +581,76 @@ export const ChartBarSquareIcon: React.FC<IconProps> = ({ className }) => (
     </IconWrapper>
 );
 
+export const CopyIcon: React.FC<IconProps> = ({ className }) => (
+  <IconWrapper className={className}>
+    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+  </IconWrapper>
+);
+
+export const UndoIcon: React.FC<IconProps> = ({ className }) => (
+  <IconWrapper className={className}>
+    <path d="M3 7v6h6" />
+    <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+  </IconWrapper>
+);
+
+export const RedoIcon: React.FC<IconProps> = ({ className }) => (
+  <IconWrapper className={className}>
+    <path d="M21 7v6h-6" />
+    <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7" />
+  </IconWrapper>
+);
+
+export const AlignLeftIcon: React.FC<IconProps> = ({ className }) => (
+  <IconWrapper className={className}>
+    <line x1="21" x2="3" y1="6" y2="6" />
+    <line x1="15" x2="3" y1="12" y2="12" />
+    <line x1="17" x2="3" y1="18" y2="18" />
+  </IconWrapper>
+);
+
+export const AlignCenterIcon: React.FC<IconProps> = ({ className }) => (
+  <IconWrapper className={className}>
+    <line x1="21" x2="3" y1="6" y2="6" />
+    <line x1="17" x2="7" y1="12" y2="12" />
+    <line x1="19" x2="5" y1="18" y2="18" />
+  </IconWrapper>
+);
+
+export const AlignRightIcon: React.FC<IconProps> = ({ className }) => (
+  <IconWrapper className={className}>
+    <line x1="21" x2="3" y1="6" y2="6" />
+    <line x1="21" x2="9" y1="12" y2="12" />
+    <line x1="21" x2="7" y1="18" y2="18" />
+  </IconWrapper>
+);
+
+export const Heading1Icon: React.FC<IconProps> = ({ className }) => (
+  <IconWrapper className={className}>
+    <path d="M4 12h8" />
+    <path d="M4 18V6" />
+    <path d="M12 18V6" />
+    <path d="m17 12 3-2v8" />
+  </IconWrapper>
+);
+
+export const Heading2Icon: React.FC<IconProps> = ({ className }) => (
+  <IconWrapper className={className}>
+    <path d="M4 12h8" />
+    <path d="M4 18V6" />
+    <path d="M12 18V6" />
+    <path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1" />
+  </IconWrapper>
+);
+
+export const CheckSquareIcon: React.FC<IconProps> = ({ className }) => (
+  <IconWrapper className={className}>
+    <polyline points="9 11 12 14 22 4" />
+    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+  </IconWrapper>
+);
+
 
 export const iconMap: { [key: string]: React.FC<IconProps> } = {
     HomeIcon,
@@ -644,5 +714,8 @@ export const iconMap: { [key: string]: React.FC<IconProps> } = {
     GraduationCapIcon,
     ShirtIcon,
     GiftIcon,
-    FuelIcon
+    FuelIcon,
+    // Editor Icons
+    CopyIcon, UndoIcon, RedoIcon, AlignLeftIcon, AlignCenterIcon, AlignRightIcon,
+    Heading1Icon, Heading2Icon, CheckSquareIcon
 };

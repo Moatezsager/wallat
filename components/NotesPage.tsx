@@ -5,25 +5,28 @@ import { Note } from '../types';
 import { 
     MagnifyingGlassIcon, XMarkIcon, PinIcon, SolidPinIcon, PaintBrushIcon,
     TrashIcon, BoldIcon, ItalicIcon, UnderlineIcon, StrikethroughIcon,
-    ListBulletIcon, QueueListIcon, ChatBubbleLeftQuoteIcon, PlusIcon, ArrowLeftIcon, ClipboardDocumentIcon
+    ListBulletIcon, QueueListIcon, ChatBubbleLeftQuoteIcon, PlusIcon, ArrowLeftIcon, 
+    ClipboardDocumentIcon, CopyIcon, UndoIcon, RedoIcon, AlignLeftIcon, AlignCenterIcon, AlignRightIcon,
+    Heading1Icon, Heading2Icon, CheckSquareIcon, CalendarDaysIcon
 } from './icons';
 
-// A more vibrant and modern color palette
-const NOTE_COLORS = [
-    '#27272a', // zinc-800 (default)
-    '#7f1d1d', // red-900
-    '#7c2d12', // orange-900
-    '#713f12', // amber-900
-    '#365314', // lime-900
-    '#064e3b', // emerald-900
-    '#134e4a', // teal-900
-    '#1e3a8a', // blue-900
-    '#312e81', // indigo-900
-    '#4c1d95', // violet-900
-    '#831843', // fuchsia-900
-    '#881337', // rose-900
+// Enhanced Modern Color Palette with Gradients
+const NOTE_THEMES = [
+    { id: 'zinc', bg: '#27272a', border: '#3f3f46' }, // Zinc
+    { id: 'red', bg: '#450a0a', border: '#7f1d1d' }, // Red
+    { id: 'orange', bg: '#431407', border: '#7c2d12' }, // Orange
+    { id: 'amber', bg: '#451a03', border: '#78350f' }, // Amber
+    { id: 'emerald', bg: '#022c22', border: '#064e3b' }, // Emerald
+    { id: 'teal', bg: '#042f2e', border: '#134e4a' }, // Teal
+    { id: 'cyan', bg: '#083344', border: '#164e63' }, // Cyan
+    { id: 'blue', bg: '#172554', border: '#1e3a8a' }, // Blue
+    { id: 'indigo', bg: '#1e1b4b', border: '#312e81' }, // Indigo
+    { id: 'violet', bg: '#2e1065', border: '#4c1d95' }, // Violet
+    { id: 'fuchsia', bg: '#4a044e', border: '#831843' }, // Fuchsia
+    { id: 'rose', bg: '#4c0519', border: '#881337' }, // Rose
 ];
 
+// Helper to handle click outside
 const useClickOutside = (ref: React.RefObject<HTMLElement>, handler: (event: MouseEvent | TouchEvent) => void, active: boolean) => {
   useEffect(() => {
     if (!active) return;
@@ -42,63 +45,96 @@ const useClickOutside = (ref: React.RefObject<HTMLElement>, handler: (event: Mou
   }, [ref, handler, active]);
 };
 
-// Helper function to execute rich text commands
+// --- Rich Text Editor Logic ---
+
 const formatDoc = (cmd: string, value: string | null = null) => {
     document.execCommand(cmd, false, value);
+    // Ensure focus remains on the editor after clicking a toolbar button
+    const editor = document.getElementById('rich-text-editor');
+    if(editor) editor.focus();
 };
 
-// Reusable Editor Toolbar
+const insertCheckbox = () => {
+    const html = '<ul class="checklist"><li><input type="checkbox"> </li></ul>';
+    document.execCommand('insertHTML', false, html);
+}
+
 const EditorToolbar: React.FC = () => {
-    const commands = [
-        { cmd: 'bold', icon: BoldIcon, title: 'عريض' },
-        { cmd: 'italic', icon: ItalicIcon, title: 'مائل' },
-        { cmd: 'underline', icon: UnderlineIcon, title: 'تحته خط' },
-        { cmd: 'strikeThrough', icon: StrikethroughIcon, title: 'يتوسطه خط' },
-        { cmd: 'insertUnorderedList', icon: ListBulletIcon, title: 'قائمة نقطية' },
-        { cmd: 'insertOrderedList', icon: QueueListIcon, title: 'قائمة رقمية' },
-        { cmd: 'formatBlock', value: 'BLOCKQUOTE', icon: ChatBubbleLeftQuoteIcon, title: 'اقتباس' },
+    const groups = [
+        [
+            { cmd: 'undo', icon: UndoIcon, title: 'تراجع' },
+            { cmd: 'redo', icon: RedoIcon, title: 'إعادة' },
+        ],
+        [
+            { cmd: 'formatBlock', value: 'H2', icon: Heading1Icon, title: 'عنوان كبير' },
+            { cmd: 'formatBlock', value: 'H3', icon: Heading2Icon, title: 'عنوان متوسط' },
+        ],
+        [
+            { cmd: 'bold', icon: BoldIcon, title: 'عريض' },
+            { cmd: 'italic', icon: ItalicIcon, title: 'مائل' },
+            { cmd: 'underline', icon: UnderlineIcon, title: 'تحته خط' },
+            { cmd: 'strikeThrough', icon: StrikethroughIcon, title: 'يتوسطه خط' },
+        ],
+        [
+            { cmd: 'justifyLeft', icon: AlignLeftIcon, title: 'يسار' },
+            { cmd: 'justifyCenter', icon: AlignCenterIcon, title: 'وسط' },
+            { cmd: 'justifyRight', icon: AlignRightIcon, title: 'يمين' },
+        ],
+        [
+            { cmd: 'insertUnorderedList', icon: ListBulletIcon, title: 'قائمة نقطية' },
+            { cmd: 'insertOrderedList', icon: QueueListIcon, title: 'قائمة رقمية' },
+            { action: insertCheckbox, icon: CheckSquareIcon, title: 'قائمة مهام' },
+        ],
+        [
+            { cmd: 'formatBlock', value: 'BLOCKQUOTE', icon: ChatBubbleLeftQuoteIcon, title: 'اقتباس' },
+        ]
     ];
 
     return (
-        <div className="flex items-center gap-1">
-            {commands.map(({ cmd, value, icon: Icon, title }) => (
-                <button
-                    key={cmd + (value || '')}
-                    type="button"
-                    onMouseDown={e => {
-                        e.preventDefault(); // Prevent losing focus from the editor
-                        formatDoc(cmd, value || null);
-                    }}
-                    title={title}
-                    className="p-2 rounded-full hover:bg-black/30 transition-colors"
-                >
-                    <Icon className="w-5 h-5" />
-                </button>
+        <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-2 px-1">
+            {groups.map((group, idx) => (
+                <div key={idx} className="flex items-center gap-0.5 bg-slate-800/50 rounded-lg p-1 border border-white/5">
+                    {group.map((btn: any) => (
+                        <button
+                            key={btn.title}
+                            type="button"
+                            onMouseDown={e => {
+                                e.preventDefault();
+                                if (btn.action) btn.action();
+                                else formatDoc(btn.cmd, btn.value || null);
+                            }}
+                            title={btn.title}
+                            className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                        >
+                            <btn.icon className="w-4 h-4" />
+                        </button>
+                    ))}
+                </div>
             ))}
         </div>
     );
 };
 
-// A small popover for color selection
-const ColorPickerPopover: React.FC<{ onSelect: (color: string) => void; children: React.ReactNode; }> = ({ onSelect, children }) => {
+// --- Color Picker Component ---
+const ColorPickerPopover: React.FC<{ onSelect: (color: string) => void; currentColor: string; children: React.ReactNode; }> = ({ onSelect, currentColor, children }) => {
     const [isOpen, setIsOpen] = useState(false);
     const popoverRef = useRef<HTMLDivElement>(null);
     useClickOutside(popoverRef, () => setIsOpen(false), isOpen);
 
     return (
         <div ref={popoverRef} className="relative">
-            <button type="button" onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }} className="p-2 rounded-full hover:bg-black/30 transition-colors">
+            <button type="button" onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }} className="p-2 rounded-full hover:bg-black/20 transition-colors">
                 {children}
             </button>
             {isOpen && (
-                 <div className="absolute bottom-full mb-2 bg-slate-900 p-2 rounded-lg grid grid-cols-6 gap-2 border border-slate-700 shadow-lg animate-fade-in-fast z-10">
-                    {NOTE_COLORS.map(color => (
+                 <div className="absolute bottom-full left-0 mb-3 bg-slate-900/95 backdrop-blur-xl p-3 rounded-2xl grid grid-cols-4 gap-2 border border-slate-700 shadow-2xl animate-fade-in z-20 w-48">
+                    {NOTE_THEMES.map(theme => (
                         <button 
-                            key={color} 
+                            key={theme.id} 
                             type="button"
-                            style={{backgroundColor: color}} 
-                            onClick={(e) => { e.stopPropagation(); onSelect(color); setIsOpen(false); }} 
-                            className={'w-6 h-6 rounded-full transition-transform hover:scale-110 ring-white ring-offset-slate-900 focus:ring-2'}
+                            style={{ backgroundColor: theme.bg, borderColor: theme.border }} 
+                            onClick={(e) => { e.stopPropagation(); onSelect(theme.bg); setIsOpen(false); }} 
+                            className={`w-8 h-8 rounded-full transition-transform hover:scale-110 border-2 ${currentColor === theme.bg ? 'ring-2 ring-white scale-110' : ''}`}
                         />
                     ))}
                 </div>
@@ -107,13 +143,12 @@ const ColorPickerPopover: React.FC<{ onSelect: (color: string) => void; children
     );
 };
 
-// Main Page Component
+// --- Main Page Component ---
 const NotesPage: React.FC<{ key: number; handleDatabaseChange: (description?: string) => void; }> = ({ key, handleDatabaseChange }) => {
     const [notes, setNotes] = useState<Note[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [editorState, setEditorState] = useState<{ mode: 'closed' | 'adding'; note: null } | { mode: 'editing'; note: Note }>({ mode: 'closed', note: null });
-
 
     const fetchNotes = useCallback(async () => {
         setLoading(true);
@@ -172,42 +207,62 @@ const NotesPage: React.FC<{ key: number; handleDatabaseChange: (description?: st
     };
     
     const handleUpdateNoteField = async (noteId: string, updates: Partial<Note>) => {
+        // Optimistic update
+        setNotes(prev => prev.map(n => n.id === noteId ? { ...n, ...updates } : n));
+        
         const { error } = await supabase.from('notes').update({...updates, updated_at: new Date().toISOString()}).eq('id', noteId);
         if (error) {
              console.error("Error updating note:", error.message);
+             fetchNotes(); // Revert on error
         } else {
             handleDatabaseChange("تحديث ملاحظة");
         }
     }
 
     return (
-        <div className="space-y-6">
-            <div className="max-w-xl mx-auto">
-                <div className="relative">
-                    <input
-                        type="text"
-                        placeholder="ابحث في ملاحظاتك..."
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 pr-10 pl-4 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    />
-                    <MagnifyingGlassIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+        <div className="space-y-8 pb-20">
+            {/* Search Bar */}
+            <div className="sticky top-20 z-10 mx-auto max-w-2xl">
+                <div className="relative group">
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-2xl blur-lg group-hover:blur-xl transition-all opacity-50"></div>
+                    <div className="relative bg-slate-900/80 backdrop-blur-md rounded-2xl border border-white/10 shadow-xl overflow-hidden flex items-center p-1">
+                        <MagnifyingGlassIcon className="w-5 h-5 text-slate-400 mx-3" />
+                        <input
+                            type="text"
+                            placeholder="ابحث في أفكارك..."
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            className="w-full bg-transparent py-3 text-white placeholder-slate-500 focus:outline-none font-medium"
+                        />
+                        {searchTerm && (
+                            <button onClick={() => setSearchTerm('')} className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition">
+                                <XMarkIcon className="w-4 h-4" />
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
             {loading ? (
-                <p className="text-center text-slate-400 py-8">جاري تحميل الملاحظات...</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 animate-pulse">
+                    {[1,2,3,4].map(i => <div key={i} className="h-48 bg-slate-800/50 rounded-2xl"></div>)}
+                </div>
             ) : notes.length === 0 && !searchTerm ? (
-                <div className="text-center py-16 flex flex-col items-center gap-4 text-slate-500">
-                    <ClipboardDocumentIcon className="w-16 h-16"/>
-                    <h3 className="text-xl font-semibold text-slate-300">ملاحظاتك ستظهر هنا</h3>
-                    <p>اضغط على زر + لبدء تدوين أفكارك.</p>
+                <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
+                    <div className="w-24 h-24 bg-gradient-to-br from-slate-800 to-slate-900 rounded-[2rem] flex items-center justify-center shadow-inner border border-white/5">
+                        <ClipboardDocumentIcon className="w-10 h-10 text-slate-600"/>
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-bold text-white mb-2">مساحتك الخاصة</h3>
+                        <p className="text-slate-400 max-w-xs mx-auto">سجل أفكارك، مهامك، أو أي شيء تريد تذكره. كل شيء يبدأ بملاحظة.</p>
+                    </div>
                 </div>
             ) : (
-                <>
+                <div className="space-y-8 animate-fade-in">
                     {pinnedNotes.length > 0 && (
                         <NotesSection 
                             title="المثبتة"
+                            icon={<SolidPinIcon className="w-4 h-4 text-cyan-400" />}
                             notes={pinnedNotes}
                             onEdit={(note) => setEditorState({ mode: 'editing', note })}
                             onDelete={handleDeleteNote}
@@ -216,23 +271,26 @@ const NotesPage: React.FC<{ key: number; handleDatabaseChange: (description?: st
                     )}
                     {otherNotes.length > 0 && (
                          <NotesSection 
-                            title={pinnedNotes.length > 0 ? "الأخرى" : undefined}
+                            title={pinnedNotes.length > 0 ? "أخرى" : undefined}
                             notes={otherNotes}
                             onEdit={(note) => setEditorState({ mode: 'editing', note })}
                             onDelete={handleDeleteNote}
                             onUpdateField={handleUpdateNoteField}
                         />
                     )}
-                    {filteredNotes.length === 0 && searchTerm && <p className="text-center text-slate-400 py-8">لم يتم العثور على ملاحظات تطابق بحثك.</p>}
-                </>
+                    {filteredNotes.length === 0 && searchTerm && (
+                        <div className="text-center py-12">
+                            <p className="text-slate-500">لم يتم العثور على ملاحظات تطابق "<span className="text-white">{searchTerm}</span>"</p>
+                        </div>
+                    )}
+                </div>
             )}
 
             <button 
                 onClick={() => setEditorState({ mode: 'adding', note: null })} 
-                className="fixed bottom-28 md:bottom-10 left-6 h-14 w-14 md:h-16 md:w-16 bg-slate-900 rounded-full shadow-[0_0_20px_rgba(8,145,178,0.4)] flex items-center justify-center transition-all duration-300 z-50 border border-cyan-500/30 overflow-visible hover:scale-105 active:scale-95 text-cyan-400 group"
+                className="fixed bottom-28 md:bottom-10 left-6 h-16 w-16 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-[24px] shadow-2xl shadow-cyan-500/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-30 border border-white/20 group"
             >
-                <span className="absolute inset-0 rounded-full border border-cyan-400/30 animate-ping-slow"></span>
-                <PlusIcon className="w-8 h-8 transition-transform duration-300 group-hover:rotate-90"/>
+                <PlusIcon className="w-8 h-8 text-white group-hover:rotate-90 transition-transform duration-300"/>
             </button>
 
             {editorState.mode !== 'closed' && (
@@ -250,13 +308,19 @@ const NotesPage: React.FC<{ key: number; handleDatabaseChange: (description?: st
 
 const NotesSection: React.FC<{
     title?: string;
+    icon?: React.ReactNode;
     notes: Note[];
     onEdit: (note: Note) => void;
     onDelete: (id: string) => void;
     onUpdateField: (id: string, updates: Partial<Note>) => void;
-}> = ({ title, notes, onEdit, onDelete, onUpdateField }) => (
+}> = ({ title, icon, notes, onEdit, onDelete, onUpdateField }) => (
     <div>
-        {title && <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">{title}</h2>}
+        {title && (
+            <h2 className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 px-2">
+                {icon}
+                {title}
+            </h2>
+        )}
         <div className="masonry-grid">
             {notes.map(note => (
                 <NoteCard 
@@ -281,39 +345,64 @@ const NoteCard: React.FC<{
     const [title, content] = useMemo(() => {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = note.note_text;
-        const titleElement = tempDiv.querySelector('h1, h2, h3, h4, h5, h6');
-        const titleText = titleElement?.textContent || '';
-        titleElement?.remove();
-        const contentText = tempDiv.innerHTML;
-        return [titleText, contentText];
+        
+        // Extract H1 or H2 as title if exists
+        const heading = tempDiv.querySelector('h1, h2');
+        let titleText = '';
+        
+        if (heading) {
+            titleText = heading.textContent || '';
+            heading.remove(); // Remove title from preview
+        }
+        
+        const contentHtml = tempDiv.innerHTML;
+        // Clean up empty paragraphs for preview
+        const cleanContent = contentHtml.replace(/<p><br><\/p>/g, '').trim();
+        
+        return [titleText, cleanContent];
     }, [note.note_text]);
 
+    const theme = NOTE_THEMES.find(t => t.bg === note.color) || NOTE_THEMES[0];
+
     return (
-        <div className="masonry-item group">
+        <div className="masonry-item group perspective-1000">
             <div 
                 onClick={onEdit}
-                className="relative border border-slate-700 rounded-lg cursor-pointer break-inside-avoid-column hover:border-cyan-500/60 hover:shadow-lg hover:shadow-cyan-900/20 hover:-translate-y-1 transition-all duration-300 shadow-md h-full flex flex-col"
+                className="relative rounded-2xl cursor-pointer overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-black/50 border border-white/5"
                 style={{ backgroundColor: note.color }}
             >
-                <div className="flex-grow p-4 pb-12">
-                     {/* Fix: Wrap icon in a span to apply the title attribute, as the Icon component does not accept it directly. */}
-                    {note.is_pinned && <span title="مثبتة" className="absolute top-3 right-3"><SolidPinIcon className="w-4 h-4 text-cyan-200 opacity-70" /></span>}
-                    <div className="note-card-content">
-                        {title && <h3 className="font-bold text-lg mb-2 break-words prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: `<h2>${title}</h2>` }} />}
-                        <div className="text-slate-200 break-words prose prose-invert prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: content }} />
-                    </div>
+                {/* Glossy Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+
+                <div className="p-5 pb-14 min-h-[120px]">
+                    {note.is_pinned && <span className="absolute top-4 right-4 text-white/50"><SolidPinIcon className="w-4 h-4" /></span>}
+                    
+                    {title ? (
+                        <h3 className="font-bold text-lg text-white mb-2 leading-snug">{title}</h3>
+                    ) : null}
+                    
+                    <div 
+                        className="text-slate-300/90 text-sm leading-relaxed line-clamp-6 prose prose-invert prose-sm max-w-none break-words"
+                        dangerouslySetInnerHTML={{ __html: content || (title ? '' : '<span class="italic opacity-50">ملاحظة فارغة</span>') }} 
+                    />
                 </div>
                 
-                <div className="absolute bottom-0 left-0 right-0 flex items-center justify-end p-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-gradient-to-t from-black/30 to-transparent rounded-b-lg">
-                    <button type="button" onClick={(e) => { e.stopPropagation(); onUpdateField({ is_pinned: !note.is_pinned }); }} title={note.is_pinned ? "إلغاء التثبيت" : "تثبيت"} className="p-2 rounded-full hover:bg-black/30 text-white">
-                        <PinIcon className="w-5 h-5"/>
-                    </button>
-                    <ColorPickerPopover onSelect={(color) => onUpdateField({ color })}>
-                        <PaintBrushIcon className="w-5 h-5 text-white" />
-                    </ColorPickerPopover>
-                    <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(); }} title="حذف" className="p-2 rounded-full hover:bg-black/30 text-white">
-                        <TrashIcon className="w-5 h-5"/>
-                    </button>
+                {/* Action Bar */}
+                <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/40 via-black/20 to-transparent flex items-center justify-between opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+                    <span className="text-[10px] text-white/50 px-2 font-mono">
+                        {new Date(note.updated_at).toLocaleDateString('ar-LY', {month:'short', day:'numeric'})}
+                    </span>
+                    <div className="flex gap-1">
+                        <button type="button" onClick={(e) => { e.stopPropagation(); onUpdateField({ is_pinned: !note.is_pinned }); }} className="p-2 rounded-full hover:bg-white/20 text-white/80 hover:text-white transition-colors">
+                            <PinIcon className="w-4 h-4"/>
+                        </button>
+                        <ColorPickerPopover currentColor={note.color} onSelect={(color) => onUpdateField({ color })}>
+                            <PaintBrushIcon className="w-4 h-4 text-white/80" />
+                        </ColorPickerPopover>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(); }} className="p-2 rounded-full hover:bg-rose-500/20 text-white/80 hover:text-rose-400 transition-colors">
+                            <TrashIcon className="w-4 h-4"/>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -328,7 +417,7 @@ const NoteEditorModal: React.FC<{
 }> = ({ note: initialNote, onSave, onDelete, onCancel }) => {
     const defaultNewNote = useMemo(() => ({ 
         note_text: '', 
-        color: NOTE_COLORS[0], 
+        color: NOTE_THEMES[0].bg, 
         is_pinned: false, 
         is_code: false, 
         language: null,
@@ -339,68 +428,88 @@ const NoteEditorModal: React.FC<{
     const [note, setNote] = useState(initialNote || defaultNewNote);
     const contentRef = useRef<HTMLDivElement>(null);
     const titleRef = useRef<HTMLTextAreaElement>(null);
+    const [wordCount, setWordCount] = useState(0);
 
-    const [title, content] = useMemo(() => {
+    // Initial separation of title/content
+    useEffect(() => {
+        if (!initialNote) return;
         const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = note.note_text;
-        const titleElement = tempDiv.querySelector('h1, h2, h3, h4, h5, h6');
-        const titleText = titleElement?.textContent || '';
-        titleElement?.remove();
-        const contentText = tempDiv.innerHTML;
-        return [titleText, contentText];
-    }, [note.note_text]);
+        tempDiv.innerHTML = initialNote.note_text;
+        
+        const heading = tempDiv.querySelector('h1');
+        if (heading && titleRef.current) {
+            titleRef.current.value = heading.textContent || '';
+            heading.remove();
+        }
+        if (contentRef.current) {
+            contentRef.current.innerHTML = tempDiv.innerHTML;
+        }
+        updateStats();
+    }, []);
+
+    const updateStats = () => {
+        if (contentRef.current) {
+            const text = contentRef.current.innerText || "";
+            setWordCount(text.trim().split(/\s+/).filter(w => w.length > 0).length);
+        }
+    }
 
     const handleSave = useCallback(() => {
         const newTitle = titleRef.current?.value.trim() || '';
         const newContent = contentRef.current?.innerHTML.trim() || '';
         
-        // Don't save empty new notes
         if (!initialNote && !newTitle && !newContent) {
             onCancel();
             return;
         }
 
-        const newNoteText = newTitle ? `<h2>${newTitle}</h2>${newContent}` : newContent;
-        const finalNoteData = { ...note, note_text: newNoteText };
-        onSave(finalNoteData);
+        const newNoteText = newTitle ? `<h1>${newTitle}</h1>${newContent}` : newContent;
+        onSave({ ...note, note_text: newNoteText });
     }, [initialNote, note, onSave, onCancel]);
 
-    const handleColorSelect = (color: string) => {
-        setNote(prev => ({ ...prev, color }));
-    };
+    const handleCopy = () => {
+        const text = `${titleRef.current?.value || ''}\n${contentRef.current?.innerText || ''}`;
+        navigator.clipboard.writeText(text);
+        // Could show a toast here
+    }
 
     const modalRef = useRef<HTMLDivElement>(null);
-    useClickOutside(modalRef, handleSave, true);
+    // Don't auto-save on click outside to prevent accidental saves of partial edits, rely on the close/back button
+    // But for a "Google Keep" feel, auto-save is better. Let's keep it manual via button for now for "Control".
+    // Actually, user asked for "Control", so manual save/back is clearer.
     
-    useEffect(() => {
-        const target = titleRef.current;
-        if (target) {
-            target.style.height = 'auto';
-            target.style.height = `${target.scrollHeight}px`;
-        }
-    }, [title]);
+    // Auto-resize title
+    const handleTitleInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
+        const target = e.currentTarget;
+        target.style.height = 'auto';
+        target.style.height = `${target.scrollHeight}px`;
+    }
 
     return (
-        <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center p-0 sm:p-4 animate-fade-in">
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-0 sm:p-4 animate-fade-in">
             <div 
                 ref={modalRef} 
-                className="w-full h-full flex flex-col bg-slate-800 text-white sm:max-w-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-xl sm:shadow-2xl" 
+                className="w-full h-full flex flex-col sm:max-w-3xl sm:h-[85vh] sm:rounded-[2rem] shadow-2xl transition-colors duration-500 relative overflow-hidden" 
                 style={{ backgroundColor: note.color }}
             >
-                {/* Top Bar */}
-                <div className="flex justify-between items-center p-2 shrink-0">
-                    <button onClick={handleSave} className="p-2 rounded-full hover:bg-black/20" aria-label="حفظ وإغلاق">
+                {/* Header */}
+                <div className="flex justify-between items-center p-4 bg-black/10 backdrop-blur-md border-b border-white/5 shrink-0 z-10">
+                    <button onClick={handleSave} className="p-2 rounded-full hover:bg-black/20 text-white transition-colors flex items-center gap-2">
                         <ArrowLeftIcon className="w-6 h-6"/>
                     </button>
-                    <div className="flex items-center">
-                        <button onClick={() => setNote(prev => ({ ...prev, is_pinned: !prev.is_pinned }))} title={note.is_pinned ? "إلغاء التثبيت" : "تثبيت"} className="p-2 rounded-full hover:bg-black/20">
-                            {note.is_pinned ? <SolidPinIcon className="w-5 h-5 text-cyan-300" /> : <PinIcon className="w-5 h-5" />}
+                    
+                    <div className="flex items-center gap-2">
+                        <button onClick={handleCopy} className="p-2 rounded-full hover:bg-black/20 text-white/80 hover:text-white transition" title="نسخ النص">
+                            <CopyIcon className="w-5 h-5"/>
                         </button>
-                        <ColorPickerPopover onSelect={handleColorSelect}>
-                            <PaintBrushIcon className="w-5 h-5" />
+                        <button onClick={() => setNote(prev => ({ ...prev, is_pinned: !prev.is_pinned }))} className={`p-2 rounded-full hover:bg-black/20 transition ${note.is_pinned ? 'text-white' : 'text-white/50'}`} title={note.is_pinned ? "إلغاء التثبيت" : "تثبيت"}>
+                            {note.is_pinned ? <SolidPinIcon className="w-5 h-5" /> : <PinIcon className="w-5 h-5" />}
+                        </button>
+                        <ColorPickerPopover currentColor={note.color} onSelect={(color) => setNote(prev => ({ ...prev, color }))}>
+                            <PaintBrushIcon className="w-5 h-5 text-white/80" />
                         </ColorPickerPopover>
                         {initialNote && (
-                            <button onClick={() => onDelete(initialNote.id)} title="حذف" className="p-2 rounded-full hover:bg-black/20">
+                            <button onClick={() => onDelete(initialNote.id)} className="p-2 rounded-full hover:bg-rose-500/20 text-white/80 hover:text-rose-400 transition" title="حذف">
                                 <TrashIcon className="w-5 h-5"/>
                             </button>
                         )}
@@ -408,35 +517,39 @@ const NoteEditorModal: React.FC<{
                 </div>
 
                 {/* Content Area */}
-                <div className="px-4 pb-4 flex-grow flex flex-col overflow-y-auto">
-                    <textarea
-                        ref={titleRef}
-                        defaultValue={title}
-                        placeholder="العنوان"
-                        className="bg-transparent text-2xl font-bold placeholder-slate-400/70 focus:outline-none resize-none overflow-hidden w-full"
-                        rows={1}
-                        onInput={(e) => {
-                             const target = e.currentTarget;
-                             target.style.height = 'auto';
-                             target.style.height = `${target.scrollHeight}px`;
-                        }}
-                    />
-                    <div
-                        ref={contentRef}
-                        contentEditable
-                        suppressContentEditableWarning
-                        dangerouslySetInnerHTML={{ __html: content }}
-                        className="flex-grow outline-none prose prose-invert max-w-none mt-4 text-slate-200"
-                        data-placeholder="اكتب ملاحظتك..."
-                    />
+                <div className="flex-grow flex flex-col overflow-y-auto custom-scrollbar relative">
+                    <div className="max-w-2xl mx-auto w-full px-6 py-8">
+                        <textarea
+                            ref={titleRef}
+                            placeholder="العنوان"
+                            className="w-full bg-transparent text-3xl font-bold text-white placeholder-white/40 focus:outline-none resize-none mb-4 leading-tight"
+                            rows={1}
+                            onInput={handleTitleInput}
+                        />
+                        <div
+                            id="rich-text-editor"
+                            ref={contentRef}
+                            contentEditable
+                            suppressContentEditableWarning
+                            className="outline-none prose prose-invert prose-lg max-w-none text-slate-100/90 empty:before:content-[attr(data-placeholder)] empty:before:text-white/30 min-h-[200px]"
+                            data-placeholder="ابدأ الكتابة..."
+                            onInput={updateStats}
+                        />
+                    </div>
                 </div>
                 
-                {/* Bottom Toolbar */}
-                <div className="flex justify-between items-center p-2 border-t border-white/10 flex-wrap shrink-0 gap-2">
-                    <EditorToolbar />
-                    <span className="text-xs text-slate-300/80">
-                        آخر تحديث: {new Date(note.updated_at || note.created_at).toLocaleString('ar-LY', { timeStyle: 'short' })}
-                    </span>
+                {/* Footer Toolbar */}
+                <div className="bg-slate-900/90 backdrop-blur-xl border-t border-white/10 p-2 pb-safe shrink-0">
+                    <div className="max-w-2xl mx-auto flex flex-col gap-2">
+                        <EditorToolbar />
+                        <div className="flex justify-between items-center px-2 text-[10px] text-slate-500 font-mono">
+                            <span>{wordCount} كلمة</span>
+                            <span className="flex items-center gap-1">
+                                <CalendarDaysIcon className="w-3 h-3"/>
+                                {note.updated_at ? new Date(note.updated_at).toLocaleString('ar-LY') : 'الآن'}
+                            </span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
