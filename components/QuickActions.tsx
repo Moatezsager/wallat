@@ -3,23 +3,40 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Account, Category, Contact, Debt } from '../types';
 import { 
-    PlusIcon, XMarkIcon, ArrowUpIcon, ArrowDownIcon, HandRaisedIcon, UserPlusIcon, ArrowLeftIcon, AccountsIcon, ScaleIcon, ArrowsRightLeftIcon, CurrencyDollarIcon 
+    PlusIcon, XMarkIcon, ArrowUpIcon, ArrowDownIcon, HandRaisedIcon, UserPlusIcon, ArrowLeftIcon, AccountsIcon, ScaleIcon, ArrowsRightLeftIcon, CurrencyDollarIcon,
+    WalletIcon, BanknoteIcon, LandmarkIcon, BriefcaseIcon, CalendarDaysIcon, TagIcon, PencilSquareIcon, iconMap
 } from './icons';
 
 type ModalType = 'expense' | 'income' | 'transfer' | 'add-debt' | 'settle-debt' | 'add-account';
 
+const getAccountTypeIcon = (type: string) => {
+    switch (type) {
+        case 'بنكي': return LandmarkIcon;
+        case 'نقدي': return BanknoteIcon;
+        case 'مخصص': return BriefcaseIcon;
+        default: return WalletIcon;
+    }
+};
+
 const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; showBackButton?: boolean; onBack?: () => void; }> = 
 ({ children, title, onClose, showBackButton, onBack }) => (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-        <div className="glass-card bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-white/10 shadow-2xl animate-slide-up">
-            <div className="flex justify-between items-center mb-6">
+    <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 animate-fade-in">
+        <div className="relative w-full max-w-lg bg-slate-900/90 rounded-[2.5rem] shadow-2xl border border-white/10 flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
+            {/* Ambient Light */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent blur-sm"></div>
+            
+            <div className="p-6 pb-2 shrink-0 z-10 flex justify-between items-center">
                  {showBackButton ? (
-                    <button onClick={onBack} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"><ArrowLeftIcon className="w-5 h-5" /></button>
-                ) : <div className="w-9"></div>}
-                <h3 className="text-xl font-bold text-white text-center">{title}</h3>
-                <button onClick={onClose} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"><XMarkIcon className="w-5 h-5" /></button>
+                    <button onClick={onBack} className="p-3 rounded-full bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-colors border border-white/5"><ArrowLeftIcon className="w-5 h-5" /></button>
+                ) : <div className="w-11"></div>}
+                
+                <h3 className="text-xl font-bold text-white tracking-wide">{title}</h3>
+                
+                <button onClick={onClose} className="p-3 rounded-full bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-colors border border-white/5"><XMarkIcon className="w-5 h-5" /></button>
             </div>
-            {children}
+            <div className="p-6 overflow-y-auto custom-scrollbar">
+                {children}
+            </div>
         </div>
     </div>
 );
@@ -30,14 +47,14 @@ const AddAccountModal: React.FC<{
 }> = ({ onSuccess, onCancel }) => {
     const [name, setName] = useState('');
     const [type, setType] = useState('بنكي');
-    const [balance, setBalance] = useState('0');
+    const [balance, setBalance] = useState('');
     const [currency, setCurrency] = useState('د.ل');
     const [isSaving, setIsSaving] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSaving(true);
-        const accountData = { name, type, balance: parseFloat(balance), currency };
+        const accountData = { name, type, balance: parseFloat(balance) || 0, currency };
 
         const { error } = await supabase.from('accounts').insert(accountData);
 
@@ -50,21 +67,66 @@ const AddAccountModal: React.FC<{
         setIsSaving(false);
     };
 
+    const types = [
+        { id: 'بنكي', icon: LandmarkIcon, label: 'بنكي' },
+        { id: 'نقدي', icon: BanknoteIcon, label: 'نقدي' },
+        { id: 'مخصص', icon: BriefcaseIcon, label: 'مخصص' },
+    ];
+
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="اسم الحساب" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
-            <select value={type} onChange={e => setType(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
-                <option value="بنكي">بنكي</option>
-                <option value="نقدي">نقدي</option>
-                <option value="مخصص">مخصص</option>
-            </select>
-            <input type="number" step="0.01" value={balance} onChange={e => setBalance(e.target.value)} placeholder="الرصيد الافتتاحي" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
-            <div className="flex justify-end gap-3 pt-4">
-                <button type="button" onClick={onCancel} className="py-3 px-6 text-slate-400 hover:text-white font-bold transition">إلغاء</button>
-                <button type="submit" disabled={isSaving} className="py-3 px-8 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl transition shadow-lg font-bold disabled:opacity-70">
-                    {isSaving ? 'جاري الحفظ...' : 'حفظ'}
-                </button>
+        <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Amount Input */}
+            <div className="text-center space-y-2">
+                <label className="text-slate-400 text-sm font-medium">الرصيد الافتتاحي</label>
+                <div className="relative inline-block w-full">
+                    <input 
+                        type="number" 
+                        step="0.01" 
+                        value={balance} 
+                        onChange={e => setBalance(e.target.value)} 
+                        placeholder="0.00" 
+                        required 
+                        className="w-full bg-transparent text-center text-5xl font-bold text-white placeholder-slate-700 focus:outline-none py-2"
+                        autoFocus
+                    />
+                    <span className="absolute top-1/2 right-4 -translate-y-1/2 text-slate-500 font-bold text-lg pointer-events-none">د.ل</span>
+                </div>
             </div>
+
+            <div className="space-y-4 bg-slate-800/30 p-4 rounded-2xl border border-white/5">
+                <div>
+                    <label className="text-xs text-slate-400 font-bold mb-2 block px-1">نوع الحساب</label>
+                    <div className="grid grid-cols-3 gap-3">
+                        {types.map((t) => (
+                            <button
+                                key={t.id}
+                                type="button"
+                                onClick={() => setType(t.id)}
+                                className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${type === t.id ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400' : 'bg-slate-800 border-transparent text-slate-400 hover:bg-slate-700'}`}
+                            >
+                                <t.icon className="w-6 h-6 mb-1"/>
+                                <span className="text-xs font-bold">{t.label}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div>
+                    <label className="text-xs text-slate-400 font-bold mb-2 block px-1">اسم الحساب</label>
+                    <input 
+                        type="text" 
+                        value={name} 
+                        onChange={e => setName(e.target.value)} 
+                        placeholder="مثلاً: المحفظة الشخصية" 
+                        required 
+                        className="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none transition" 
+                    />
+                </div>
+            </div>
+
+            <button type="submit" disabled={isSaving} className="w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-2xl transition shadow-lg shadow-cyan-900/20 font-bold text-lg disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                {isSaving ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : 'إنشاء الحساب'}
+            </button>
         </form>
     );
 };
@@ -78,7 +140,7 @@ const TransactionModal: React.FC<{
     onCancel: () => void;
 }> = ({ type, accounts, categories, onSuccess, onCancel }) => {
     const [amount, setAmount] = useState('');
-    const [accountId, setAccountId] = useState('');
+    const [accountId, setAccountId] = useState(accounts.length > 0 ? accounts[0].id : '');
     const [categoryId, setCategoryId] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [notes, setNotes] = useState('');
@@ -98,15 +160,13 @@ const TransactionModal: React.FC<{
         const amountWithSign = type === 'income' ? numericAmount : -numericAmount;
 
         try {
-            // Get current account balance
             const { data: account, error: accError } = await supabase.from('accounts').select('balance').eq('id', accountId).single();
             if (accError || !account) throw accError || new Error("Account not found");
 
-            // Update balance and insert transaction
             const { error: updateError } = await supabase.from('accounts').update({ balance: account.balance + amountWithSign }).eq('id', accountId);
             if (updateError) throw updateError;
             
-            const finalDate = new Date(`${date}T00:00:00`); // Make sure it's parsed as local midnight
+            const finalDate = new Date(`${date}T00:00:00`);
             const now = new Date();
             finalDate.setHours(now.getHours());
             finalDate.setMinutes(now.getMinutes());
@@ -132,26 +192,117 @@ const TransactionModal: React.FC<{
     };
 
     const filteredCategories = categories.filter(c => c.type === type);
+    const isExpense = type === 'expense';
+    const activeColor = isExpense ? 'rose' : 'emerald';
+    const activeColorHex = isExpense ? '#f43f5e' : '#10b981';
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-             {error && <p className="text-rose-400 text-sm font-bold bg-rose-500/10 p-2 rounded-lg">{error}</p>}
-            <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="المبلغ" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
-            <select value={accountId} onChange={e => setAccountId(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
-                <option value="" disabled>اختر الحساب</option>
-                {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
-            </select>
-            <select value={categoryId} onChange={e => setCategoryId(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
-                <option value="">اختر الفئة</option>
-                {filteredCategories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-            </select>
-            <input type="date" value={date} onChange={e => setDate(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
-            <input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="ملاحظات (اختياري)" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
-            <div className="flex justify-end pt-4">
-                 <button type="submit" disabled={isSaving} className="w-full py-3 px-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 rounded-xl transition font-bold text-white shadow-lg disabled:opacity-70">
-                    {isSaving ? 'جاري الحفظ...' : 'حفظ'}
-                </button>
+        <form onSubmit={handleSubmit} className="space-y-6">
+             {error && <p className="text-rose-400 text-sm font-bold bg-rose-500/10 p-3 rounded-xl border border-rose-500/20 text-center">{error}</p>}
+            
+            {/* Hero Input */}
+            <div className="text-center space-y-2 relative">
+                <div className={`absolute inset-0 blur-3xl opacity-20 rounded-full ${isExpense ? 'bg-rose-500' : 'bg-emerald-500'}`}></div>
+                <label className="text-slate-400 text-sm font-medium relative z-10">المبلغ</label>
+                <div className="relative inline-block w-full z-10">
+                    <input 
+                        type="number" 
+                        step="0.01" 
+                        value={amount} 
+                        onChange={e => setAmount(e.target.value)} 
+                        placeholder="0" 
+                        required 
+                        className={`w-full bg-transparent text-center text-6xl font-black placeholder-slate-800 focus:outline-none py-2 ${isExpense ? 'text-rose-400' : 'text-emerald-400'}`}
+                        autoFocus
+                    />
+                </div>
             </div>
+
+            <div className="space-y-5">
+                {/* Account Selector - Horizontal Scroll with Icons */}
+                <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 px-1">الحساب</label>
+                    <div className="flex overflow-x-auto gap-3 pb-2 custom-scrollbar snap-x">
+                        {accounts.map(acc => {
+                            const isSelected = accountId === acc.id;
+                            const TypeIcon = getAccountTypeIcon(acc.type);
+                            return (
+                                <button
+                                    key={acc.id}
+                                    type="button"
+                                    onClick={() => setAccountId(acc.id)}
+                                    className={`snap-start flex-shrink-0 flex items-center gap-3 p-3 pr-4 rounded-2xl border transition-all duration-300 min-w-[140px] ${isSelected ? `bg-${activeColor}-500/10 border-${activeColor}-500/50 shadow-lg shadow-${activeColor}-500/10` : 'bg-slate-800/50 border-transparent text-slate-400 hover:bg-slate-800'}`}
+                                >
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isSelected ? `bg-${activeColor}-500 text-white shadow-md` : 'bg-slate-700/50 text-slate-500'}`}>
+                                        <TypeIcon className="w-5 h-5" />
+                                    </div>
+                                    <div className="text-right">
+                                        <span className={`block text-xs font-bold ${isSelected ? 'text-white' : 'text-slate-300'}`}>{acc.name}</span>
+                                        <span className={`block text-[10px] font-mono ${isSelected ? `text-${activeColor}-400` : 'text-slate-500'}`}>{acc.balance}</span>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Category Selector - Horizontal Chips with Icons */}
+                <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 px-1">الفئة</label>
+                    <div className="flex overflow-x-auto gap-2 pb-2 custom-scrollbar snap-x">
+                        <button
+                            type="button"
+                            onClick={() => setCategoryId('')}
+                            className={`snap-start flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all ${!categoryId ? `bg-${activeColor}-500/20 border-${activeColor}-500 text-${activeColor}-400` : 'bg-slate-800/50 border-slate-800 text-slate-400 hover:bg-slate-800'}`}
+                        >
+                            <TagIcon className="w-4 h-4"/>
+                            <span className="text-xs font-bold whitespace-nowrap">غير مصنف</span>
+                        </button>
+                        {filteredCategories.map(cat => {
+                            const isSelected = categoryId === cat.id;
+                            const CatIcon = (cat.icon && iconMap[cat.icon]) ? iconMap[cat.icon] : TagIcon;
+                            const catColor = cat.color || activeColorHex;
+                            
+                            return (
+                                <button
+                                    key={cat.id}
+                                    type="button"
+                                    onClick={() => setCategoryId(cat.id)}
+                                    className={`snap-start flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${isSelected ? 'bg-slate-800 border-white/20 shadow-inner' : 'bg-slate-800/30 border-transparent text-slate-400 hover:bg-slate-800'}`}
+                                    style={isSelected ? { borderColor: catColor } : {}}
+                                >
+                                    <div className="w-7 h-7 rounded-lg flex items-center justify-center shadow-sm" style={{ backgroundColor: catColor, color: '#fff' }}>
+                                        <CatIcon className="w-4 h-4" />
+                                    </div>
+                                    <span className={`text-xs font-bold whitespace-nowrap ${isSelected ? 'text-white' : ''}`}>{cat.name}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-500 px-1">التاريخ</label>
+                        <div className="relative">
+                            <input type="date" value={date} onChange={e => setDate(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3.5 pl-10 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none font-sans font-bold" />
+                            <CalendarDaysIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none"/>
+                        </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-500 px-1">ملاحظات</label>
+                        <div className="relative">
+                            <input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="اختياري..." className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3.5 pl-10 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none" />
+                            <PencilSquareIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none"/>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" disabled={isSaving} className={`w-full py-4 rounded-2xl transition shadow-lg font-bold text-lg disabled:opacity-70 flex items-center justify-center gap-2 ${isExpense ? 'bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-rose-900/20' : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-900/20'} text-white`}>
+                {isSaving ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : 'حفظ العملية'}
+            </button>
         </form>
     );
 };
@@ -196,11 +347,9 @@ const TransferModal: React.FC<{
             const toAccount = accounts.find(a => a.id === toAccountId);
             if (!fromAccount || !toAccount) throw new Error("Account not found");
             
-            // Perform updates
             await supabase.from('accounts').update({ balance: fromAccount.balance - numericAmount }).eq('id', fromAccountId);
             await supabase.from('accounts').update({ balance: toAccount.balance + numericAmount }).eq('id', toAccountId);
             
-            // Log transaction
             await supabase.from('transactions').insert({
                 amount: numericAmount,
                 type: 'transfer',
@@ -220,29 +369,58 @@ const TransferModal: React.FC<{
     };
     
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-             {error && <p className="text-rose-400 text-sm font-bold bg-rose-500/10 p-2 rounded-lg">{error}</p>}
-             <div>
-                <label className="text-sm text-slate-400 mb-1 block">من حساب</label>
-                <select value={fromAccountId} onChange={e => setFromAccountId(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
-                    <option value="" disabled>اختر حساب المصدر</option>
-                    {accounts.map(acc => <option key={acc.id} value={acc.id}>{`${acc.name} (${acc.balance} ${acc.currency})`}</option>)}
-                </select>
-             </div>
-             <div>
-                <label className="text-sm text-slate-400 mb-1 block">إلى حساب</label>
-                <select value={toAccountId} onChange={e => setToAccountId(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
-                    <option value="" disabled>اختر حساب الوجهة</option>
-                    {accounts.filter(a => a.id !== fromAccountId).map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
-                </select>
+        <form onSubmit={handleSubmit} className="space-y-6">
+             {error && <p className="text-rose-400 text-sm font-bold bg-rose-500/10 p-3 rounded-xl border border-rose-500/20 text-center">{error}</p>}
+             
+             {/* Amount */}
+             <div className="text-center relative">
+                <label className="text-slate-400 text-sm font-medium">مبلغ التحويل</label>
+                <div className="relative inline-block w-full">
+                    <input 
+                        type="number" 
+                        step="0.01" 
+                        value={amount} 
+                        onChange={e => setAmount(e.target.value)} 
+                        placeholder="0" 
+                        required 
+                        className="w-full bg-transparent text-center text-5xl font-black text-indigo-400 placeholder-slate-800 focus:outline-none py-2"
+                        autoFocus
+                    />
+                </div>
             </div>
-            <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="المبلغ" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
-            <input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="ملاحظات (اختياري)" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
-            <div className="flex justify-end pt-4">
-                 <button type="submit" disabled={isSaving} className="w-full py-3 px-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 rounded-xl transition font-bold text-white shadow-lg disabled:opacity-70">
-                    {isSaving ? 'جاري التحويل...' : 'تأكيد التحويل'}
-                </button>
+
+            {/* Flow Visual */}
+            <div className="bg-slate-800/30 p-4 rounded-3xl border border-white/5 relative">
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 bg-slate-900 rounded-full p-2 border border-white/10 shadow-xl">
+                    <ArrowDownIcon className="w-5 h-5 text-indigo-400" />
+                </div>
+
+                <div className="space-y-6">
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 mb-1 block px-2">من حساب</label>
+                        <select value={fromAccountId} onChange={e => setFromAccountId(e.target.value)} required className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white focus:border-indigo-500 focus:outline-none font-bold appearance-none">
+                            <option value="" disabled>اختر المصدر</option>
+                            {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name} ({acc.balance})</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 mb-1 block px-2">إلى حساب</label>
+                        <select value={toAccountId} onChange={e => setToAccountId(e.target.value)} required className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white focus:border-indigo-500 focus:outline-none font-bold appearance-none">
+                            <option value="" disabled>اختر الوجهة</option>
+                            {accounts.filter(a => a.id !== fromAccountId).map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
+                        </select>
+                    </div>
+                </div>
             </div>
+
+            <div className="relative">
+                <input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="ملاحظات التحويل (اختياري)" className="w-full bg-slate-800/50 border border-slate-700 rounded-xl p-3.5 pl-10 text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none" />
+                <PencilSquareIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none"/>
+            </div>
+
+            <button type="submit" disabled={isSaving} className="w-full py-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 rounded-2xl transition shadow-lg shadow-indigo-900/20 font-bold text-white text-lg disabled:opacity-70 flex items-center justify-center gap-2">
+                {isSaving ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : 'تأكيد التحويل'}
+            </button>
         </form>
     );
 }
@@ -350,42 +528,79 @@ const AddDebtWizard: React.FC<{
     if (step === 1) {
         return (
             <div className="space-y-4">
-                <input type="text" placeholder="ابحث عن اسم..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
-                <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-2">
-                    {filteredContacts.map(c => <button key={c.id} onClick={() => handleSelectContact(c)} className="w-full text-right p-3 hover:bg-slate-800 rounded-xl border border-transparent hover:border-white/5 transition-all flex items-center justify-between group">
-                        <span className="font-bold">{c.name}</span>
-                        <ArrowLeftIcon className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity text-cyan-400"/>
-                    </button>)}
+                <input type="text" placeholder="ابحث عن اسم..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 focus:outline-none" autoFocus />
+                
+                <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-2 pr-1">
+                    {filteredContacts.map(c => (
+                        <button key={c.id} onClick={() => handleSelectContact(c)} className="w-full text-right p-4 bg-slate-800/50 hover:bg-slate-800 rounded-2xl border border-white/5 hover:border-cyan-500/50 transition-all flex items-center justify-between group">
+                            <span className="font-bold text-lg">{c.name}</span>
+                            <ArrowLeftIcon className="w-5 h-5 text-slate-600 group-hover:text-cyan-400 transition-colors"/>
+                        </button>
+                    ))}
                 </div>
-                 <button onClick={() => setShowNewContact(!showNewContact)} className="text-cyan-400 text-sm mt-2 font-bold hover:underline">{showNewContact ? 'إلغاء' : 'أو إضافة جهة اتصال جديدة'}</button>
-                {showNewContact && (
-                    <div className="flex gap-2 mt-2 animate-fade-in">
-                        <input type="text" value={newContactName} onChange={e => setNewContactName(e.target.value)} placeholder="اسم جهة الاتصال" className="flex-grow bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
-                        <button onClick={handleAddNewContact} className="bg-cyan-600 hover:bg-cyan-500 text-white p-3 rounded-xl transition shadow-lg"><UserPlusIcon className="w-5 h-5"/></button>
-                    </div>
-                )}
+                
+                <div className="pt-2 border-t border-white/5">
+                    {!showNewContact ? (
+                        <button onClick={() => setShowNewContact(true)} className="w-full py-3 border border-dashed border-slate-600 rounded-xl text-slate-400 hover:text-white hover:border-white transition flex items-center justify-center gap-2">
+                            <PlusIcon className="w-5 h-5"/> إضافة جهة اتصال جديدة
+                        </button>
+                    ) : (
+                        <div className="flex gap-2 animate-fade-in">
+                            <input type="text" value={newContactName} onChange={e => setNewContactName(e.target.value)} placeholder="الاسم الكامل" className="flex-grow bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" autoFocus />
+                            <button onClick={handleAddNewContact} className="bg-cyan-600 hover:bg-cyan-500 text-white p-3 rounded-xl transition shadow-lg"><UserPlusIcon className="w-6 h-6"/></button>
+                        </div>
+                    )}
+                </div>
             </div>
         );
     }
 
     if (step === 2) {
         return (
-            <div className="space-y-4 animate-slide-up">
-                 <p className="text-center text-slate-400">إضافة دين لـ <span className="font-bold text-white text-lg block mt-1">{selectedContact?.name}</span></p>
-                 <div className="flex gap-4">
-                    <button type="button" onClick={() => setDebtType('on_you')} className={`w-full py-3 rounded-xl transition font-bold ${debtType === 'on_you' ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/20' : 'bg-slate-800 text-slate-400'}`}>دين عليك</button>
-                    <button type="button" onClick={() => setDebtType('for_you')} className={`w-full py-3 rounded-xl transition font-bold ${debtType === 'for_you' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'bg-slate-800 text-slate-400'}`}>دين لك</button>
+            <div className="space-y-6 animate-slide-up">
+                 <div className="text-center">
+                     <p className="text-slate-400 text-sm mb-1">تسجيل دين مرتبط بـ</p>
+                     <h2 className="text-2xl font-bold text-white">{selectedContact?.name}</h2>
+                 </div>
+
+                 <div className="grid grid-cols-2 gap-4">
+                    <button type="button" onClick={() => setDebtType('on_you')} className={`py-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${debtType === 'on_you' ? 'bg-rose-500/10 border-rose-500 text-rose-400' : 'bg-slate-800 border-transparent text-slate-500 hover:bg-slate-700'}`}>
+                        <ArrowDownIcon className="w-6 h-6"/>
+                        <span className="font-bold">دين عليك (سلف)</span>
+                    </button>
+                    <button type="button" onClick={() => setDebtType('for_you')} className={`py-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${debtType === 'for_you' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-slate-800 border-transparent text-slate-500 hover:bg-slate-700'}`}>
+                        <ArrowUpIcon className="w-6 h-6"/>
+                        <span className="font-bold">دين لك (قرض)</span>
+                    </button>
                 </div>
-                 <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="المبلغ" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
+
+                 <div className="relative">
+                    <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-center text-3xl font-bold text-white focus:border-cyan-500 focus:outline-none placeholder-slate-700" autoFocus />
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">د.ل</span>
+                 </div>
+
                  {debtType === 'for_you' && (
-                     <select value={linkedAccountId} onChange={e => setLinkedAccountId(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
-                         <option value="">خصم من حساب (اختياري)</option>
-                         {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
-                     </select>
+                     <div>
+                         <label className="text-xs font-bold text-slate-500 mb-1 block px-1">خصم المبلغ من حساب (اختياري)</label>
+                         <select value={linkedAccountId} onChange={e => setLinkedAccountId(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
+                             <option value="">لا تقم بالخصم</option>
+                             {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name} ({acc.balance})</option>)}
+                         </select>
+                     </div>
                  )}
-                 <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
-                 <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="الوصف (اختياري)" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
-                 <button onClick={handleSaveDebt} className="w-full py-3 px-4 bg-cyan-600 hover:bg-cyan-500 rounded-xl transition font-bold text-white shadow-lg mt-2">حفظ الدين</button>
+
+                 <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-500 px-1">تاريخ الاستحقاق</label>
+                        <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
+                     </div>
+                     <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-500 px-1">ملاحظة</label>
+                        <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="وصف قصير" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
+                     </div>
+                 </div>
+
+                 <button onClick={handleSaveDebt} className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 rounded-2xl transition font-bold text-white text-lg shadow-lg shadow-cyan-900/20">حفظ الدين</button>
             </div>
         );
     }
@@ -488,13 +703,13 @@ const SettleDebtWizard: React.FC<{
              <div className="max-h-80 overflow-y-auto space-y-3 custom-scrollbar">
                  {aggregatedDebts.map(({ contact, for_you, on_you, for_you_debts, on_you_debts }) => (
                     <React.Fragment key={contact.id}>
-                        {on_you > 0 && <button onClick={() => handleSelect({contact, type: 'on_you', total: on_you, debts: on_you_debts})} className="w-full flex justify-between items-center p-3 hover:bg-slate-800 rounded-xl border border-white/5 hover:border-white/10 transition-all group">
-                            <span className="font-bold text-white group-hover:text-cyan-400 transition-colors">{contact.name}</span>
-                            <span className="text-rose-400 font-bold bg-rose-500/10 px-2 py-1 rounded-lg">{on_you} د.ل</span>
+                        {on_you > 0 && <button onClick={() => handleSelect({contact, type: 'on_you', total: on_you, debts: on_you_debts})} className="w-full flex justify-between items-center p-4 bg-slate-800/30 hover:bg-slate-800 rounded-2xl border border-white/5 hover:border-rose-500/30 transition-all group">
+                            <span className="font-bold text-white group-hover:text-rose-400 transition-colors">{contact.name}</span>
+                            <span className="text-rose-400 font-bold bg-rose-500/10 px-3 py-1.5 rounded-xl border border-rose-500/20">{on_you} د.ل</span>
                         </button>}
-                        {for_you > 0 && <button onClick={() => handleSelect({contact, type: 'for_you', total: for_you, debts: for_you_debts})} className="w-full flex justify-between items-center p-3 hover:bg-slate-800 rounded-xl border border-white/5 hover:border-white/10 transition-all group">
-                            <span className="font-bold text-white group-hover:text-cyan-400 transition-colors">{contact.name}</span>
-                            <span className="text-emerald-400 font-bold bg-emerald-500/10 px-2 py-1 rounded-lg">{for_you} د.ل</span>
+                        {for_you > 0 && <button onClick={() => handleSelect({contact, type: 'for_you', total: for_you, debts: for_you_debts})} className="w-full flex justify-between items-center p-4 bg-slate-800/30 hover:bg-slate-800 rounded-2xl border border-white/5 hover:border-emerald-500/30 transition-all group">
+                            <span className="font-bold text-white group-hover:text-emerald-400 transition-colors">{contact.name}</span>
+                            <span className="text-emerald-400 font-bold bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20">{for_you} د.ل</span>
                         </button>}
                     </React.Fragment>
                 ))}
@@ -505,18 +720,33 @@ const SettleDebtWizard: React.FC<{
     
     if(step === 2 && selectedInfo) {
          return (
-             <div className="space-y-4 animate-slide-up">
-                 <p className="text-center text-slate-400">تسوية دين مع <span className="font-bold text-white text-lg block mt-1">{selectedInfo.contact.name}</span></p>
-                 <div className="bg-slate-800/50 p-4 rounded-2xl text-center border border-white/5">
-                    <span className="text-sm text-slate-400 block mb-1">إجمالي المستحق</span>
-                    <span className={`font-extrabold text-3xl ${selectedInfo.type === 'on_you' ? 'text-rose-400' : 'text-emerald-400'}`}>{selectedInfo.total} <span className="text-lg">د.ل</span></span>
+             <div className="space-y-6 animate-slide-up">
+                 <div className="text-center">
+                     <p className="text-slate-400 text-sm mb-1">تسوية دين مع</p>
+                     <h2 className="text-2xl font-bold text-white">{selectedInfo.contact.name}</h2>
                  </div>
-                 <input type="number" step="0.01" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} placeholder="المبلغ المدفوع" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
-                 <select value={paymentAccountId} onChange={e => setPaymentAccountId(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
-                    <option value="" disabled>اختر حساب الدفع</option>
-                    {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
-                </select>
-                <button onClick={handleSettle} className="w-full py-3 px-4 bg-cyan-600 hover:bg-cyan-500 rounded-xl transition font-bold text-white shadow-lg mt-2">تأكيد التسوية</button>
+
+                 <div className="bg-slate-800/50 p-6 rounded-3xl text-center border border-white/5">
+                    <span className="text-sm text-slate-400 block mb-2 font-medium">إجمالي المستحق</span>
+                    <span className={`font-extrabold text-4xl ${selectedInfo.type === 'on_you' ? 'text-rose-400' : 'text-emerald-400'}`}>{selectedInfo.total} <span className="text-lg text-white/50">د.ل</span></span>
+                 </div>
+
+                 <div className="space-y-4">
+                     <div>
+                        <label className="text-xs font-bold text-slate-500 mb-1 block px-2">المبلغ المدفوع</label>
+                        <input type="number" step="0.01" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} placeholder="0.00" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white text-lg font-bold focus:border-cyan-500 focus:outline-none" />
+                     </div>
+                     
+                     <div>
+                        <label className="text-xs font-bold text-slate-500 mb-1 block px-2">حساب الدفع</label>
+                        <select value={paymentAccountId} onChange={e => setPaymentAccountId(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 focus:outline-none appearance-none">
+                            <option value="" disabled>اختر حساب الدفع</option>
+                            {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
+                        </select>
+                    </div>
+                </div>
+
+                <button onClick={handleSettle} className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 rounded-2xl transition font-bold text-white text-lg shadow-lg shadow-cyan-900/20">تأكيد التسوية</button>
              </div>
          );
     }
@@ -590,12 +820,12 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
     ];
     
     const modalTitles: Record<ModalType, string> = {
-        expense: 'إضافة مصروف جديد',
-        income: 'إضافة إيراد جديد',
+        expense: 'مصروف جديد',
+        income: 'إيراد جديد',
         transfer: 'تحويل أموال',
-        'add-debt': 'إضافة دين جديد',
-        'settle-debt': 'تسوية دين',
-        'add-account': 'إضافة حساب جديد'
+        'add-debt': 'تسجيل دين',
+        'settle-debt': 'تسوية الديون',
+        'add-account': 'حساب جديد'
     };
 
     const renderModalContent = () => {
