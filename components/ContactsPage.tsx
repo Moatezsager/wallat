@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Contact, Debt } from '../types';
+import { useToast } from './Toast';
 import { PlusIcon, PencilSquareIcon, TrashIcon, XMarkIcon, ScaleIcon, MagnifyingGlassIcon, EllipsisVerticalIcon } from './icons';
 
 interface ContactWithDebtInfo extends Contact {
@@ -36,6 +37,7 @@ const ContactForm: React.FC<{
     onSave: () => void;
     onCancel: () => void;
 }> = ({ contact, onSave, onCancel }) => {
+    const toast = useToast();
     const [name, setName] = useState(contact?.name || '');
     const [phone, setPhone] = useState(contact?.phone || '');
     const [address, setAddress] = useState(contact?.address || '');
@@ -52,7 +54,7 @@ const ContactForm: React.FC<{
 
         if (error) {
             console.error('Error saving contact:', error.message);
-            alert('حدث خطأ');
+            toast.error('حدث خطأ أثناء حفظ جهة الاتصال');
         } else {
             onSave();
         }
@@ -95,6 +97,7 @@ const getInitials = (name: string) => {
 };
 
 const ContactsPage: React.FC<ContactsPageProps> = ({ key, handleDatabaseChange, onSelectContact }) => {
+    const toast = useToast();
     const [allContactsWithDebts, setAllContactsWithDebts] = useState<ContactWithDebtInfo[]>([]);
     const [loading, setLoading] = useState(true);
     const [modal, setModal] = useState<{ type: 'add' | 'edit' | 'delete' | null, contact: Contact | null }>({ type: null, contact: null });
@@ -168,6 +171,7 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ key, handleDatabaseChange, 
         const description = modal.contact ? `تم تعديل بيانات "${modal.contact.name}"` : 'تم إضافة جهة اتصال جديدة';
         setModal({ type: null, contact: null });
         handleDatabaseChange(description);
+        toast.success(description);
     };
 
     const handleDelete = async () => {
@@ -176,10 +180,11 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ key, handleDatabaseChange, 
         const { error } = await supabase.from('contacts').delete().eq('id', modal.contact.id);
         if (error) {
             console.error('Error deleting contact', error.message);
-            alert('لا يمكن حذف جهة الاتصال لارتباطها بديون.');
+            toast.error('لا يمكن حذف جهة الاتصال لارتباطها بديون');
         } else {
             setModal({ type: null, contact: null });
             handleDatabaseChange(description);
+            toast.success(description);
         }
     };
 

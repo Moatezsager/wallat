@@ -1,13 +1,15 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { Transaction, Account, Category } from '../types';
 import TransactionForm from './TransactionForm';
+import { useQuery, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { 
     MagnifyingGlassIcon, FunnelIcon, XMarkIcon, PencilSquareIcon, TrashIcon,
     ArrowDownIcon, ArrowUpIcon, ArrowsRightLeftIcon, iconMap, WalletIcon,
     TagIcon, CalendarDaysIcon
 } from './icons';
+import { useToast } from './Toast';
 
 const formatCurrency = (amount: number, currency: string = 'د.ل') => {
     const options: Intl.NumberFormatOptions = { style: 'currency', currency: 'LYD' };
@@ -205,81 +207,128 @@ const TransactionDetailContent: React.FC<{
 };
 
 
-const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (description?: string) => void }> = ({ key, handleDatabaseChange }) => {
-    const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
-    const [accounts, setAccounts] = useState<Account[]>([]);
-    const [categories, setCategories] = useState<Category[]>([]);
-    const [loading, setLoading] = useState(true);
+const TransactionsPage: React.FC = () => {
+    const queryClient = useQueryClient();
+    const toast = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const [filters, setFilters] = useState<FilterValues>({
         types: ['income', 'expense', 'transfer'],
         date_from: '', date_to: '',
         accounts: [], categories: []
     });
-    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-    const [modal, setModal] = useState<{ type: 'edit' | 'delete' | null, transaction: Transaction | null }>({ type: null, transaction: null });
-    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    const [selectedTransactionForDetail, setSelectedTransactionForDetail] = useState<Transaction | null>(null);
-
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            const txPromise = supabase.from('transactions').select('*, accounts:account_id(name, currency), to_accounts:to_account_id(name), categories(name, color, icon)').order('date', { ascending: false });
-            const accPromise = supabase.from('accounts').select('*');
-            const catPromise = supabase.from('categories').select('*');
-
-            const [txResponse, accResponse, catResponse] = await Promise.all([txPromise, accPromise, catPromise]);
-            
-            if(txResponse.error) console.error("Error fetching transactions", txResponse.error);
-            if(accResponse.error) console.error("Error fetching accounts", accResponse.error);
-            if(catResponse.error) console.error("Error fetching categories", catResponse.error);
-
-            setAllTransactions((txResponse.data as unknown as Transaction[]) || []);
-            setAccounts((accResponse.data as unknown as Account[]) || []);
-            setCategories((catResponse.data as unknown as Category[]) || []);
-            setLoading(false);
-        };
-        fetchData();
-    }, [key]);
-
-    const filteredTransactions = useMemo(() => {
-        return allTransactions.filter(tx => {
-            const txDate = new Date(tx.date);
-            const fromDate = filters.date_from ? new Date(filters.date_from) : null;
-            const toDate = filters.date_to ? new Date(filters.date_to) : null;
-            if(fromDate) fromDate.setHours(0,0,0,0);
-            if(toDate) toDate.setHours(23,59,59,999);
-            
-            return (
-                (filters.types.includes(tx.type)) &&
-                (!fromDate || txDate >= fromDate) &&
-                (!toDate || txDate <= toDate) &&
-                (filters.accounts.length === 0 || (tx.account_id && filters.accounts.includes(tx.account_id))) &&
-                (searchTerm === '' ||
-                    tx.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    tx.accounts?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    tx.categories?.name?.toLowerCase().includes(searchTerm.toLowerCase()))
-            );
-        });
-    }, [allTransactions, filters, searchTerm]);
     
+    // Fetch Accounts & Categories for filtering
+    const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: async () => (await supabase.from('accounts').select('*')).data as Account[] || [] });
+    const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: async () => (await supabase.from('categories').select('*')).data as Category[] || [] });
+
+    // --- Server-Side Infinite Scroll ---
+    const PAGE_SIZE = 20;
+    
+    const {
+        data,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+        isLoading,
+        error
+    } = useInfiniteQuery({
+        queryKey: ['transactions', filters, searchTerm], // Refetch when filters/search change
+        queryFn: async ({ pageParam = 0 }) => {
+            const start = pageParam * PAGE_SIZE;
+            const end = start + PAGE_SIZE - 1;
+            
+            let query = supabase
+                .from('transactions')
+                .select('*, accounts:account_id(name, currency), to_accounts:to_account_id(name), categories(name, color, icon)', { count: 'exact' })
+                .order('date', { ascending: false })
+                .range(start, end);
+
+            // Apply Filters (Server-Side)
+            if (filters.types.length > 0) {
+                query = query.in('type', filters.types);
+            }
+            
+            if (filters.date_from) {
+                const from = new Date(filters.date_from);
+                from.setHours(0,0,0,0);
+                query = query.gte('date', from.toISOString());
+            }
+            
+            if (filters.date_to) {
+                const to = new Date(filters.date_to);
+                to.setHours(23,59,59,999);
+                query = query.lte('date', to.toISOString());
+            }
+            
+            if (filters.accounts.length > 0) {
+                query = query.in('account_id', filters.accounts);
+            }
+
+            if (searchTerm) {
+                // Simple search on notes column
+                query = query.ilike('notes', `%${searchTerm}%`);
+            }
+
+            const { data, error, count } = await query;
+            if (error) throw error;
+            
+            return {
+                transactions: data as Transaction[],
+                totalCount: count || 0,
+                nextPage: (data.length === PAGE_SIZE) ? pageParam + 1 : undefined
+            };
+        },
+        initialPageParam: 0,
+        getNextPageParam: (lastPage) => lastPage.nextPage,
+    });
+
+    const allTransactions = useMemo(() => {
+        return data?.pages.flatMap(page => page.transactions) || [];
+    }, [data]);
+
+    // Aggregate summary from loaded data (Client-side estimation based on loaded data)
+    // For accurate totals with pagination, we'd need a separate aggregation query, 
+    // but for UI responsiveness we can just summarize loaded data or fetch stats separately.
+    // Let's fetch strict stats separately for accuracy.
+    const { data: stats } = useQuery({
+        queryKey: ['transactions-stats', filters, searchTerm],
+        queryFn: async () => {
+             // Basic stat aggregation query
+             let query = supabase.from('transactions').select('amount, type');
+             // Apply same filters... (duplicated logic, ideally refactor into builder function)
+             if (filters.types.length > 0) query = query.in('type', filters.types);
+             if (filters.date_from) query = query.gte('date', new Date(filters.date_from).toISOString());
+             if (filters.date_to) query = query.lte('date', new Date(filters.date_to).toISOString());
+             if (filters.accounts.length > 0) query = query.in('account_id', filters.accounts);
+             if (searchTerm) query = query.ilike('notes', `%${searchTerm}%`);
+             
+             const { data } = await query;
+             const s = (data || []).reduce((acc: any, curr: any) => {
+                 if (curr.type === 'income') acc.income += curr.amount;
+                 if (curr.type === 'expense') acc.expense += curr.amount;
+                 return acc;
+             }, { income: 0, expense: 0 });
+             return s;
+        }
+    });
+
+    const summary = stats || { income: 0, expense: 0 };
+
     const groupedTransactions = useMemo(() => {
-        return filteredTransactions.reduce((acc: Record<string, Transaction[]>, tx) => {
+        return allTransactions.reduce((acc: Record<string, Transaction[]>, tx) => {
             const dateKey = formatDateGroup(tx.date);
             if (!acc[dateKey]) acc[dateKey] = [];
             acc[dateKey].push(tx);
             return acc;
         }, {});
-    }, [filteredTransactions]);
+    }, [allTransactions]);
 
-    const summary = useMemo(() => {
-        return filteredTransactions.reduce((acc, tx) => {
-            if (tx.type === 'income') acc.income += tx.amount;
-            if (tx.type === 'expense') acc.expense += tx.amount;
-            return acc;
-        }, { income: 0, expense: 0 });
-    }, [filteredTransactions]);
     
+    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+    const [modal, setModal] = useState<{ type: 'edit' | 'delete' | null, transaction: Transaction | null }>({ type: null, transaction: null });
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [selectedTransactionForDetail, setSelectedTransactionForDetail] = useState<Transaction | null>(null);
+
     const handleOpenDetailModal = (tx: Transaction) => {
         setSelectedTransactionForDetail(tx);
         setIsDetailModalOpen(true);
@@ -305,7 +354,10 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
 
     const handleSave = (description: string) => {
         setModal({ type: null, transaction: null });
-        handleDatabaseChange(description);
+        queryClient.invalidateQueries({ queryKey: ['transactions'] });
+        queryClient.invalidateQueries({ queryKey: ['accounts'] }); // Balance updates
+        queryClient.invalidateQueries({ queryKey: ['transactions-stats'] }); 
+        toast.success(description);
     };
 
     const handleDelete = async () => {
@@ -331,7 +383,7 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
             handleSave('تم حذف المعاملة');
         } catch (error: any) {
             console.error("Error deleting transaction:", error.message);
-            alert('حدث خطأ أثناء الحذف.');
+            toast.error('حدث خطأ أثناء الحذف.');
             setModal({ type: null, transaction: null });
         }
     };
@@ -363,7 +415,7 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
             <div className="flex gap-3 items-center">
                 <div className="relative flex-grow group">
                     <MagnifyingGlassIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-cyan-400 transition-colors pointer-events-none" />
-                    <input type="text" placeholder="ابحث..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                    <input type="text" placeholder="ابحث في الملاحظات..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
                         className="w-full bg-slate-900/50 p-3 pr-12 rounded-2xl text-white border border-slate-700 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none transition shadow-inner" />
                 </div>
                 <button onClick={() => setIsFilterModalOpen(true)} className={`relative flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-2xl transition-all ${activeFilterCount > 0 ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50' : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700'}`}>
@@ -372,7 +424,7 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
                 </button>
             </div>
             
-            {loading ? <div className="space-y-3">{[...Array(5)].map((_,i) => <div key={i} className="h-20 bg-slate-800/50 rounded-2xl animate-pulse"></div>)}</div>
+            {isLoading ? <div className="space-y-3">{[...Array(5)].map((_,i) => <div key={i} className="h-20 bg-slate-800/50 rounded-2xl animate-pulse"></div>)}</div>
             : Object.keys(groupedTransactions).length === 0 ? <div className="text-center py-16 bg-slate-900/20 rounded-3xl border-dashed border-2 border-slate-800 text-slate-500">لا توجد معاملات تطابق بحثك.</div>
             : (
                 <div className="space-y-6 pb-20">
@@ -407,6 +459,18 @@ const TransactionsPage: React.FC<{ key: number, handleDatabaseChange: (descripti
                             </div>
                         </div>
                     ))}
+                    
+                    {hasNextPage && (
+                        <div className="text-center pt-4">
+                            <button 
+                                onClick={() => fetchNextPage()} 
+                                disabled={isFetchingNextPage}
+                                className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition disabled:opacity-50 border border-slate-700 hover:text-white"
+                            >
+                                {isFetchingNextPage ? 'جاري التحميل...' : 'عرض المزيد من المعاملات'}
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
 

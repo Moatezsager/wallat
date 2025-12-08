@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { Account, Transaction } from '../types';
+import { useToast } from './Toast';
 import { 
     EllipsisVerticalIcon, PlusIcon, XMarkIcon, WalletIcon, 
     ArrowUpIcon, ArrowDownIcon, ArrowsRightLeftIcon,
@@ -283,6 +284,7 @@ const AccountDetailsModal: React.FC<{
 
 // ... AccountForm ... (keep existing)
 const AccountForm: React.FC<{ account?: Account | null; onSave: () => void; onCancel: () => void; }> = ({ account, onSave, onCancel }) => {
+    const toast = useToast();
     const [name, setName] = useState(account?.name || '');
     const [type, setType] = useState(account?.type || 'بنكي');
     const [balance, setBalance] = useState(account?.balance?.toString() || '0');
@@ -301,7 +303,12 @@ const AccountForm: React.FC<{ account?: Account | null; onSave: () => void; onCa
         setIsSaving(true);
         const accountData = { name, type, balance: parseFloat(balance), currency, theme };
         const { error } = account?.id ? await supabase.from('accounts').update(accountData).eq('id', account.id) : await supabase.from('accounts').insert(accountData);
-        if (!error) onSave();
+        if (!error) {
+            onSave();
+        } else {
+            console.error(error);
+            toast.error('حدث خطأ أثناء حفظ الحساب');
+        }
         setIsSaving(false);
     };
 
@@ -373,6 +380,7 @@ const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () =>
 
 // --- AccountsPage ---
 const AccountsPage: React.FC<{ key: number, handleDatabaseChange: (description?: string) => void }> = ({ key, handleDatabaseChange }) => {
+    const toast = useToast();
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [loading, setLoading] = useState(true);
     const [modal, setModal] = useState<{ type: 'edit' | 'delete' | 'add' | 'details' | null, account: Account | null }>({ type: null, account: null });
@@ -388,6 +396,23 @@ const AccountsPage: React.FC<{ key: number, handleDatabaseChange: (description?:
     useEffect(() => { fetchAccounts(); }, [fetchAccounts, key]);
 
     const totalWealth = useMemo(() => accounts.reduce((sum, acc) => sum + acc.balance, 0), [accounts]);
+
+    const handleSave = (description: string) => {
+        setModal({ type: null, account: null });
+        handleDatabaseChange(description);
+        toast.success(description);
+    };
+
+    const handleDelete = async () => {
+        if (!modal.account) return;
+        const { error } = await supabase.from('accounts').delete().eq('id', modal.account.id);
+        if(error) {
+            console.error(error);
+            toast.error('تعذر حذف الحساب. تأكد من حذف المعاملات المرتبطة أولاً.');
+        } else {
+            handleSave('تم حذف الحساب');
+        }
+    };
 
     return (
         <div className="space-y-8 pb-20">
@@ -514,7 +539,7 @@ const AccountsPage: React.FC<{ key: number, handleDatabaseChange: (description?:
             {/* Modals */}
             {(modal.type === 'add' || modal.type === 'edit') && (
                 <Modal title={modal.type === 'add' ? 'إضافة حساب' : 'تعديل حساب'} onClose={() => setModal({ type: null, account: null })}>
-                    <AccountForm account={modal.account} onSave={() => { setModal({ type: null, account: null }); handleDatabaseChange(modal.type === 'add' ? 'إضافة حساب' : 'تعديل حساب'); }} onCancel={() => setModal({ type: null, account: null })} />
+                    <AccountForm account={modal.account} onSave={() => handleSave(modal.type === 'add' ? 'تمت إضافة الحساب بنجاح' : 'تم تعديل الحساب بنجاح')} onCancel={() => setModal({ type: null, account: null })} />
                 </Modal>
             )}
             
@@ -523,7 +548,7 @@ const AccountsPage: React.FC<{ key: number, handleDatabaseChange: (description?:
                     <p className="text-slate-300 mb-8 text-lg">هل أنت متأكد من حذف حساب <span className="text-white font-bold">"{modal.account.name}"</span>؟</p>
                     <div className="flex justify-end gap-4">
                         <button onClick={() => setModal({ type: null, account: null })} className="py-3 px-6 text-slate-400 font-bold hover:text-white transition">إلغاء</button>
-                        <button onClick={async () => { await supabase.from('accounts').delete().eq('id', modal.account!.id); setModal({type: null, account: null}); handleDatabaseChange('حذف حساب'); }} className="py-3 px-8 bg-rose-600 hover:bg-rose-500 text-white rounded-xl transition shadow-lg shadow-rose-900/20 font-bold">حذف</button>
+                        <button onClick={handleDelete} className="py-3 px-8 bg-rose-600 hover:bg-rose-500 text-white rounded-xl transition shadow-lg shadow-rose-900/20 font-bold">حذف</button>
                     </div>
                 </Modal>
             )}

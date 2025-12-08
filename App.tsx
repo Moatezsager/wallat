@@ -1,4 +1,5 @@
-import React, { useState, useCallback, useEffect } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Page } from './types';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
@@ -12,18 +13,31 @@ import CategoriesPage from './components/CategoriesPage';
 import ReportsPage from './components/ReportsPage';
 import NotesPage from './components/NotesPage';
 import BottomNav from './components/BottomNav';
+import { ToastProvider } from './components/Toast';
 import { supabase } from './lib/supabase';
 import { WalletIcon } from './components/icons';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 
-function App() {
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: 1000 * 60 * 60, // 1 hour (formerly cacheTime)
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+function AppContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
   
   const [activePage, setActivePage] = useState<Page>('home');
   const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const [key, setKey] = useState(0);
-  const [debtNotificationCount, setDebtNotificationCount] = useState(0);
+  
+  // Removed explicit key state for forcing re-renders; React Query handles invalidation now.
   const [activeContactId, setActiveContactId] = useState<string | null>(null);
   const [activeContactName, setActiveContactName] = useState<string>('');
   
@@ -45,42 +59,18 @@ function App() {
     }
   };
 
-
-  const handleDatabaseChange = useCallback(async (description?: string) => {
-    if (description) {
-      const now = new Date();
-      const activity_date = now.toISOString().split('T')[0];
-      const activity_time = now.toTimeString().split(' ')[0];
-
-      const { error } = await supabase.from('activities').upsert({
-        id: 1,
-        activity_date,
-        activity_time,
-        description,
-      });
-
-      if (error) {
-        console.error("Error logging activity:", error.message);
-      }
-    }
-    setKey(prevKey => prevKey + 1);
-  }, []);
-
-
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const fetchAppData = async () => {
-      const { data: debtData, error: debtError } = await supabase
+  // Use React Query for Debt Notifications
+  const { data: debtNotificationCount = 0 } = useQuery({
+    queryKey: ['debtNotifications'],
+    queryFn: async () => {
+        const { data: debtData, error: debtError } = await supabase
         .from('debts')
         .select('due_date')
         .eq('paid', false)
         .not('due_date', 'is', null);
 
-      if (debtError || !debtData) {
-        console.error("Error fetching debts for notifications", debtError?.message);
-        setDebtNotificationCount(0);
-      } else {
+        if (debtError || !debtData) return 0;
+
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
@@ -88,18 +78,16 @@ function App() {
         sevenDaysFromNow.setHours(23, 59, 59, 999);
         sevenDaysFromNow.setDate(today.getDate() + 7);
 
-        const count = debtData.filter(debt => {
+        return debtData.filter(debt => {
           const dueDate = new Date(debt.due_date!);
           if (dueDate < today) return true;
           if (dueDate >= today && dueDate <= sevenDaysFromNow) return true;
           return false;
         }).length;
-        setDebtNotificationCount(count);
-      }
-    };
-
-    fetchAppData();
-  }, [key, isAuthenticated]);
+    },
+    enabled: isAuthenticated, // Only fetch if authenticated
+    refetchInterval: 60000, // Check every minute
+  });
 
   const handleSelectContact = async (contactId: string) => {
     setActiveContactId(contactId);
@@ -119,29 +107,30 @@ function App() {
     setActiveContactId(null);
     setActiveContactName('');
     setActivePage('contacts');
-    handleDatabaseChange();
   };
 
+  // Helper to log activity (now can be called directly or via invalidation side effects in components)
+  // Components will now use useQueryClient to invalidate queries instead of calling this.
+  
   const renderPage = () => {
     if (activePage === 'contacts' && activeContactId) {
         return <ContactProfilePage 
             key={activeContactId} 
             contactId={activeContactId} 
             onBack={handleBackToContacts} 
-            handleDatabaseChange={handleDatabaseChange} 
         />;
     }
 
     switch (activePage) {
-      case 'home': return <HomePage key={key} handleDatabaseChange={handleDatabaseChange} setActivePage={setActivePage} />;
-      case 'accounts': return <AccountsPage key={key} handleDatabaseChange={handleDatabaseChange} />;
-      case 'transactions': return <TransactionsPage key={key} handleDatabaseChange={handleDatabaseChange} />;
-      case 'debts': return <DebtsPage key={key} handleDatabaseChange={handleDatabaseChange} onSelectContact={handleSelectContact} />;
-      case 'contacts': return <ContactsPage key={key} handleDatabaseChange={handleDatabaseChange} onSelectContact={handleSelectContact} />;
-      case 'categories': return <CategoriesPage key={key} handleDatabaseChange={handleDatabaseChange} />;
-      case 'reports': return <ReportsPage key={key} />;
-      case 'notes': return <NotesPage key={key} handleDatabaseChange={handleDatabaseChange} />;
-      default: return <HomePage key={key} handleDatabaseChange={handleDatabaseChange} setActivePage={setActivePage}/>;
+      case 'home': return <HomePage setActivePage={setActivePage} />;
+      case 'accounts': return <AccountsPage />;
+      case 'transactions': return <TransactionsPage />;
+      case 'debts': return <DebtsPage onSelectContact={handleSelectContact} />;
+      case 'contacts': return <ContactsPage onSelectContact={handleSelectContact} />;
+      case 'categories': return <CategoriesPage />;
+      case 'reports': return <ReportsPage />;
+      case 'notes': return <NotesPage />;
+      default: return <HomePage setActivePage={setActivePage}/>;
     }
   };
   
@@ -184,20 +173,30 @@ function App() {
 
   return (
     <div className="min-h-screen font-sans pb-24 md:pb-0" dir="rtl">
-      <Header 
-        activePage={activePage} 
-        onMenuClick={() => setSidebarOpen(true)}
-        isProfilePage={!!activeContactId}
-        profileName={activeContactName}
-        onBack={handleBackToContacts}
-      />
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} activePage={activePage} setActivePage={setActivePage} />
-      <main className="max-w-5xl mx-auto p-4 md:p-6 animate-fade-in">
-        {renderPage()}
-      </main>
-      <BottomNav activePage={activePage} setActivePage={setActivePage} debtNotificationCount={debtNotificationCount} />
+        <Header 
+            activePage={activePage} 
+            onMenuClick={() => setSidebarOpen(true)}
+            isProfilePage={!!activeContactId}
+            profileName={activeContactName}
+            onBack={handleBackToContacts}
+        />
+        <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} activePage={activePage} setActivePage={setActivePage} />
+        <main className="max-w-5xl mx-auto p-4 md:p-6 animate-fade-in">
+            {renderPage()}
+        </main>
+        <BottomNav activePage={activePage} setActivePage={setActivePage} debtNotificationCount={debtNotificationCount} />
     </div>
   );
+}
+
+function App() {
+    return (
+        <QueryClientProvider client={queryClient}>
+            <ToastProvider>
+                <AppContent />
+            </ToastProvider>
+        </QueryClientProvider>
+    )
 }
 
 export default App;

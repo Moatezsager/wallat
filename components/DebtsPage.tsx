@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Debt, Contact, Account, Category } from '../types';
+import { useToast } from './Toast';
 import { PlusIcon, PencilSquareIcon, TrashIcon, CheckCircleIcon, ExclamationTriangleIcon, XMarkIcon, FunnelIcon, MagnifyingGlassIcon } from './icons';
 
 const getDebtStatus = (dueDate: string | null): 'ok' | 'due_soon' | 'overdue' => {
@@ -77,6 +78,7 @@ const DebtForm: React.FC<{
     onCancel: () => void;
     contacts: Contact[];
 }> = ({ debt, onSave, onCancel, contacts }) => {
+    const toast = useToast();
     const [type, setType] = useState<'for_you' | 'on_you'>(debt?.type || 'on_you');
     const [amount, setAmount] = useState(debt?.amount || '');
     const [contactId, setContactId] = useState(debt?.contact_id || '');
@@ -102,7 +104,7 @@ const DebtForm: React.FC<{
 
         if (error) {
             console.error('Error saving debt:', error.message);
-            alert('حدث خطأ أثناء حفظ الدين.');
+            toast.error('حدث خطأ أثناء حفظ الدين.');
         } else {
             onSave();
         }
@@ -153,13 +155,14 @@ const SettleDebtModal: React.FC<{
     onConfirm: (accountId: string) => void;
     onCancel: () => void;
 }> = ({ debt, accounts, onConfirm, onCancel }) => {
+    const toast = useToast();
     const [selectedAccountId, setSelectedAccountId] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedAccountId) {
-            alert("يرجى اختيار حساب لإتمام العملية.");
+            toast.warning("يرجى اختيار حساب لإتمام العملية.");
             return;
         }
         setIsSaving(true);
@@ -335,6 +338,7 @@ const DebtFilterModal: React.FC<{
 
 // Main Page Component
 const DebtsPage: React.FC<{ key: number, handleDatabaseChange: (description?: string) => void, onSelectContact: (contactId: string) => void }> = ({ key, handleDatabaseChange, onSelectContact }) => {
+    const toast = useToast();
     const [debts, setDebts] = useState<Debt[]>([]);
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [accounts, setAccounts] = useState<Account[]>([]);
@@ -388,22 +392,24 @@ const DebtsPage: React.FC<{ key: number, handleDatabaseChange: (description?: st
     }, [key]);
 
     const handleSaveForm = () => {
-        const description = editingDebt ? `تعديل دين لـ "${editingDebt.contacts?.name || ''}"` : 'إضافة دين جديد';
+        const description = editingDebt ? `تم تعديل دين لـ "${editingDebt.contacts?.name || ''}"` : 'تم إضافة دين جديد';
         setIsFormModalOpen(false);
         setEditingDebt(undefined);
         handleDatabaseChange(description);
+        toast.success(description);
     };
 
     const handleDelete = async () => {
         if (!deletingDebt) return;
-        const description = `حذف دين لـ "${deletingDebt.contacts?.name || ''}"`;
+        const description = `تم حذف دين لـ "${deletingDebt.contacts?.name || ''}"`;
         const { error } = await supabase.from('debts').delete().eq('id', deletingDebt.id);
         if (error) {
             console.error('Error deleting debt', error.message);
-            alert('حدث خطأ أثناء الحذف.');
+            toast.error('حدث خطأ أثناء الحذف.');
         } else {
             setDeletingDebt(null);
             handleDatabaseChange(description);
+            toast.success(description);
         }
     };
     
@@ -411,10 +417,11 @@ const DebtsPage: React.FC<{ key: number, handleDatabaseChange: (description?: st
         const { error } = await supabase.from('debts').update({ paid: !debt.paid, paid_at: null }).eq('id', debt.id);
          if (error) {
             console.error('Error updating debt status', error.message);
-            alert('حدث خطأ أثناء تحديث حالة الدين.');
+            toast.error('حدث خطأ أثناء تحديث حالة الدين.');
         } else {
-            const description = `تحديث حالة دين لـ "${debt.contacts?.name || ''}" إلى ${!debt.paid ? 'مدفوع' : 'غير مدفوع'}`;
+            const description = `تم تحديث حالة دين لـ "${debt.contacts?.name || ''}" إلى ${!debt.paid ? 'مدفوع' : 'غير مدفوع'}`;
             handleDatabaseChange(description);
+            toast.success(description);
         }
     };
 
@@ -472,10 +479,11 @@ const DebtsPage: React.FC<{ key: number, handleDatabaseChange: (description?: st
 
             setSettlingDebt(null);
             handleDatabaseChange(`تسوية دين لـ "${settlingDebt.contacts?.name || 'شخص ما'}"`);
+            toast.success(`تمت تسوية الدين بنجاح`);
 
         } catch(error: any) {
             console.error("Error during debt settlement:", error.message);
-            alert("حدث خطأ أثناء تسوية الدين. يرجى المحاولة مرة أخرى.");
+            toast.error("حدث خطأ أثناء تسوية الدين. يرجى المحاولة مرة أخرى.");
             setSettlingDebt(null);
         }
     };

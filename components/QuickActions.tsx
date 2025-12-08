@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Account, Category, Contact, Debt } from '../types';
+import { useToast } from './Toast';
+import { useQueryClient } from '@tanstack/react-query';
 import { 
     PlusIcon, XMarkIcon, ArrowUpIcon, ArrowDownIcon, HandRaisedIcon, UserPlusIcon, ArrowLeftIcon, AccountsIcon, ScaleIcon, ArrowsRightLeftIcon, CurrencyDollarIcon,
     WalletIcon, BanknoteIcon, LandmarkIcon, BriefcaseIcon, CalendarDaysIcon, TagIcon, PencilSquareIcon, iconMap
@@ -45,6 +47,7 @@ const AddAccountModal: React.FC<{
     onSuccess: () => void;
     onCancel: () => void;
 }> = ({ onSuccess, onCancel }) => {
+    const toast = useToast();
     const [name, setName] = useState('');
     const [type, setType] = useState('بنكي');
     const [balance, setBalance] = useState('');
@@ -60,7 +63,7 @@ const AddAccountModal: React.FC<{
 
         if (error) {
             console.error('Error saving account:', error.message);
-            alert('حدث خطأ');
+            toast.error('حدث خطأ أثناء إنشاء الحساب');
         } else {
             onSuccess();
         }
@@ -139,6 +142,7 @@ const TransactionModal: React.FC<{
     onSuccess: () => void;
     onCancel: () => void;
 }> = ({ type, accounts, categories, onSuccess, onCancel }) => {
+    const toast = useToast();
     const [amount, setAmount] = useState('');
     const [accountId, setAccountId] = useState(accounts.length > 0 ? accounts[0].id : '');
     const [categoryId, setCategoryId] = useState('');
@@ -185,7 +189,7 @@ const TransactionModal: React.FC<{
             onSuccess();
         } catch (err: any) {
             console.error('Error saving transaction:', err.message);
-            setError('حدث خطأ أثناء حفظ المعاملة.');
+            toast.error('حدث خطأ أثناء حفظ المعاملة.');
         } finally {
             setIsSaving(false);
         }
@@ -312,6 +316,7 @@ const TransferModal: React.FC<{
     onSuccess: () => void;
     onCancel: () => void;
 }> = ({ accounts, onSuccess, onCancel }) => {
+    const toast = useToast();
     const [fromAccountId, setFromAccountId] = useState('');
     const [toAccountId, setToAccountId] = useState('');
     const [amount, setAmount] = useState('');
@@ -362,7 +367,7 @@ const TransferModal: React.FC<{
             onSuccess();
         } catch (err: any) {
             console.error('Error during transfer:', err.message);
-            setError('حدث خطأ أثناء عملية التحويل.');
+            toast.error('حدث خطأ أثناء عملية التحويل.');
         } finally {
             setIsSaving(false);
         }
@@ -434,6 +439,7 @@ const AddDebtWizard: React.FC<{
     step: number;
     setStep: (step: number) => void;
 }> = ({ contacts, accounts, categories, onSuccess, onCancel, step, setStep }) => {
+    const toast = useToast();
     // Shared state
     const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
     const [debtType, setDebtType] = useState<'on_you' | 'for_you'>('on_you');
@@ -459,7 +465,9 @@ const AddDebtWizard: React.FC<{
         const { data, error } = await supabase.from('contacts').insert({ name: newContactName }).select().single();
         if (error || !data) {
             console.error('Error adding new contact:', error?.message);
+            toast.error('فشل إضافة جهة الاتصال');
         } else {
+            toast.success('تمت إضافة جهة الاتصال');
             handleSelectContact(data as Contact);
         }
     };
@@ -521,7 +529,7 @@ const AddDebtWizard: React.FC<{
             onSuccess();
         } catch (err: any) {
             console.error('Error saving debt:', err.message);
-            alert('حدث خطأ أثناء حفظ الدين. يرجى المحاولة مرة أخرى.');
+            toast.error('حدث خطأ أثناء حفظ الدين. يرجى المحاولة مرة أخرى.');
         }
     };
 
@@ -616,6 +624,7 @@ const SettleDebtWizard: React.FC<{
     step: number;
     setStep: (step: number) => void;
 }> = ({ unpaidDebts, contacts, accounts, categories, onSuccess, step, setStep }) => {
+    const toast = useToast();
     const [selectedInfo, setSelectedInfo] = useState<{ contact: Contact, type: 'on_you' | 'for_you', total: number, debts: Debt[] } | null>(null);
     const [paymentAmount, setPaymentAmount] = useState('');
     const [paymentAccountId, setPaymentAccountId] = useState('');
@@ -695,6 +704,7 @@ const SettleDebtWizard: React.FC<{
             onSuccess();
         } catch(err: any) {
             console.error('Error settling debt:', err.message);
+            toast.error('حدث خطأ أثناء تسوية الدين');
         }
     };
     
@@ -762,6 +772,9 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
     const [categories, setCategories] = useState<Category[]>([]);
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [unpaidDebts, setUnpaidDebts] = useState<Debt[]>([]);
+    
+    const toast = useToast();
+    const queryClient = useQueryClient();
 
     const fetchDataForModals = useCallback(async () => {
         const accPromise = supabase.from('accounts').select('*');
@@ -791,10 +804,20 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
             case 'settle-debt': description = 'تسوية دين'; break;
             case 'add-account': description = 'إضافة حساب جديد'; break;
         }
+        
+        // Invalidate all relevant queries to refresh UI
+        queryClient.invalidateQueries({ queryKey: ['accounts'] });
+        queryClient.invalidateQueries({ queryKey: ['transactions'] });
+        queryClient.invalidateQueries({ queryKey: ['transactions-stats'] });
+        queryClient.invalidateQueries({ queryKey: ['debts'] });
+        queryClient.invalidateQueries({ queryKey: ['debtNotifications'] });
+        
+        toast.success(description);
         setActiveModal(null);
         setModalStep(1);
         setIsFabOpen(false);
-        onActionSuccess(description);
+        // onActionSuccess is kept for compatibility but largely redundant now with React Query
+        if(onActionSuccess) onActionSuccess(description);
     };
 
     const openModal = (type: ModalType) => {

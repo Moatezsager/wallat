@@ -1,6 +1,8 @@
+
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Transaction, Account, Category } from '../types';
+import { useToast } from './Toast';
 
 interface TransactionFormProps {
     transaction?: Transaction;
@@ -11,6 +13,7 @@ interface TransactionFormProps {
 }
 
 const TransactionForm: React.FC<TransactionFormProps> = ({ transaction, onSave, onCancel, accounts, categories }) => {
+    const toast = useToast();
     const [type, setType] = useState<'income' | 'expense'>(transaction?.type === 'income' ? 'income' : 'expense');
     const [amount, setAmount] = useState(transaction?.amount?.toString() || '');
     const [notes, setNotes] = useState(transaction?.notes || '');
@@ -22,7 +25,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ transaction, onSave, 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!accountId) {
-            alert("الرجاء اختيار حساب.");
+            toast.warning("الرجاء اختيار حساب.");
             return;
         }
         setIsSaving(true);
@@ -68,7 +71,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ transaction, onSave, 
             onSave();
         } catch (error: any) {
             console.error('Error saving transaction:', error.message);
-            alert('حدث خطأ أثناء حفظ المعاملة. قد يكون السبب هو أن دالة قاعدة البيانات المطلوبة (`save_transaction_and_update_balance`) غير موجودة.');
+            toast.error('حدث خطأ أثناء حفظ المعاملة. تأكد من أن دالة قاعدة البيانات RPC موجودة.');
         } finally {
             setIsSaving(false);
         }
