@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { Transaction, Debt, Category } from '../types';
-import type { Chart, ChartConfiguration } from 'chart.js/auto';
+import Chart from 'chart.js/auto';
+import type { ChartConfiguration } from 'chart.js/auto';
 import { 
     SparklesIcon, ExclamationTriangleIcon, CheckCircleIcon, XMarkIcon, 
     ArrowTrendingUp, ArrowTrendingDown
@@ -54,7 +56,7 @@ const DoughnutChart: React.FC<{ data: number[], colors: string[], labels: string
     const chartRef = useRef<Chart | null>(null);
 
     useEffect(() => {
-        if (!canvasRef.current || !(window as any).Chart) return;
+        if (!canvasRef.current) return;
         if (chartRef.current) chartRef.current.destroy();
         
         const ctx = canvasRef.current.getContext('2d');
@@ -101,7 +103,7 @@ const DoughnutChart: React.FC<{ data: number[], colors: string[], labels: string
                 }
             }
         };
-        chartRef.current = new (window as any).Chart(ctx, chartConfig);
+        chartRef.current = new Chart(ctx, chartConfig);
         return () => chartRef.current?.destroy();
     }, [data, labels, colors]);
 

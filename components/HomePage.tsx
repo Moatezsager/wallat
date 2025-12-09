@@ -10,9 +10,10 @@ import {
     PencilSquareIcon, TrashIcon, ArrowTrendingUp, iconMap, ExclamationTriangleIcon, CalendarDaysIcon, CheckCircleIcon, ChartBarSquareIcon, SparklesIcon,
     LandmarkIcon, BanknoteIcon, BriefcaseIcon, WalletIcon, TagIcon
 } from './icons';
-import type { Chart, ChartConfiguration } from 'chart.js/auto';
+import Chart from 'chart.js/auto';
+import type { ChartConfiguration } from 'chart.js/auto';
 
-// ... keep helper functions and chart components ...
+// ... keep helper functions ...
 const formatCurrency = (amount: number, currency: string = 'د.ل') => {
     const options: Intl.NumberFormatOptions = { style: 'currency', currency: 'LYD' };
     if (amount % 1 === 0) { options.minimumFractionDigits = 0; options.maximumFractionDigits = 0; } 
@@ -47,7 +48,7 @@ const YearlyChart: React.FC<{ data: { income: number, expense: number }[] }> = (
     const chartRef = useRef<Chart | null>(null);
 
     useEffect(() => {
-        if (!canvasRef.current || !(window as any).Chart) return;
+        if (!canvasRef.current) return;
         if (chartRef.current) chartRef.current.destroy();
 
         const ctx = canvasRef.current.getContext('2d');
@@ -98,7 +99,7 @@ const YearlyChart: React.FC<{ data: { income: number, expense: number }[] }> = (
             }
         };
 
-        chartRef.current = new (window as any).Chart(ctx, chartConfig);
+        chartRef.current = new Chart(ctx, chartConfig);
         return () => { chartRef.current?.destroy(); };
     }, [data]);
 
@@ -110,7 +111,7 @@ const DoughnutChart: React.FC<{ income: number, expense: number }> = ({ income, 
     const chartRef = useRef<Chart | null>(null);
 
     useEffect(() => {
-        if (!canvasRef.current || !(window as any).Chart) return;
+        if (!canvasRef.current) return;
         if (chartRef.current) chartRef.current.destroy();
         
         const ctx = canvasRef.current.getContext('2d');
@@ -135,7 +136,7 @@ const DoughnutChart: React.FC<{ income: number, expense: number }> = ({ income, 
                 plugins: { legend: { display: false } }
             }
         };
-        chartRef.current = new (window as any).Chart(ctx, chartConfig);
+        chartRef.current = new Chart(ctx, chartConfig);
         return () => chartRef.current?.destroy();
     }, [income, expense]);
 
