@@ -470,7 +470,7 @@ const SettleDebtWizard: React.FC<{
                             <span>تفاصيل الديون ({displayDebts.length})</span>
                             <span>التاريخ</span>
                         </p>
-                        <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
+                        <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
                             {displayDebts.map(debt => (
                                 <div key={debt.id} className="flex justify-between items-center text-sm p-3 bg-slate-800/80 rounded-xl border border-white/5 hover:bg-slate-800 transition-colors">
                                     <div className="flex-1 min-w-0 ml-2">
