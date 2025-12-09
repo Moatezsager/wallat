@@ -528,12 +528,14 @@ const AccountsPage: React.FC<{ key: number, handleDatabaseChange: (description?:
                 })}
             </div>}
             
+            {/* Centered FAB */}
             <button 
                 onClick={() => setModal({ type: 'add', account: null })} 
-                className="fixed bottom-28 md:bottom-10 left-6 h-14 w-14 md:h-16 md:w-16 bg-slate-900 rounded-full shadow-[0_0_20px_rgba(8,145,178,0.4)] flex items-center justify-center transition-all duration-300 z-50 border border-cyan-500/30 overflow-visible hover:scale-105 active:scale-95 text-cyan-400 group"
+                className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 h-16 w-16 bg-slate-900 rounded-full shadow-[0_0_20px_rgba(8,145,178,0.4)] flex items-center justify-center transition-all duration-300 border-4 border-slate-900 overflow-visible hover:scale-105 active:scale-95 group"
             >
-                <span className="absolute inset-0 rounded-full border border-cyan-400/30 animate-ping-slow"></span>
-                <PlusIcon className="w-8 h-8 transition-transform duration-300 group-hover:rotate-90"/>
+                <div className="absolute inset-1 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full flex items-center justify-center">
+                    <PlusIcon className="w-8 h-8 text-white transition-transform duration-300 group-hover:rotate-90"/>
+                </div>
             </button>
 
             {/* Modals */}

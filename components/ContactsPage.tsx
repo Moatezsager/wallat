@@ -5,96 +5,13 @@ import { Contact, Debt } from '../types';
 import { useToast } from './Toast';
 import { PlusIcon, PencilSquareIcon, TrashIcon, XMarkIcon, ScaleIcon, MagnifyingGlassIcon, EllipsisVerticalIcon } from './icons';
 
-interface ContactWithDebtInfo extends Contact {
-    forYou: number;
-    onYou: number;
-    netBalance: number;
-}
-
-interface ContactsPageProps {
-    key: number;
-    handleDatabaseChange: (description?: string) => void;
-    onSelectContact: (contactId: string) => void;
-}
-
-const formatCurrency = (amount: number, currency: string = 'د.ل') => {
-    const options: Intl.NumberFormatOptions = {
-        style: 'currency',
-        currency: 'LYD',
-    };
-    if (amount % 1 === 0) {
-        options.minimumFractionDigits = 0;
-        options.maximumFractionDigits = 0;
-    } else {
-        options.minimumFractionDigits = 2;
-        options.maximumFractionDigits = 2;
-    }
-    return new Intl.NumberFormat('ar-LY', options).format(amount).replace('LYD', currency);
-};
-
-const ContactForm: React.FC<{
-    contact?: Contact | null;
-    onSave: () => void;
-    onCancel: () => void;
-}> = ({ contact, onSave, onCancel }) => {
-    const toast = useToast();
-    const [name, setName] = useState(contact?.name || '');
-    const [phone, setPhone] = useState(contact?.phone || '');
-    const [address, setAddress] = useState(contact?.address || '');
-    const [isSaving, setIsSaving] = useState(false);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsSaving(true);
-        const contactData = { name, phone: phone || null, address: address || null };
-
-        const { error } = contact?.id
-            ? await supabase.from('contacts').update(contactData).eq('id', contact.id)
-            : await supabase.from('contacts').insert(contactData);
-
-        if (error) {
-            console.error('Error saving contact:', error.message);
-            toast.error('حدث خطأ أثناء حفظ جهة الاتصال');
-        } else {
-            onSave();
-        }
-        setIsSaving(false);
-    };
-
-    return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="الاسم الكامل" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
-            <input type="tel" value={phone || ''} onChange={e => setPhone(e.target.value)} placeholder="رقم الهاتف (اختياري)" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
-            <input type="text" value={address || ''} onChange={e => setAddress(e.target.value)} placeholder="العنوان (اختياري)" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
-            <div className="flex justify-end gap-3 pt-4">
-                <button type="button" onClick={onCancel} className="py-2 px-4 text-slate-400 hover:text-white font-bold transition">إلغاء</button>
-                <button type="submit" disabled={isSaving} className="py-2 px-6 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl transition font-bold shadow-lg">
-                    {isSaving ? 'جاري الحفظ...' : 'حفظ'}
-                </button>
-            </div>
-        </form>
-    );
-};
-
-const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; }> = ({ children, title, onClose }) => (
-    <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-        <div className="glass-card bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-white/10 shadow-2xl animate-slide-up">
-            <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-white">{title}</h3>
-                <button onClick={onClose} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 transition-colors"><XMarkIcon className="w-5 h-5 text-slate-400" /></button>
-            </div>
-            {children}
-        </div>
-    </div>
-);
-
-const getInitials = (name: string) => {
-    const names = name.split(' ');
-    if (names.length > 1 && names[0] && names[names.length - 1]) {
-        return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
-    }
-    return name.substring(0, 2).toUpperCase();
-};
+// ... (Keep existing imports and helper functions: formatCurrency, ContactForm, Modal, getInitials)
+interface ContactWithDebtInfo extends Contact { forYou: number; onYou: number; netBalance: number; }
+interface ContactsPageProps { key: number; handleDatabaseChange: (description?: string) => void; onSelectContact: (contactId: string) => void; }
+const formatCurrency = (amount: number, currency: string = 'د.ل') => { const options: Intl.NumberFormatOptions = { style: 'currency', currency: 'LYD', }; if (amount % 1 === 0) { options.minimumFractionDigits = 0; options.maximumFractionDigits = 0; } else { options.minimumFractionDigits = 2; options.maximumFractionDigits = 2; } return new Intl.NumberFormat('ar-LY', options).format(amount).replace('LYD', currency); };
+const ContactForm: React.FC<{ contact?: Contact | null; onSave: () => void; onCancel: () => void; }> = ({ contact, onSave, onCancel }) => { const toast = useToast(); const [name, setName] = useState(contact?.name || ''); const [phone, setPhone] = useState(contact?.phone || ''); const [address, setAddress] = useState(contact?.address || ''); const [isSaving, setIsSaving] = useState(false); const handleSubmit = async (e: React.FormEvent) => { e.preventDefault(); setIsSaving(true); const contactData = { name, phone: phone || null, address: address || null }; const { error } = contact?.id ? await supabase.from('contacts').update(contactData).eq('id', contact.id) : await supabase.from('contacts').insert(contactData); if (error) { console.error('Error saving contact:', error.message); toast.error('حدث خطأ أثناء حفظ جهة الاتصال'); } else { onSave(); } setIsSaving(false); }; return ( <form onSubmit={handleSubmit} className="space-y-4"> <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="الاسم الكامل" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" /> <input type="tel" value={phone || ''} onChange={e => setPhone(e.target.value)} placeholder="رقم الهاتف (اختياري)" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" /> <input type="text" value={address || ''} onChange={e => setAddress(e.target.value)} placeholder="العنوان (اختياري)" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" /> <div className="flex justify-end gap-3 pt-4"> <button type="button" onClick={onCancel} className="py-2 px-4 text-slate-400 hover:text-white font-bold transition">إلغاء</button> <button type="submit" disabled={isSaving} className="py-2 px-6 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl transition font-bold shadow-lg"> {isSaving ? 'جاري الحفظ...' : 'حفظ'} </button> </div> </form> ); };
+const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; }> = ({ children, title, onClose }) => ( <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"> <div className="glass-card bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-white/10 shadow-2xl animate-slide-up"> <div className="flex justify-between items-center mb-6"> <h3 className="text-xl font-bold text-white">{title}</h3> <button onClick={onClose} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 transition-colors"><XMarkIcon className="w-5 h-5 text-slate-400" /></button> </div> {children} </div> </div> );
+const getInitials = (name: string) => { const names = name.split(' '); if (names.length > 1 && names[0] && names[names.length - 1]) { return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase(); } return name.substring(0, 2).toUpperCase(); };
 
 const ContactsPage: React.FC<ContactsPageProps> = ({ key, handleDatabaseChange, onSelectContact }) => {
     const toast = useToast();
@@ -251,12 +168,14 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ key, handleDatabaseChange, 
                 </div>
             )}
 
+            {/* Centered FAB */}
             <button 
                 onClick={() => setModal({ type: 'add', contact: null })} 
-                className="fixed bottom-28 md:bottom-10 left-6 h-14 w-14 md:h-16 md:w-16 bg-slate-900 rounded-full shadow-[0_0_20px_rgba(8,145,178,0.4)] flex items-center justify-center transition-all duration-300 z-50 border border-cyan-500/30 overflow-visible hover:scale-105 active:scale-95 text-cyan-400 group"
+                className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 h-16 w-16 bg-slate-900 rounded-full shadow-[0_0_20px_rgba(8,145,178,0.4)] flex items-center justify-center transition-all duration-300 border-4 border-slate-900 overflow-visible hover:scale-105 active:scale-95 group"
             >
-                <span className="absolute inset-0 rounded-full border border-cyan-400/30 animate-ping-slow"></span>
-                <PlusIcon className="w-8 h-8 transition-transform duration-300 group-hover:rotate-90"/>
+                <div className="absolute inset-1 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full flex items-center justify-center">
+                    <PlusIcon className="w-8 h-8 text-white transition-transform duration-300 group-hover:rotate-90"/>
+                </div>
             </button>
 
             {/* Modals */}
