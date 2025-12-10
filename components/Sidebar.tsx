@@ -74,7 +74,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActiv
                             
                             {/* Text Container */}
                             <p className="relative text-[10px] text-slate-400 font-medium tracking-wide bg-slate-900/50 rounded-lg px-3 py-1.5 ring-1 ring-white/5 backdrop-blur-sm transition-all hover:ring-white/10">
-                                جميع الحقوق محفوظة © <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 text-transparent bg-clip-text font-bold text-xs">GreenBox 2025</span>
+                                جميع الحقوق محفوظة © <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 text-transparent bg-clip-text font-bold text-xs">GreenBox 2025 v1.0.1</span>
                             </p>
                         </div>
                     </div>
