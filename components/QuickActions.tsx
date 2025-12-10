@@ -24,19 +24,21 @@ const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ar-LY', { style: 'currency', currency: 'LYD', minimumFractionDigits: 0 }).format(amount).replace('LYD', 'د.ل');
 };
 
-const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; showBackButton?: boolean; onBack?: () => void; }> = 
-({ children, title, onClose, showBackButton, onBack }) => (
-    <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 animate-fade-in">
-        <div className="relative w-full max-w-lg bg-slate-900/90 rounded-[2.5rem] shadow-2xl border border-white/10 flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent blur-sm"></div>
+const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; showBackButton?: boolean; onBack?: () => void; headerColor?: string }> = 
+({ children, title, onClose, showBackButton, onBack, headerColor }) => (
+    <div className="fixed inset-0 z-[60] bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4 animate-fade-in">
+        <div className="relative w-full max-w-lg bg-slate-900 rounded-[2.5rem] shadow-2xl border border-white/10 flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
+            {/* Header Glow */}
+            <div className={`absolute top-0 left-0 right-0 h-32 opacity-20 pointer-events-none bg-gradient-to-b ${headerColor || 'from-cyan-500'} to-transparent`}></div>
+            
             <div className="p-6 pb-2 shrink-0 z-10 flex justify-between items-center">
                  {showBackButton ? (
                     <button onClick={onBack} className="p-3 rounded-full bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-colors border border-white/5"><ArrowLeftIcon className="w-5 h-5" /></button>
                 ) : <div className="w-11"></div>}
-                <h3 className="text-xl font-bold text-white tracking-wide">{title}</h3>
+                <h3 className="text-xl font-bold text-white tracking-wide drop-shadow-md">{title}</h3>
                 <button onClick={onClose} className="p-3 rounded-full bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-colors border border-white/5"><XMarkIcon className="w-5 h-5" /></button>
             </div>
-            <div className="p-6 overflow-y-auto custom-scrollbar">
+            <div className="p-6 overflow-y-auto custom-scrollbar relative z-10">
                 {children}
             </div>
         </div>
@@ -129,50 +131,55 @@ const TransactionModal: React.FC<{ type: 'income' | 'expense'; accounts: Account
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
              {error && <p className="text-rose-400 text-sm font-bold bg-rose-500/10 p-3 rounded-xl border border-rose-500/20 text-center">{error}</p>}
-            <div className="text-center space-y-2 relative">
-                <div className={`absolute inset-0 blur-3xl opacity-20 rounded-full ${isExpense ? 'bg-rose-500' : 'bg-emerald-500'}`}></div>
+            <div className="text-center space-y-2 relative py-4">
+                {/* Glow Effect */}
+                <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 blur-[60px] opacity-40 rounded-full ${isExpense ? 'bg-rose-600' : 'bg-emerald-600'}`}></div>
+                
                 <label className="text-slate-400 text-sm font-medium relative z-10">المبلغ</label>
                 <div className="relative inline-block w-full z-10">
-                    <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0" required className={`w-full bg-transparent text-center text-6xl font-black placeholder-slate-800 focus:outline-none py-2 ${isExpense ? 'text-rose-400' : 'text-emerald-400'}`} autoFocus />
+                    <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0" required className={`w-full bg-transparent text-center text-7xl font-black placeholder-slate-800 focus:outline-none py-2 tracking-tighter ${isExpense ? 'text-rose-400 drop-shadow-[0_2px_10px_rgba(244,63,94,0.3)]' : 'text-emerald-400 drop-shadow-[0_2px_10px_rgba(16,185,129,0.3)]'}`} autoFocus />
                 </div>
             </div>
-            <div className="space-y-5">
+            
+            <div className="space-y-5 bg-slate-800/20 p-1 rounded-3xl">
                 <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-500 px-1">الحساب</label>
-                    <div className="flex overflow-x-auto gap-3 pb-2 custom-scrollbar snap-x">
+                    <label className="text-xs font-bold text-slate-500 px-2 flex items-center gap-2"><WalletIcon className="w-3 h-3"/> الحساب</label>
+                    <div className="flex overflow-x-auto gap-3 pb-2 px-1 custom-scrollbar snap-x">
                         {accounts.map(acc => {
                             const isSelected = accountId === acc.id; const TypeIcon = getAccountTypeIcon(acc.type);
                             return (
-                                <button key={acc.id} type="button" onClick={() => setAccountId(acc.id)} className={`snap-start flex-shrink-0 flex items-center gap-3 p-3 pr-4 rounded-2xl border transition-all duration-300 min-w-[140px] ${isSelected ? `bg-${activeColor}-500/10 border-${activeColor}-500/50 shadow-lg shadow-${activeColor}-500/10` : 'bg-slate-800/50 border-transparent text-slate-400 hover:bg-slate-800'}`}>
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isSelected ? `bg-${activeColor}-500 text-white shadow-md` : 'bg-slate-700/50 text-slate-500'}`}><TypeIcon className="w-5 h-5" /></div>
+                                <button key={acc.id} type="button" onClick={() => setAccountId(acc.id)} className={`snap-start flex-shrink-0 flex items-center gap-3 p-3 pr-4 rounded-2xl border transition-all duration-300 min-w-[150px] ${isSelected ? `bg-${activeColor}-500/10 border-${activeColor}-500/50 shadow-lg shadow-${activeColor}-500/10` : 'bg-slate-800/50 border-transparent text-slate-400 hover:bg-slate-800'}`}>
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${isSelected ? `bg-${activeColor}-500 text-white shadow-md` : 'bg-slate-700/50 text-slate-500'}`}><TypeIcon className="w-5 h-5" /></div>
                                     <div className="text-right"><span className={`block text-xs font-bold ${isSelected ? 'text-white' : 'text-slate-300'}`}>{acc.name}</span><span className={`block text-[10px] font-mono ${isSelected ? `text-${activeColor}-400` : 'text-slate-500'}`}>{acc.balance}</span></div>
                                 </button>
                             );
                         })}
                     </div>
                 </div>
+                
                 <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-500 px-1">الفئة</label>
-                    <div className="flex overflow-x-auto gap-2 pb-2 custom-scrollbar snap-x">
+                    <label className="text-xs font-bold text-slate-500 px-2 flex items-center gap-2"><TagIcon className="w-3 h-3"/> الفئة</label>
+                    <div className="flex overflow-x-auto gap-2 pb-2 px-1 custom-scrollbar snap-x">
                         <button type="button" onClick={() => setCategoryId('')} className={`snap-start flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all ${!categoryId ? `bg-${activeColor}-500/20 border-${activeColor}-500 text-${activeColor}-400` : 'bg-slate-800/50 border-slate-800 text-slate-400 hover:bg-slate-800'}`}>
-                            <TagIcon className="w-4 h-4"/><span className="text-xs font-bold whitespace-nowrap">غير مصنف</span>
+                            <span className="text-xs font-bold whitespace-nowrap">غير مصنف</span>
                         </button>
                         {filteredCategories.map(cat => {
                             const isSelected = categoryId === cat.id; const CatIcon = (cat.icon && iconMap[cat.icon]) ? iconMap[cat.icon] : TagIcon; const catColor = cat.color || activeColorHex;
                             return (
-                                <button key={cat.id} type="button" onClick={() => setCategoryId(cat.id)} className={`snap-start flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${isSelected ? 'bg-slate-800 border-white/20 shadow-inner' : 'bg-slate-800/30 border-transparent text-slate-400 hover:bg-slate-800'}`} style={isSelected ? { borderColor: catColor } : {}}>
+                                <button key={cat.id} type="button" onClick={() => setCategoryId(cat.id)} className={`snap-start flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${isSelected ? 'bg-slate-800 border-white/20 shadow-inner ring-1 ring-white/10' : 'bg-slate-800/30 border-transparent text-slate-400 hover:bg-slate-800'}`} style={isSelected ? { borderColor: catColor } : {}}>
                                     <div className="w-7 h-7 rounded-lg flex items-center justify-center shadow-sm" style={{ backgroundColor: catColor, color: '#fff' }}><CatIcon className="w-4 h-4" /></div><span className={`text-xs font-bold whitespace-nowrap ${isSelected ? 'text-white' : ''}`}>{cat.name}</span>
                                 </button>
                             );
                         })}
                     </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500 px-1">التاريخ</label><div className="relative"><input type="date" value={date} onChange={e => setDate(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3.5 pl-10 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none font-sans font-bold" /><CalendarDaysIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none"/></div></div>
-                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500 px-1">ملاحظات</label><div className="relative"><input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="اختياري..." className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3.5 pl-10 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none" /><PencilSquareIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none"/></div></div>
+                
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500 px-1">التاريخ</label><div className="relative"><input type="date" value={date} onChange={e => setDate(e.target.value)} required className="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3.5 pl-10 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none font-sans font-bold" /><CalendarDaysIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none"/></div></div>
+                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500 px-1">ملاحظات</label><div className="relative"><input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="اختياري..." className="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3.5 pl-10 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none" /><PencilSquareIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none"/></div></div>
                 </div>
             </div>
-            <button type="submit" disabled={isSaving} className={`w-full py-4 rounded-2xl transition shadow-lg font-bold text-lg disabled:opacity-70 flex items-center justify-center gap-2 ${isExpense ? 'bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-rose-900/20' : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-900/20'} text-white`}>
+            <button type="submit" disabled={isSaving} className={`w-full py-4 rounded-2xl transition-all hover:scale-[1.02] active:scale-95 shadow-xl font-bold text-lg disabled:opacity-70 flex items-center justify-center gap-2 ${isExpense ? 'bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-rose-900/30' : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-900/30'} text-white`}>
                 {isSaving ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : 'حفظ العملية'}
             </button>
         </form>
@@ -208,12 +215,31 @@ const TransferModal: React.FC<{ accounts: Account[]; onSuccess: () => void; onCa
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
              {error && <p className="text-rose-400 text-sm font-bold bg-rose-500/10 p-3 rounded-xl border border-rose-500/20 text-center">{error}</p>}
-             <div className="text-center relative"><label className="text-slate-400 text-sm font-medium">مبلغ التحويل</label><div className="relative inline-block w-full"><input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0" required className="w-full bg-transparent text-center text-5xl font-black text-indigo-400 placeholder-slate-800 focus:outline-none py-2" autoFocus /></div></div>
-            <div className="bg-slate-800/30 p-4 rounded-3xl border border-white/5 relative">
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 bg-slate-900 rounded-full p-2 border border-white/10 shadow-xl"><ArrowDownIcon className="w-5 h-5 text-indigo-400" /></div>
-                <div className="space-y-6">
-                    <div><label className="text-xs font-bold text-slate-500 mb-1 block px-2">من حساب</label><select value={fromAccountId} onChange={e => setFromAccountId(e.target.value)} required className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white focus:border-indigo-500 focus:outline-none font-bold appearance-none"><option value="" disabled>اختر المصدر</option>{accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name} ({acc.balance})</option>)}</select></div>
-                    <div><label className="text-xs font-bold text-slate-500 mb-1 block px-2">إلى حساب</label><select value={toAccountId} onChange={e => setToAccountId(e.target.value)} required className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white focus:border-indigo-500 focus:outline-none font-bold appearance-none"><option value="" disabled>اختر الوجهة</option>{accounts.filter(a => a.id !== fromAccountId).map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select></div>
+             <div className="text-center relative py-4">
+                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 blur-[60px] opacity-30 rounded-full bg-indigo-600"></div>
+                 <label className="text-slate-400 text-sm font-medium relative z-10">مبلغ التحويل</label>
+                 <div className="relative inline-block w-full z-10">
+                     <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0" required className="w-full bg-transparent text-center text-6xl font-black text-indigo-400 placeholder-slate-800 focus:outline-none py-2 tracking-tighter drop-shadow-[0_2px_10px_rgba(99,102,241,0.3)]" autoFocus />
+                 </div>
+             </div>
+            <div className="bg-slate-800/30 p-4 rounded-3xl border border-white/5 relative flex flex-col gap-1">
+                {/* Connector Line */}
+                <div className="absolute left-8 top-12 bottom-12 w-0.5 border-l-2 border-dashed border-slate-700 z-0"></div>
+                
+                <div className="relative z-10">
+                    <label className="text-xs font-bold text-slate-500 mb-1 block px-2">من حساب</label>
+                    <select value={fromAccountId} onChange={e => setFromAccountId(e.target.value)} required className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white focus:border-indigo-500 focus:outline-none font-bold appearance-none"><option value="" disabled>اختر المصدر</option>{accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name} ({acc.balance})</option>)}</select>
+                </div>
+                
+                <div className="flex justify-center -my-3 relative z-20 pointer-events-none">
+                    <div className="bg-slate-900 rounded-full p-1.5 border border-white/10 shadow-xl">
+                        <ArrowDownIcon className="w-4 h-4 text-indigo-400" />
+                    </div>
+                </div>
+
+                <div className="relative z-10">
+                    <label className="text-xs font-bold text-slate-500 mb-1 block px-2">إلى حساب</label>
+                    <select value={toAccountId} onChange={e => setToAccountId(e.target.value)} required className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white focus:border-indigo-500 focus:outline-none font-bold appearance-none"><option value="" disabled>اختر الوجهة</option>{accounts.filter(a => a.id !== fromAccountId).map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select>
                 </div>
             </div>
             <div className="relative"><input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="ملاحظات التحويل (اختياري)" className="w-full bg-slate-800/50 border border-slate-700 rounded-xl p-3.5 pl-10 text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none" /><PencilSquareIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none"/></div>
@@ -285,7 +311,8 @@ const AddDebtWizard: React.FC<{ contacts: Contact[]; accounts: Account[]; catego
                 <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-2 pr-1">
                     {filteredContacts.map(c => (
                         <button key={c.id} onClick={() => handleSelectContact(c)} className="w-full text-right p-4 bg-slate-800/50 hover:bg-slate-800 rounded-2xl border border-white/5 hover:border-cyan-500/50 transition-all flex items-center justify-between group">
-                            <span className="font-bold text-lg">{c.name}</span>
+                            <span className="font-bold text-lg text-white group-hover:text-cyan-400 transition-colors">{c.name}</span>
+                            <ArrowLeftIcon className="w-4 h-4 text-slate-500 group-hover:-translate-x-1 transition-transform" />
                         </button>
                     ))}
                 </div>
@@ -309,12 +336,12 @@ const AddDebtWizard: React.FC<{ contacts: Contact[]; accounts: Account[]; catego
         <div className="space-y-5">
             <h4 className="text-center text-slate-400 text-sm">تسجيل دين لـ <span className="text-white font-bold">{selectedContact?.name}</span></h4>
             <div className="flex gap-3">
-                <button onClick={() => setDebtType('on_you')} className={`flex-1 py-3 rounded-xl font-bold transition ${debtType === 'on_you' ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-400'}`}>عليك</button>
-                <button onClick={() => setDebtType('for_you')} className={`flex-1 py-3 rounded-xl font-bold transition ${debtType === 'for_you' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'}`}>لك</button>
+                <button onClick={() => setDebtType('on_you')} className={`flex-1 py-3 rounded-xl font-bold transition ${debtType === 'on_you' ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/20' : 'bg-slate-800 text-slate-400'}`}>عليك (سداد)</button>
+                <button onClick={() => setDebtType('for_you')} className={`flex-1 py-3 rounded-xl font-bold transition ${debtType === 'for_you' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'bg-slate-800 text-slate-400'}`}>لك (تحصيل)</button>
             </div>
             <div>
                 <label className="text-xs text-slate-400 font-bold mb-1 block">المبلغ</label>
-                <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-xl font-bold text-white focus:border-cyan-500 focus:outline-none" placeholder="0.00" />
+                <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-xl font-bold text-white focus:border-cyan-500 focus:outline-none" placeholder="0.00" autoFocus />
             </div>
             <div>
                 <label className="text-xs text-slate-400 font-bold mb-1 block">تاريخ الاستحقاق</label>
@@ -324,7 +351,7 @@ const AddDebtWizard: React.FC<{ contacts: Contact[]; accounts: Account[]; catego
                 <label className="text-xs text-slate-400 font-bold mb-1 block">الوصف</label>
                 <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="سبب الدين..." className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:outline-none" />
             </div>
-            <button onClick={handleSaveDebt} disabled={isSaving || !amount} className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 rounded-2xl transition font-bold text-white text-lg disabled:opacity-50">
+            <button onClick={handleSaveDebt} disabled={isSaving || !amount} className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 rounded-2xl transition font-bold text-white text-lg disabled:opacity-50 shadow-lg shadow-cyan-900/20">
                 {isSaving ? 'جاري الحفظ...' : 'حفظ الدين'}
             </button>
         </div>
@@ -500,7 +527,7 @@ const SettleDebtWizard: React.FC<{
                             className="w-full p-4 bg-slate-800/40 hover:bg-slate-800 rounded-2xl border border-white/5 hover:border-cyan-500/30 transition-all group flex justify-between items-center"
                         >
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold text-white">
+                                <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold text-white shadow-md">
                                     {contact.name.charAt(0)}
                                 </div>
                                 <div className="text-right">
@@ -685,20 +712,20 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
     }
 
     const fabActions = [
-        { label: 'مصروف', icon: <ArrowUpIcon className="w-5 h-5"/>, action: () => openModal('expense'), gradient: 'from-rose-500 to-pink-600', delay: 0 },
-        { label: 'إيراد', icon: <ArrowDownIcon className="w-5 h-5"/>, action: () => openModal('income'), gradient: 'from-emerald-500 to-teal-600', delay: 50 },
-        { label: 'تحويل', icon: <ArrowsRightLeftIcon className="w-5 h-5"/>, action: () => openModal('transfer'), gradient: 'from-violet-500 to-indigo-600', delay: 100 },
-        { label: 'دين', icon: <HandRaisedIcon className="w-5 h-5"/>, action: () => openModal('add-debt'), gradient: 'from-amber-500 to-orange-600', delay: 150 },
-        { label: 'تسديد', icon: <ScaleIcon className="w-5 h-5"/>, action: () => openModal('settle-debt'), gradient: 'from-sky-500 to-blue-600', delay: 200 },
+        { label: 'مصروف', icon: <ArrowUpIcon className="w-5 h-5"/>, action: () => openModal('expense'), gradient: 'from-rose-500 to-pink-600', color: 'rose' },
+        { label: 'إيراد', icon: <ArrowDownIcon className="w-5 h-5"/>, action: () => openModal('income'), gradient: 'from-emerald-500 to-teal-600', color: 'emerald' },
+        { label: 'تحويل', icon: <ArrowsRightLeftIcon className="w-5 h-5"/>, action: () => openModal('transfer'), gradient: 'from-violet-500 to-indigo-600', color: 'violet' },
+        { label: 'دين', icon: <HandRaisedIcon className="w-5 h-5"/>, action: () => openModal('add-debt'), gradient: 'from-amber-500 to-orange-600', color: 'amber' },
+        { label: 'تسديد', icon: <ScaleIcon className="w-5 h-5"/>, action: () => openModal('settle-debt'), gradient: 'from-sky-500 to-blue-600', color: 'sky' },
     ];
     
-    const modalTitles: Record<ModalType, string> = {
-        expense: 'مصروف جديد',
-        income: 'إيراد جديد',
-        transfer: 'تحويل أموال',
-        'add-debt': 'تسجيل دين',
-        'settle-debt': 'تسوية الديون',
-        'add-account': 'حساب جديد'
+    const modalConfig: Record<ModalType, { title: string, color: string }> = {
+        expense: { title: 'مصروف جديد', color: 'from-rose-500' },
+        income: { title: 'إيراد جديد', color: 'from-emerald-500' },
+        transfer: { title: 'تحويل أموال', color: 'from-violet-500' },
+        'add-debt': { title: 'تسجيل دين', color: 'from-amber-500' },
+        'settle-debt': { title: 'تسوية الديون', color: 'from-sky-500' },
+        'add-account': { title: 'حساب جديد', color: 'from-cyan-500' }
     };
 
     const renderModalContent = () => {
@@ -723,58 +750,65 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
         <>
             {/* Scrim Overlay */}
             <div
-                className={`fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 transition-opacity duration-300 ease-in-out ${isFabOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                className={`fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-[45] transition-opacity duration-300 ease-in-out ${isFabOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 onClick={() => setIsFabOpen(false)}
                 aria-hidden="true"
             />
             
             {/* Centered FAB Container */}
-            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center justify-end pointer-events-none">
+            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[50] flex flex-col items-center justify-end pointer-events-none">
                 
-                {/* Actions Fan-out */}
-                <div className={`absolute bottom-20 flex items-center justify-center gap-4 transition-all duration-300 ${isFabOpen ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-50 pointer-events-none translate-y-10'}`}>
+                {/* Actions Menu */}
+                <div className={`absolute bottom-20 flex flex-col items-center gap-3 transition-all duration-300 ${isFabOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none translate-y-10'}`}>
                     {fabActions.map((action, index) => {
-                        // Calculate position on a semi-circle or just a fan
-                        // Simplified fan-out for better UX on mobile
-                        const translateY = isFabOpen ? 0 : 50;
+                        // Staggered delay for upward motion
+                        const transitionStyle = {
+                            transitionDelay: isFabOpen ? `${index * 40}ms` : '0ms',
+                            transform: isFabOpen ? 'translateY(0) scale(1)' : 'translateY(20px) scale(0.8)'
+                        };
                         
                         return (
-                            <div key={index} className="flex flex-col items-center gap-1 transition-all duration-500" style={{ transform: `translateY(${translateY}px)`, transitionDelay: `${action.delay}ms` }}>
+                            <div key={index} className="flex items-center gap-3 w-full justify-center transition-all duration-300 ease-out" style={transitionStyle}>
+                                <span className="text-xs font-bold text-white bg-slate-900/90 px-3 py-1.5 rounded-xl backdrop-blur-md shadow-lg border border-white/10 whitespace-nowrap min-w-[60px] text-center">
+                                    {action.label}
+                                </span>
                                 <button 
                                     onClick={action.action} 
-                                    className={`h-12 w-12 rounded-full text-white flex items-center justify-center shadow-lg shadow-black/50 border border-white/20 bg-gradient-to-br ${action.gradient} hover:scale-110 active:scale-95 transition-transform`}
+                                    className={`h-12 w-12 rounded-2xl text-white flex items-center justify-center shadow-xl shadow-black/30 border border-white/20 bg-gradient-to-br ${action.gradient} hover:scale-110 active:scale-95 transition-transform`}
                                 >
                                     {action.icon}
                                 </button>
-                                <span className="text-[10px] font-bold text-white bg-slate-900/80 px-2 py-0.5 rounded-full backdrop-blur-sm shadow-md whitespace-nowrap">
-                                    {action.label}
-                                </span>
                             </div>
                         )
                     })}
                 </div>
 
-                {/* Main FAB Button - Centered and Pop-out */}
+                {/* Main FAB Button */}
                 <button
                     onClick={() => setIsFabOpen(!isFabOpen)}
-                    className={`pointer-events-auto relative h-16 w-16 bg-slate-900 rounded-full shadow-[0_0_20px_rgba(8,145,178,0.4)] flex items-center justify-center transition-all duration-300 z-50 border-4 border-slate-900 overflow-visible hover:scale-105 active:scale-95 ${isFabOpen ? 'rotate-45' : ''}`}
+                    className={`pointer-events-auto relative h-16 w-16 bg-slate-900 rounded-[22px] shadow-[0_0_30px_rgba(8,145,178,0.4)] flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-50 border-4 border-slate-900 overflow-visible hover:scale-105 active:scale-95 ${isFabOpen ? 'rotate-[135deg] bg-rose-600 border-rose-600' : ''}`}
                     aria-haspopup="true"
                     aria-expanded={isFabOpen}
                     aria-label={isFabOpen ? 'إغلاق الإجراءات السريعة' : 'فتح الإجراءات السريعة'}
                 >
                     {/* Inner Gradient Circle */}
-                    <div className={`absolute inset-1 rounded-full flex items-center justify-center transition-all duration-300 ${isFabOpen ? 'bg-rose-500 rotate-90' : 'bg-gradient-to-r from-cyan-500 to-blue-600'}`}>
+                    <div className={`absolute inset-0 rounded-[18px] flex items-center justify-center transition-all duration-500 ${isFabOpen ? 'opacity-0' : 'opacity-100 bg-gradient-to-tr from-cyan-500 to-blue-600'}`}>
                         <PlusIcon className="w-8 h-8 text-white transition-transform duration-300" />
+                    </div>
+                    {/* Close Icon for Open State */}
+                    <div className={`absolute inset-0 rounded-[18px] flex items-center justify-center transition-all duration-500 ${isFabOpen ? 'opacity-100' : 'opacity-0'}`}>
+                        <PlusIcon className="w-8 h-8 text-white" />
                     </div>
                     
                     {/* Ring Pulse */}
-                    {!isFabOpen && <span className="absolute -inset-1 rounded-full border border-cyan-400/30 animate-ping-slow pointer-events-none"></span>}
+                    {!isFabOpen && <span className="absolute -inset-2 rounded-[26px] border-2 border-cyan-400/20 animate-ping-slow pointer-events-none"></span>}
                 </button>
             </div>
             
             {activeModal && (
                 <Modal 
-                  title={modalTitles[activeModal]}
+                  title={modalConfig[activeModal].title}
+                  headerColor={modalConfig[activeModal].color}
                   onClose={closeModal}
                   showBackButton={modalStep > 1}
                   onBack={() => setModalStep(s => s - 1)}

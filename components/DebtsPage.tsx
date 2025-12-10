@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Debt, Contact, Account, Category } from '../types';
 import { useToast } from './Toast';
+import ConfirmDialog from './ConfirmDialog';
 import { PlusIcon, PencilSquareIcon, TrashIcon, CheckCircleIcon, ExclamationTriangleIcon, XMarkIcon, FunnelIcon, MagnifyingGlassIcon } from './icons';
 
 // ... (Keep existing imports and helper functions: getDebtStatus, getDueDateInfo, formatCurrency, Modal, DebtForm, SettleDebtModal, DebtDetailContent, DebtFilterModal)
@@ -72,7 +73,7 @@ const DebtsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (descr
     }, [refreshTrigger]);
 
     const handleSaveForm = () => {
-        const description = editingDebt ? `تم تعديل دين لـ "${editingDebt.contacts?.name || ''}"` : 'تم إضافة دين جديد';
+        const description = editingDebt ? `تم تعديل بيانات الدين بنجاح` : 'تم تسجيل الدين الجديد بنجاح';
         setIsFormModalOpen(false);
         setEditingDebt(undefined);
         handleDatabaseChange(description);
@@ -81,7 +82,7 @@ const DebtsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (descr
 
     const handleDelete = async () => {
         if (!deletingDebt) return;
-        const description = `تم حذف دين لـ "${deletingDebt.contacts?.name || ''}"`;
+        const description = `تم حذف الدين بنجاح`;
         const { error } = await supabase.from('debts').delete().eq('id', deletingDebt.id);
         if (error) {
             console.error('Error deleting debt', error.message);
@@ -99,7 +100,7 @@ const DebtsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (descr
             console.error('Error updating debt status', error.message);
             toast.error('حدث خطأ أثناء تحديث حالة الدين.');
         } else {
-            const description = `تم تحديث حالة دين لـ "${debt.contacts?.name || ''}" إلى ${!debt.paid ? 'مدفوع' : 'غير مدفوع'}`;
+            const description = `تم تغيير حالة الدين إلى ${!debt.paid ? 'مدفوع' : 'غير مدفوع'}`;
             handleDatabaseChange(description);
             toast.success(description);
         }
@@ -158,8 +159,8 @@ const DebtsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (descr
             }
 
             setSettlingDebt(null);
-            handleDatabaseChange(`تسوية دين لـ "${settlingDebt.contacts?.name || 'شخص ما'}"`);
-            toast.success(`تمت تسوية الدين بنجاح`);
+            handleDatabaseChange(`تمت تسوية الدين بنجاح`);
+            toast.success(`تمت تسوية الدين وتحديث رصيد الحساب`);
 
         } catch(error: any) {
             console.error("Error during debt settlement:", error.message);
@@ -341,15 +342,14 @@ const DebtsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (descr
                 </Modal>
             )}
             
-            {deletingDebt && (
-                 <Modal title="تأكيد الحذف" onClose={() => setDeletingDebt(null)}>
-                    <p className="text-slate-300 mb-8 text-lg">هل أنت متأكد من رغبتك في حذف هذا الدين؟</p>
-                    <div className="flex justify-end gap-4">
-                        <button onClick={() => setDeletingDebt(null)} className="py-3 px-6 text-slate-400 font-bold hover:text-white transition">إلغاء</button>
-                        <button onClick={handleDelete} className="py-3 px-6 bg-rose-600 hover:bg-rose-500 text-white rounded-xl transition font-bold shadow-lg shadow-rose-900/20">حذف</button>
-                    </div>
-                </Modal>
-            )}
+            <ConfirmDialog 
+                isOpen={!!deletingDebt}
+                title="حذف الدين"
+                message="هل أنت متأكد من رغبتك في حذف هذا الدين نهائياً؟"
+                confirmText="حذف"
+                onConfirm={handleDelete}
+                onCancel={() => setDeletingDebt(null)}
+            />
 
             {settlingDebt && (
                 <Modal title="تسوية الدين" onClose={() => setSettlingDebt(null)}>

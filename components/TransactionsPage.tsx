@@ -10,6 +10,7 @@ import {
     TagIcon, CalendarDaysIcon
 } from './icons';
 import { useToast } from './Toast';
+import ConfirmDialog from './ConfirmDialog';
 
 const formatCurrency = (amount: number, currency: string = 'د.ل') => {
     const options: Intl.NumberFormatOptions = { style: 'currency', currency: 'LYD' };
@@ -380,7 +381,7 @@ const TransactionsPage: React.FC = () => {
             }
 
             await supabase.from('transactions').delete().eq('id', id);
-            handleSave('تم حذف المعاملة');
+            handleSave('تم حذف المعاملة بنجاح');
         } catch (error: any) {
             console.error("Error deleting transaction:", error.message);
             toast.error('حدث خطأ أثناء الحذف.');
@@ -501,7 +502,7 @@ const TransactionsPage: React.FC = () => {
                     ) : (
                         <TransactionForm
                             transaction={modal.transaction}
-                            onSave={() => handleSave('تم تعديل المعاملة')}
+                            onSave={() => handleSave('تم تعديل المعاملة بنجاح')}
                             onCancel={() => setModal({ type: null, transaction: null })}
                             accounts={accounts}
                             categories={categories}
@@ -510,15 +511,14 @@ const TransactionsPage: React.FC = () => {
                 </Modal>
             )}
 
-            {modal.type === 'delete' && modal.transaction && (
-                 <Modal title="تأكيد الحذف" onClose={() => setModal({ type: null, transaction: null })}>
-                    <p className="text-slate-300 mb-8">هل أنت متأكد من حذف هذه المعاملة؟ سيتم التراجع عن تأثيرها على رصيد الحساب.</p>
-                    <div className="flex justify-end gap-4">
-                        <button onClick={() => setModal({ type: null, transaction: null })} className="py-3 px-6 text-slate-400 font-bold hover:text-white transition">إلغاء</button>
-                        <button onClick={handleDelete} className="py-3 px-6 bg-rose-600 hover:bg-rose-500 text-white rounded-xl transition shadow-lg shadow-rose-900/20 font-bold">تأكيد الحذف</button>
-                    </div>
-                </Modal>
-            )}
+            <ConfirmDialog 
+                isOpen={modal.type === 'delete' && !!modal.transaction}
+                title="تأكيد حذف المعاملة"
+                message="هل أنت متأكد تماماً؟ سيتم عكس تأثير هذه المعاملة على رصيد الحساب. لا يمكن التراجع عن هذا الإجراء."
+                confirmText="حذف المعاملة"
+                onConfirm={handleDelete}
+                onCancel={() => setModal({ type: null, transaction: null })}
+            />
 
         </div>
     );

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { Contact, Debt } from '../types';
 import { useToast } from './Toast';
 import { PlusIcon, PencilSquareIcon, TrashIcon, XMarkIcon, ScaleIcon, MagnifyingGlassIcon, EllipsisVerticalIcon } from './icons';
+import ConfirmDialog from './ConfirmDialog';
 
 // ... (Keep existing imports and helper functions: formatCurrency, ContactForm, Modal, getInitials)
 interface ContactWithDebtInfo extends Contact { forYou: number; onYou: number; netBalance: number; }
@@ -85,7 +86,7 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ refreshTrigger, handleDatab
 
 
     const handleSave = () => {
-        const description = modal.contact ? `تم تعديل بيانات "${modal.contact.name}"` : 'تم إضافة جهة اتصال جديدة';
+        const description = modal.contact ? `تم تحديث بيانات "${modal.contact.name}" بنجاح` : 'تم إضافة جهة اتصال جديدة';
         setModal({ type: null, contact: null });
         handleDatabaseChange(description);
         toast.success(description);
@@ -93,15 +94,14 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ refreshTrigger, handleDatab
 
     const handleDelete = async () => {
         if (!modal.contact) return;
-        const description = `تم حذف جهة الاتصال "${modal.contact.name}"`;
         const { error } = await supabase.from('contacts').delete().eq('id', modal.contact.id);
         if (error) {
             console.error('Error deleting contact', error.message);
-            toast.error('لا يمكن حذف جهة الاتصال لارتباطها بديون');
+            toast.error('لا يمكن حذف جهة الاتصال لارتباطها بديون حالية. قم بتسوية الديون أولاً.');
         } else {
+            handleDatabaseChange(`تم حذف جهة الاتصال "${modal.contact.name}"`);
+            toast.success("تم الحذف بنجاح");
             setModal({ type: null, contact: null });
-            handleDatabaseChange(description);
-            toast.success(description);
         }
     };
 
@@ -184,15 +184,15 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ refreshTrigger, handleDatab
                     <ContactForm contact={modal.contact} onSave={handleSave} onCancel={() => setModal({ type: null, contact: null })} />
                 </Modal>
             )}
-            {modal.type === 'delete' && modal.contact && (
-                <Modal title="تأكيد الحذف" onClose={() => setModal({ type: null, contact: null })}>
-                    <p className="text-slate-300 mb-8 text-lg">هل أنت متأكد من حذف "<span className="font-bold text-white">{modal.contact.name}</span>"؟</p>
-                    <div className="flex justify-end gap-4">
-                        <button onClick={() => setModal({ type: null, contact: null })} className="py-3 px-6 text-slate-400 font-bold hover:text-white transition">إلغاء</button>
-                        <button onClick={handleDelete} className="py-3 px-6 bg-rose-600 hover:bg-rose-500 text-white rounded-xl transition font-bold shadow-lg">تأكيد الحذف</button>
-                    </div>
-                </Modal>
-            )}
+            
+            <ConfirmDialog 
+                isOpen={modal.type === 'delete' && !!modal.contact}
+                title="حذف جهة الاتصال"
+                message={`هل أنت متأكد من حذف "${modal.contact?.name}"؟`}
+                confirmText="حذف"
+                onConfirm={handleDelete}
+                onCancel={() => setModal({ type: null, contact: null })}
+            />
         </div>
     );
 };

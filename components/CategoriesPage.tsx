@@ -9,6 +9,8 @@ import {
     SmartphoneIcon, WifiIcon, ZapIcon, BriefcaseIcon, PlaneIcon,
     Gamepad2Icon, GraduationCapIcon, ShirtIcon, GiftIcon, FuelIcon
 } from './icons';
+import ConfirmDialog from './ConfirmDialog';
+import { useToast } from './Toast';
 
 // ... (Keep IconPicker, ColorPicker, CategoryFormModal, Modal, CategoryCard components unchanged)
 // Assuming they are defined above as in previous version. Re-declaring for completeness of file.
@@ -29,6 +31,7 @@ const CategoriesPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (
     const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
     const [searchTerm, setSearchTerm] = useState('');
     const [modal, setModal] = useState<{ type: 'add' | 'edit' | 'delete' | null, category: Category | null }>({ type: null, category: null });
+    const toast = useToast();
 
     const fetchCategories = useCallback(async () => {
         setLoading(true);
@@ -46,21 +49,22 @@ const CategoriesPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (
     }, [fetchCategories, refreshTrigger]);
 
     const handleSave = () => {
-        const description = modal.category ? `تم تعديل فئة "${modal.category.name}"` : 'تم إضافة فئة جديدة';
+        const description = modal.category ? `تم تحديث فئة "${modal.category.name}" بنجاح` : 'تم إنشاء الفئة الجديدة بنجاح';
         setModal({ type: null, category: null });
         handleDatabaseChange(description);
+        toast.success(description);
     };
 
     const handleDelete = async () => {
         if (!modal.category) return;
-        const description = `تم حذف فئة "${modal.category.name}"`;
         const { error } = await supabase.from('categories').delete().eq('id', modal.category.id);
         if (error) {
             console.error('Error deleting category:', error.message);
-            alert('لا يمكن حذف الفئة لارتباطها بمعاملات. يرجى حذف المعاملات المرتبطة أولاً.');
+            toast.error('لا يمكن حذف الفئة لأنها مرتبطة بمعاملات سابقة. قم بتعديل المعاملات أولاً.');
         } else {
+            handleDatabaseChange(`تم حذف فئة "${modal.category.name}" بنجاح`);
+            toast.success("تم الحذف");
             setModal({ type: null, category: null });
-            handleDatabaseChange(description);
         }
     };
 
@@ -158,22 +162,14 @@ const CategoriesPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (
                 </Modal>
             )}
 
-            {modal.type === 'delete' && modal.category && (
-                 <Modal title="تأكيد الحذف" onClose={() => setModal({ type: null, category: null })}>
-                    <div className="text-center">
-                        <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <TrashIcon className="w-8 h-8 text-rose-500" />
-                        </div>
-                        <p className="text-slate-300 mb-2 text-lg">هل أنت متأكد من حذف فئة <span className="font-bold text-white">"{modal.category.name}"</span>؟</p>
-                        <p className="text-slate-500 text-sm mb-8">لا يمكن التراجع عن هذا الإجراء.</p>
-                        
-                        <div className="flex justify-center gap-4">
-                            <button onClick={() => setModal({ type: null, category: null })} className="py-3 px-6 text-slate-400 font-bold hover:text-white transition bg-slate-800 rounded-xl hover:bg-slate-700">إلغاء</button>
-                            <button onClick={handleDelete} className="py-3 px-8 bg-rose-600 hover:bg-rose-500 text-white rounded-xl transition font-bold shadow-lg shadow-rose-900/20">تأكيد الحذف</button>
-                        </div>
-                    </div>
-                </Modal>
-            )}
+            <ConfirmDialog 
+                isOpen={modal.type === 'delete' && !!modal.category}
+                title="حذف الفئة"
+                message={`هل أنت متأكد من حذف فئة "${modal.category?.name}"؟ انتبه، إذا كانت هناك معاملات مرتبطة بهذه الفئة فقد يتسبب الحذف في مشاكل أو سيتم منع الحذف.`}
+                confirmText="نعم، احذف الفئة"
+                onConfirm={handleDelete}
+                onCancel={() => setModal({ type: null, category: null })}
+            />
         </div>
     );
 };

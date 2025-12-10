@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Note } from '../types';
+import { useToast } from './Toast';
+import ConfirmDialog from './ConfirmDialog';
 import { 
     MagnifyingGlassIcon, XMarkIcon, PinIcon, SolidPinIcon, PaintBrushIcon,
     TrashIcon, BoldIcon, ItalicIcon, UnderlineIcon, StrikethroughIcon,
@@ -23,6 +25,8 @@ const NotesPage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descr
     const [notes, setNotes] = useState<Note[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const toast = useToast();
+    const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
     
     // Updated state to handle modes
     const [editorState, setEditorState] = useState<{ 
@@ -70,20 +74,31 @@ const NotesPage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descr
         
         if (error) {
             console.error("Error saving note:", error.message);
+            toast.error("فشل حفظ الملاحظة");
         } else {
-            handleDatabaseChange(isUpdate ? "تحديث ملاحظة" : "إضافة ملاحظة جديدة");
+            const message = isUpdate ? "تم تحديث الملاحظة بنجاح" : "تم إضافة ملاحظة جديدة";
+            handleDatabaseChange(message);
+            toast.success(message);
             setEditorState({ mode: 'closed', note: null });
         }
     };
 
-    const handleDeleteNote = async (noteId: string) => {
-        const { error } = await supabase.from('notes').delete().eq('id', noteId);
+    const confirmDelete = (noteId: string) => {
+        setNoteToDelete(noteId);
+    }
+
+    const handleDeleteNote = async () => {
+        if (!noteToDelete) return;
+        const { error } = await supabase.from('notes').delete().eq('id', noteToDelete);
         if (error) {
             console.error("Error deleting note:", error.message);
+            toast.error("فشل حذف الملاحظة");
         } else {
-            handleDatabaseChange("حذف ملاحظة");
+            handleDatabaseChange("تم حذف الملاحظة");
+            toast.success("تم حذف الملاحظة بنجاح");
             setEditorState({ mode: 'closed', note: null });
         }
+        setNoteToDelete(null);
     };
     
     const handleUpdateNoteField = async (noteId: string, updates: Partial<Note>) => {
@@ -95,7 +110,8 @@ const NotesPage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descr
              console.error("Error updating note:", error.message);
              fetchNotes(); // Revert on error
         } else {
-            handleDatabaseChange("تحديث ملاحظة");
+            // Quiet update without toast for simple interactions like pinning
+            handleDatabaseChange(); 
         }
     }
 
@@ -146,7 +162,7 @@ const NotesPage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descr
                             notes={pinnedNotes}
                             // Change: Click opens view mode
                             onClick={(note) => setEditorState({ mode: 'viewing', note })}
-                            onDelete={handleDeleteNote}
+                            onDelete={confirmDelete}
                             onUpdateField={handleUpdateNoteField}
                         />
                     )}
@@ -156,7 +172,7 @@ const NotesPage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descr
                             notes={otherNotes}
                             // Change: Click opens view mode
                             onClick={(note) => setEditorState({ mode: 'viewing', note })}
-                            onDelete={handleDeleteNote}
+                            onDelete={confirmDelete}
                             onUpdateField={handleUpdateNoteField}
                         />
                     )}
@@ -178,13 +194,22 @@ const NotesPage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descr
                 </div>
             </button>
 
+            <ConfirmDialog 
+                isOpen={!!noteToDelete}
+                title="حذف الملاحظة"
+                message="هل أنت متأكد من رغبتك في حذف هذه الملاحظة نهائياً؟"
+                confirmText="حذف"
+                onConfirm={handleDeleteNote}
+                onCancel={() => setNoteToDelete(null)}
+            />
+
             {/* Render Viewer or Editor based on state */}
             {editorState.mode === 'viewing' && editorState.note && (
                 <NoteViewerModal 
                     note={editorState.note}
                     onClose={() => setEditorState({ mode: 'closed', note: null })}
                     onEdit={() => setEditorState({ mode: 'editing', note: editorState.note })}
-                    onDelete={handleDeleteNote}
+                    onDelete={confirmDelete}
                 />
             )}
 
@@ -193,7 +218,7 @@ const NotesPage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descr
                     key={editorState.note?.id || 'new-note'}
                     note={editorState.note}
                     onSave={handleSaveNote}
-                    onDelete={handleDeleteNote}
+                    onDelete={confirmDelete}
                     onCancel={() => setEditorState({ mode: 'closed', note: null })}
                 />
             )}
@@ -204,7 +229,7 @@ const NotesPage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descr
 // ... (Keep existing sub-components: NotesSection, NoteCard, NoteViewerModal, NoteEditorModal unchanged)
 const NotesSection: React.FC<{ title?: string; icon?: React.ReactNode; notes: Note[]; onClick: (note: Note) => void; onDelete: (id: string) => void; onUpdateField: (id: string, updates: Partial<Note>) => void; }> = ({ title, icon, notes, onClick, onDelete, onUpdateField }) => ( <div> {title && ( <h2 className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 px-2"> {icon} {title} </h2> )} <div className="masonry-grid"> {notes.map(note => ( <NoteCard key={note.id} note={note} onClick={() => onClick(note)} onDelete={() => onDelete(note.id)} onUpdateField={(updates) => onUpdateField(note.id, updates)} /> ))} </div> </div> );
 const NoteCard: React.FC<{ note: Note; onClick: () => void; onDelete: () => void; onUpdateField: (updates: Partial<Note>) => void; }> = ({ note, onClick, onDelete, onUpdateField }) => { const [title, content] = useMemo(() => { const tempDiv = document.createElement('div'); tempDiv.innerHTML = note.note_text; const heading = tempDiv.querySelector('h1, h2'); let titleText = ''; if (heading) { titleText = heading.textContent || ''; heading.remove(); } const contentHtml = tempDiv.innerHTML; const cleanContent = contentHtml.replace(/<p><br><\/p>/g, '').trim(); return [titleText, cleanContent]; }, [note.note_text]); return ( <div className="masonry-item group perspective-1000"> <div onClick={onClick} className="relative rounded-2xl cursor-pointer overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-black/50 border border-white/5" style={{ backgroundColor: note.color }} > <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div> <div className="p-5 pb-14 min-h-[120px]"> {note.is_pinned && <span className="absolute top-4 right-4 text-white/50"><SolidPinIcon className="w-4 h-4" /></span>} {title ? ( <h3 className="font-bold text-lg text-white mb-2 leading-snug">{title}</h3> ) : null} <div className="text-slate-300/90 text-sm leading-relaxed line-clamp-6 prose prose-invert prose-sm max-w-none break-words" dangerouslySetInnerHTML={{ __html: content || (title ? '' : '<span class="italic opacity-50">ملاحظة فارغة</span>') }} /> </div> <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/40 via-black/20 to-transparent flex items-center justify-between opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0"> <span className="text-[10px] text-white/50 px-2 font-mono"> {new Date(note.updated_at).toLocaleDateString('ar-LY', {month:'short', day:'numeric'})} </span> <div className="flex gap-1"> <button type="button" onClick={(e) => { e.stopPropagation(); onUpdateField({ is_pinned: !note.is_pinned }); }} className="p-2 rounded-full hover:bg-white/20 text-white/80 hover:text-white transition-colors"> <PinIcon className="w-4 h-4"/> </button> <ColorPickerPopover currentColor={note.color} onSelect={(color) => onUpdateField({ color })}> <PaintBrushIcon className="w-4 h-4 text-white/80" /> </ColorPickerPopover> <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(); }} className="p-2 rounded-full hover:bg-rose-500/20 text-white/80 hover:text-rose-400 transition-colors"> <TrashIcon className="w-4 h-4"/> </button> </div> </div> </div> </div> ); };
-const NoteViewerModal: React.FC<{ note: Note; onClose: () => void; onEdit: () => void; onDelete: (id: string) => void; }> = ({ note, onClose, onEdit, onDelete }) => { const contentRef = useRef<HTMLDivElement>(null); const [wordCount, setWordCount] = useState(0); const [copied, setCopied] = useState(false); const [title, content] = useMemo(() => { const tempDiv = document.createElement('div'); tempDiv.innerHTML = note.note_text; const heading = tempDiv.querySelector('h1'); let titleText = ''; if (heading) { titleText = heading.textContent || ''; heading.remove(); } return [titleText, tempDiv.innerHTML]; }, [note.note_text]); useEffect(() => { if (contentRef.current) { const text = contentRef.current.innerText || ""; setWordCount(text.trim().split(/\s+/).filter(w => w.length > 0).length); } }, [note.note_text]); const handleCopy = () => { const tempDiv = document.createElement('div'); tempDiv.innerHTML = note.note_text; const text = tempDiv.innerText || tempDiv.textContent || ''; navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }; return ( <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-0 sm:p-4 animate-fade-in"> <div className="w-full h-full flex flex-col sm:max-w-3xl sm:h-[85vh] sm:rounded-[2rem] shadow-2xl transition-colors duration-500 relative overflow-hidden" style={{ backgroundColor: note.color }} > <div className="flex justify-between items-center p-4 bg-black/10 backdrop-blur-md border-b border-white/5 shrink-0 z-10"> <button onClick={onClose} className="p-2 rounded-full hover:bg-black/20 text-white transition-colors"> <ArrowLeftIcon className="w-6 h-6"/> </button> <div className="flex items-center gap-3"> <span className="text-[10px] text-white/50 font-mono hidden sm:inline-block"> {new Date(note.updated_at).toLocaleString('ar-LY')} </span> <div className="w-px h-6 bg-white/10 mx-1 hidden sm:block"></div> <button onClick={handleCopy} className="p-2 rounded-full hover:bg-black/20 text-white/80 hover:text-white transition flex items-center gap-1" title="نسخ النص"> {copied ? <CheckSquareIcon className="w-5 h-5 text-emerald-300"/> : <CopyIcon className="w-5 h-5"/>} </button> <button onClick={onEdit} className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/10 shadow-sm" title="تعديل"> <PencilSquareIcon className="w-5 h-5"/> </button> </div> </div> <div className="flex-grow flex flex-col overflow-y-auto custom-scrollbar relative"> <div className="max-w-2xl mx-auto w-full px-6 py-10"> {title && ( <h1 className="text-3xl sm:text-4xl font-bold text-white mb-6 leading-tight border-b border-white/5 pb-4"> {title} </h1> )} <div ref={contentRef} className="prose prose-invert prose-lg max-w-none text-slate-100/90 leading-relaxed" dangerouslySetInnerHTML={{ __html: content }} /> </div> </div> <div className="bg-slate-900/50 backdrop-blur-xl border-t border-white/10 p-3 pb-safe shrink-0 flex justify-between items-center px-6"> <span className="text-xs text-white/40">{wordCount} كلمة</span> <button onClick={() => { if(window.confirm('حذف الملاحظة؟')) { onDelete(note.id); onClose(); } }} className="p-2 -mr-2 rounded-full hover:bg-rose-500/10 text-white/30 hover:text-rose-400 transition"> <TrashIcon className="w-4 h-4"/> </button> </div> </div> </div> ); };
+const NoteViewerModal: React.FC<{ note: Note; onClose: () => void; onEdit: () => void; onDelete: (id: string) => void; }> = ({ note, onClose, onEdit, onDelete }) => { const contentRef = useRef<HTMLDivElement>(null); const [wordCount, setWordCount] = useState(0); const [copied, setCopied] = useState(false); const [title, content] = useMemo(() => { const tempDiv = document.createElement('div'); tempDiv.innerHTML = note.note_text; const heading = tempDiv.querySelector('h1'); let titleText = ''; if (heading) { titleText = heading.textContent || ''; heading.remove(); } return [titleText, tempDiv.innerHTML]; }, [note.note_text]); useEffect(() => { if (contentRef.current) { const text = contentRef.current.innerText || ""; setWordCount(text.trim().split(/\s+/).filter(w => w.length > 0).length); } }, [note.note_text]); const handleCopy = () => { const tempDiv = document.createElement('div'); tempDiv.innerHTML = note.note_text; const text = tempDiv.innerText || tempDiv.textContent || ''; navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }; return ( <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-0 sm:p-4 animate-fade-in"> <div className="w-full h-full flex flex-col sm:max-w-3xl sm:h-[85vh] sm:rounded-[2rem] shadow-2xl transition-colors duration-500 relative overflow-hidden" style={{ backgroundColor: note.color }} > <div className="flex justify-between items-center p-4 bg-black/10 backdrop-blur-md border-b border-white/5 shrink-0 z-10"> <button onClick={onClose} className="p-2 rounded-full hover:bg-black/20 text-white transition-colors"> <ArrowLeftIcon className="w-6 h-6"/> </button> <div className="flex items-center gap-3"> <span className="text-[10px] text-white/50 font-mono hidden sm:inline-block"> {new Date(note.updated_at).toLocaleString('ar-LY')} </span> <div className="w-px h-6 bg-white/10 mx-1 hidden sm:block"></div> <button onClick={handleCopy} className="p-2 rounded-full hover:bg-black/20 text-white/80 hover:text-white transition flex items-center gap-1" title="نسخ النص"> {copied ? <CheckSquareIcon className="w-5 h-5 text-emerald-300"/> : <CopyIcon className="w-5 h-5"/>} </button> <button onClick={onEdit} className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/10 shadow-sm" title="تعديل"> <PencilSquareIcon className="w-5 h-5"/> </button> </div> </div> <div className="flex-grow flex flex-col overflow-y-auto custom-scrollbar relative"> <div className="max-w-2xl mx-auto w-full px-6 py-10"> {title && ( <h1 className="text-3xl sm:text-4xl font-bold text-white mb-6 leading-tight border-b border-white/5 pb-4"> {title} </h1> )} <div ref={contentRef} className="prose prose-invert prose-lg max-w-none text-slate-100/90 leading-relaxed" dangerouslySetInnerHTML={{ __html: content }} /> </div> </div> <div className="bg-slate-900/50 backdrop-blur-xl border-t border-white/10 p-3 pb-safe shrink-0 flex justify-between items-center px-6"> <span className="text-xs text-white/40">{wordCount} كلمة</span> <button onClick={() => onDelete(note.id)} className="p-2 -mr-2 rounded-full hover:bg-rose-500/10 text-white/30 hover:text-rose-400 transition"> <TrashIcon className="w-4 h-4"/> </button> </div> </div> </div> ); };
 const NoteEditorModal: React.FC<{ note: Note | null; onSave: (note: Note | Omit<Note, 'id' | 'created_at' | 'updated_at'>) => void; onDelete: (id: string) => void; onCancel: () => void; }> = ({ note: initialNote, onSave, onDelete, onCancel }) => { const defaultNewNote = useMemo(() => ({ note_text: '', color: NOTE_THEMES[0].bg, is_pinned: false, is_code: false, language: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }), []); const [note, setNote] = useState(initialNote || defaultNewNote); const contentRef = useRef<HTMLDivElement>(null); const titleRef = useRef<HTMLTextAreaElement>(null); const [wordCount, setWordCount] = useState(0); useEffect(() => { if (!initialNote) return; const tempDiv = document.createElement('div'); tempDiv.innerHTML = initialNote.note_text; const heading = tempDiv.querySelector('h1'); if (heading && titleRef.current) { titleRef.current.value = heading.textContent || ''; heading.remove(); } if (contentRef.current) { contentRef.current.innerHTML = tempDiv.innerHTML; } updateStats(); }, []); const updateStats = () => { if (contentRef.current) { const text = contentRef.current.innerText || ""; setWordCount(text.trim().split(/\s+/).filter(w => w.length > 0).length); } }; const handleSave = useCallback(() => { const newTitle = titleRef.current?.value.trim() || ''; const newContent = contentRef.current?.innerHTML.trim() || ''; if (!initialNote && !newTitle && !newContent) { onCancel(); return; } const newNoteText = newTitle ? `<h1>${newTitle}</h1>${newContent}` : newContent; onSave({ ...note, note_text: newNoteText }); }, [initialNote, note, onSave, onCancel]); const handleCopy = () => { const text = `${titleRef.current?.value || ''}\n${contentRef.current?.innerText || ''}`; navigator.clipboard.writeText(text); }; const modalRef = useRef<HTMLDivElement>(null); const handleTitleInput = (e: React.FormEvent<HTMLTextAreaElement>) => { const target = e.currentTarget; target.style.height = 'auto'; target.style.height = `${target.scrollHeight}px`; }; return ( <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-0 sm:p-4 animate-fade-in"> <div ref={modalRef} className="w-full h-full flex flex-col sm:max-w-3xl sm:h-[85vh] sm:rounded-[2rem] shadow-2xl transition-colors duration-500 relative overflow-hidden" style={{ backgroundColor: note.color }} > <div className="flex justify-between items-center p-4 bg-black/10 backdrop-blur-md border-b border-white/5 shrink-0 z-10"> <button onClick={handleSave} className="p-2 rounded-full hover:bg-black/20 text-white transition-colors flex items-center gap-2"> <ArrowLeftIcon className="w-6 h-6"/> </button> <div className="flex items-center gap-2"> <button onClick={handleCopy} className="p-2 rounded-full hover:bg-black/20 text-white/80 hover:text-white transition" title="نسخ النص"> <CopyIcon className="w-5 h-5"/> </button> <button onClick={() => setNote(prev => ({ ...prev, is_pinned: !prev.is_pinned }))} className={`p-2 rounded-full hover:bg-black/20 transition ${note.is_pinned ? 'text-white' : 'text-white/50'}`} title={note.is_pinned ? "إلغاء التثبيت" : "تثبيت"}> {note.is_pinned ? <SolidPinIcon className="w-5 h-5" /> : <PinIcon className="w-5 h-5" />} </button> <ColorPickerPopover currentColor={note.color} onSelect={(color) => setNote(prev => ({ ...prev, color }))}> <PaintBrushIcon className="w-5 h-5 text-white/80" /> </ColorPickerPopover> {initialNote && ( <button onClick={() => onDelete(initialNote.id)} className="p-2 rounded-full hover:bg-rose-500/20 text-white/80 hover:text-rose-400 transition" title="حذف"> <TrashIcon className="w-5 h-5"/> </button> )} </div> </div> <div className="flex-grow flex flex-col overflow-y-auto custom-scrollbar relative"> <div className="max-w-2xl mx-auto w-full px-6 py-8"> <textarea ref={titleRef} placeholder="العنوان" className="w-full bg-transparent text-3xl font-bold text-white placeholder-white/40 focus:outline-none resize-none mb-4 leading-tight" rows={1} onInput={handleTitleInput} /> <div id="rich-text-editor" ref={contentRef} contentEditable suppressContentEditableWarning className="outline-none prose prose-invert prose-lg max-w-none text-slate-100/90 empty:before:content-[attr(data-placeholder)] empty:before:text-white/30 min-h-[200px]" data-placeholder="ابدأ الكتابة..." onInput={updateStats} /> </div> </div> <div className="bg-slate-900/90 backdrop-blur-xl border-t border-white/10 p-2 pb-safe shrink-0"> <div className="max-w-2xl mx-auto flex flex-col gap-2"> <EditorToolbar /> <div className="flex justify-between items-center px-2 text-[10px] text-slate-500 font-mono"> <span>{wordCount} كلمة</span> <span className="flex items-center gap-1"> <CalendarDaysIcon className="w-3 h-3"/> {note.updated_at ? new Date(note.updated_at).toLocaleString('ar-LY') : 'الآن'} </span> </div> </div> </div> </div> </div> ); };
 
 export default NotesPage;

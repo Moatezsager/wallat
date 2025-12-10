@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { Account, Transaction } from '../types';
 import { useToast } from './Toast';
+import ConfirmDialog from './ConfirmDialog';
 import { 
     EllipsisVerticalIcon, PlusIcon, XMarkIcon, WalletIcon, 
     ArrowUpIcon, ArrowDownIcon, ArrowsRightLeftIcon,
@@ -410,7 +411,7 @@ const AccountsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (de
             console.error(error);
             toast.error('تعذر حذف الحساب. تأكد من حذف المعاملات المرتبطة أولاً.');
         } else {
-            handleSave('تم حذف الحساب');
+            handleSave(`تم حذف حساب "${modal.account.name}" بنجاح`);
         }
     };
 
@@ -541,19 +542,18 @@ const AccountsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (de
             {/* Modals */}
             {(modal.type === 'add' || modal.type === 'edit') && (
                 <Modal title={modal.type === 'add' ? 'إضافة حساب' : 'تعديل حساب'} onClose={() => setModal({ type: null, account: null })}>
-                    <AccountForm account={modal.account} onSave={() => handleSave(modal.type === 'add' ? 'تمت إضافة الحساب بنجاح' : 'تم تعديل الحساب بنجاح')} onCancel={() => setModal({ type: null, account: null })} />
+                    <AccountForm account={modal.account} onSave={() => handleSave(modal.type === 'add' ? 'تمت إضافة الحساب بنجاح' : 'تم حفظ تعديلات الحساب بنجاح')} onCancel={() => setModal({ type: null, account: null })} />
                 </Modal>
             )}
             
-             {modal.type === 'delete' && modal.account && (
-                 <Modal title="تأكيد الحذف" onClose={() => setModal({ type: null, account: null })}>
-                    <p className="text-slate-300 mb-8 text-lg">هل أنت متأكد من حذف حساب <span className="text-white font-bold">"{modal.account.name}"</span>؟</p>
-                    <div className="flex justify-end gap-4">
-                        <button onClick={() => setModal({ type: null, account: null })} className="py-3 px-6 text-slate-400 font-bold hover:text-white transition">إلغاء</button>
-                        <button onClick={handleDelete} className="py-3 px-8 bg-rose-600 hover:bg-rose-500 text-white rounded-xl transition shadow-lg shadow-rose-900/20 font-bold">حذف</button>
-                    </div>
-                </Modal>
-            )}
+            <ConfirmDialog 
+                isOpen={modal.type === 'delete' && !!modal.account}
+                title="حذف الحساب"
+                message={`هل أنت متأكد من رغبتك في حذف حساب "${modal.account?.name}"؟ سيؤدي هذا الإجراء إلى حذف جميع البيانات المرتبطة بالحساب ولا يمكن التراجع عنه.`}
+                confirmText="حذف نهائي"
+                onConfirm={handleDelete}
+                onCancel={() => setModal({ type: null, account: null })}
+            />
 
             {modal.type === 'details' && modal.account && (
                 <AccountDetailsModal 
