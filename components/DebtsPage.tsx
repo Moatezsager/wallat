@@ -17,7 +17,7 @@ type DebtFilterValues = { status: 'all' | 'unpaid' | 'paid'; dueDateStatus: 'all
 const DebtFilterModal: React.FC<{ initialFilters: DebtFilterValues; onApply: (filters: DebtFilterValues) => void; onClose: () => void; }> = ({ initialFilters, onApply, onClose }) => { const [tempFilters, setTempFilters] = useState(initialFilters); const handleReset = () => { const defaultFilters = { status: 'unpaid' as const, dueDateStatus: 'all' as const }; setTempFilters(defaultFilters); onApply(defaultFilters); onClose(); }; const handleApply = () => { onApply(tempFilters); }; const statusOptions: { key: DebtFilterValues['status'], label: string }[] = [ { key: 'unpaid', label: 'الحالية' }, { key: 'paid', label: 'المدفوعة' }, { key: 'all', label: 'الكل' }, ]; const dueDateStatusOptions: { key: DebtFilterValues['dueDateStatus'], label: string }[] = [ { key: 'all', label: 'الكل' }, { key: 'due_soon', label: 'مستحقة قريباً' }, { key: 'overdue', label: 'متأخرة' }, ]; return ( <Modal title="تصفية الديون" onClose={onClose}> <div className="space-y-6"> <div> <label className="text-sm font-medium text-slate-400 mb-2 block">حالة السداد</label> <div className="flex gap-2"> {statusOptions.map(({ key, label }) => ( <button key={key} onClick={() => setTempFilters(f => ({ ...f, status: key }))} className={`flex-1 py-2 px-2 rounded-xl text-sm transition-colors font-bold border ${tempFilters.status === key ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}> {label} </button> ))} </div> </div> <div> <label className="text-sm font-medium text-slate-400 mb-2 block">حالة الاستحقاق</label> <div className="flex gap-2"> {dueDateStatusOptions.map(({ key, label }) => ( <button key={key} onClick={() => setTempFilters(f => ({ ...f, dueDateStatus: key }))} className={`flex-1 py-2 px-2 rounded-xl text-sm transition-colors font-bold border ${tempFilters.dueDateStatus === key ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}> {label} </button> ))} </div> </div> </div> <div className="flex justify-between items-center pt-6 mt-4 border-t border-white/10"> <button onClick={handleReset} className="py-2 px-4 text-slate-400 hover:text-white font-bold text-sm">إعادة تعيين</button> <button onClick={handleApply} className="py-2.5 px-6 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl transition font-bold shadow-lg">تطبيق</button> </div> </Modal> ); };
 
 // Main Page Component
-const DebtsPage: React.FC<{ key: number, handleDatabaseChange: (description?: string) => void, onSelectContact: (contactId: string) => void }> = ({ key, handleDatabaseChange, onSelectContact }) => {
+const DebtsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (description?: string) => void, onSelectContact: (contactId: string) => void }> = ({ refreshTrigger, handleDatabaseChange, onSelectContact }) => {
     const toast = useToast();
     const [debts, setDebts] = useState<Debt[]>([]);
     const [contacts, setContacts] = useState<Contact[]>([]);
@@ -69,7 +69,7 @@ const DebtsPage: React.FC<{ key: number, handleDatabaseChange: (description?: st
             setLoading(false);
         };
         fetchData();
-    }, [key]);
+    }, [refreshTrigger]);
 
     const handleSaveForm = () => {
         const description = editingDebt ? `تم تعديل دين لـ "${editingDebt.contacts?.name || ''}"` : 'تم إضافة دين جديد';

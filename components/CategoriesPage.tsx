@@ -23,7 +23,7 @@ const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () =>
 const CategoryCard: React.FC<{ category: Category; onEdit: () => void; onDelete: () => void; }> = ({ category, onEdit, onDelete }) => { const Icon = (category.icon && iconMap[category.icon]) ? iconMap[category.icon] : CurrencyDollarIcon; return ( <div className="relative group overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-lg bg-slate-900/40 border border-white/5 hover:border-white/10"> <div className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-300 bg-gradient-to-br from-transparent to-white" style={{ background: `linear-gradient(135deg, ${category.color}10 0%, transparent 100%)` }}></div> <div className="absolute top-0 right-0 w-16 h-16 rounded-bl-full opacity-10 transition-transform duration-500 group-hover:scale-150" style={{ backgroundColor: category.color }}></div> <div className="p-5 flex flex-col items-center text-center relative z-10 h-full"> <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-3 shadow-lg transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3" style={{ backgroundColor: category.color || '#334155' }} > <Icon className="w-7 h-7 text-white drop-shadow-sm" /> </div> <h3 className="font-bold text-white text-base mb-1 truncate w-full">{category.name}</h3> <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0"> <button onClick={(e) => { e.stopPropagation(); onEdit(); }} className="p-2 rounded-xl bg-slate-800/90 text-cyan-400 hover:bg-cyan-500 hover:text-white transition shadow-lg backdrop-blur-sm"><PencilSquareIcon className="w-4 h-4"/></button> <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="p-2 rounded-xl bg-slate-800/90 text-rose-400 hover:bg-rose-500 hover:text-white transition shadow-lg backdrop-blur-sm"><TrashIcon className="w-4 h-4"/></button> </div> </div> </div> ); };
 
 
-const CategoriesPage: React.FC<{ key: number, handleDatabaseChange: (description?: string) => void }> = ({ key, handleDatabaseChange }) => {
+const CategoriesPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (description?: string) => void }> = ({ refreshTrigger, handleDatabaseChange }) => {
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
@@ -43,7 +43,7 @@ const CategoriesPage: React.FC<{ key: number, handleDatabaseChange: (description
 
     useEffect(() => {
         fetchCategories();
-    }, [fetchCategories, key]);
+    }, [fetchCategories, refreshTrigger]);
 
     const handleSave = () => {
         const description = modal.category ? `تم تعديل فئة "${modal.category.name}"` : 'تم إضافة فئة جديدة';

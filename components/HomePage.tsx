@@ -417,7 +417,7 @@ const TransactionDetailContent: React.FC<{ transaction: Transaction; onEdit: () 
     );
 };
 
-const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: string) => void; setActivePage: (page: Page) => void; }> = ({ key, handleDatabaseChange, setActivePage }) => {
+const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (description?: string) => void; setActivePage: (page: Page) => void; }> = ({ refreshTrigger, handleDatabaseChange, setActivePage }) => {
     const [stats, setStats] = useState({ totalBalance: 0, debtsForYou: 0, debtsOnYou: 0 });
     const [lastTransactions, setLastTransactions] = useState<Transaction[]>([]);
     const [upcomingDebts, setUpcomingDebts] = useState<Debt[]>([]);
@@ -473,7 +473,7 @@ const HomePage: React.FC<{ key: number; handleDatabaseChange: (description?: str
             } catch (error) { console.error(error); } finally { setLoading(false); }
         };
         fetchAllData();
-    }, [key, currentYear]);
+    }, [refreshTrigger, currentYear]);
 
     return (
         <div className="space-y-6 pb-20">

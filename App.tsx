@@ -37,7 +37,9 @@ function AppContent() {
   const [activePage, setActivePage] = useState<Page>('home');
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   
-  // Removed explicit key state for forcing re-renders; React Query handles invalidation now.
+  // Refresh trigger state to force re-fetches when manual DB changes happen
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  
   const [activeContactId, setActiveContactId] = useState<string | null>(null);
   const [activeContactName, setActiveContactName] = useState<string>('');
   
@@ -59,9 +61,18 @@ function AppContent() {
     }
   };
 
+  const handleDatabaseChange = (description?: string) => {
+      setRefreshTrigger(prev => prev + 1);
+      // Invalidate queries to ensure fresh data
+      queryClient.invalidateQueries();
+      if (description) {
+          console.log("DB Change:", description);
+      }
+  };
+
   // Use React Query for Debt Notifications
   const { data: debtNotificationCount = 0 } = useQuery({
-    queryKey: ['debtNotifications'],
+    queryKey: ['debtNotifications', refreshTrigger], // Depend on refreshTrigger
     queryFn: async () => {
         const { data: debtData, error: debtError } = await supabase
         .from('debts')
@@ -109,28 +120,25 @@ function AppContent() {
     setActivePage('contacts');
   };
 
-  // Helper to log activity (now can be called directly or via invalidation side effects in components)
-  // Components will now use useQueryClient to invalidate queries instead of calling this.
-  
   const renderPage = () => {
     if (activePage === 'contacts' && activeContactId) {
         return <ContactProfilePage 
-            key={activeContactId} 
             contactId={activeContactId} 
             onBack={handleBackToContacts} 
+            handleDatabaseChange={handleDatabaseChange}
         />;
     }
 
     switch (activePage) {
-      case 'home': return <HomePage setActivePage={setActivePage} />;
-      case 'accounts': return <AccountsPage />;
-      case 'transactions': return <TransactionsPage />;
-      case 'debts': return <DebtsPage onSelectContact={handleSelectContact} />;
-      case 'contacts': return <ContactsPage onSelectContact={handleSelectContact} />;
-      case 'categories': return <CategoriesPage />;
-      case 'reports': return <ReportsPage />;
-      case 'notes': return <NotesPage />;
-      default: return <HomePage setActivePage={setActivePage}/>;
+      case 'home': return <HomePage refreshTrigger={refreshTrigger} handleDatabaseChange={handleDatabaseChange} setActivePage={setActivePage} />;
+      case 'accounts': return <AccountsPage refreshTrigger={refreshTrigger} handleDatabaseChange={handleDatabaseChange} />;
+      case 'transactions': return <TransactionsPage />; // TransactionsPage uses React Query internally
+      case 'debts': return <DebtsPage refreshTrigger={refreshTrigger} handleDatabaseChange={handleDatabaseChange} onSelectContact={handleSelectContact} />;
+      case 'contacts': return <ContactsPage refreshTrigger={refreshTrigger} handleDatabaseChange={handleDatabaseChange} onSelectContact={handleSelectContact} />;
+      case 'categories': return <CategoriesPage refreshTrigger={refreshTrigger} handleDatabaseChange={handleDatabaseChange} />;
+      case 'reports': return <ReportsPage refreshTrigger={refreshTrigger} />;
+      case 'notes': return <NotesPage refreshTrigger={refreshTrigger} handleDatabaseChange={handleDatabaseChange} />;
+      default: return <HomePage refreshTrigger={refreshTrigger} handleDatabaseChange={handleDatabaseChange} setActivePage={setActivePage}/>;
     }
   };
   

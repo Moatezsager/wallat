@@ -19,7 +19,7 @@ const EditorToolbar: React.FC = () => { const groups = [ [ { cmd: 'undo', icon: 
 const ColorPickerPopover: React.FC<{ onSelect: (color: string) => void; currentColor: string; children: React.ReactNode; }> = ({ onSelect, currentColor, children }) => { const [isOpen, setIsOpen] = useState(false); const popoverRef = useRef<HTMLDivElement>(null); useClickOutside(popoverRef, () => setIsOpen(false), isOpen); return ( <div ref={popoverRef} className="relative"> <button type="button" onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }} className="p-2 rounded-full hover:bg-black/20 transition-colors"> {children} </button> {isOpen && ( <div className="absolute bottom-full left-0 mb-3 bg-slate-900/95 backdrop-blur-xl p-3 rounded-2xl grid grid-cols-4 gap-2 border border-slate-700 shadow-2xl animate-fade-in z-20 w-48"> {NOTE_THEMES.map(theme => ( <button key={theme.id} type="button" style={{ backgroundColor: theme.bg, borderColor: theme.border }} onClick={(e) => { e.stopPropagation(); onSelect(theme.bg); setIsOpen(false); }} className={`w-8 h-8 rounded-full transition-transform hover:scale-110 border-2 ${currentColor === theme.bg ? 'ring-2 ring-white scale-110' : ''}`} /> ))} </div> )} </div> ); };
 
 // --- Main Page Component ---
-const NotesPage: React.FC<{ key: number; handleDatabaseChange: (description?: string) => void; }> = ({ key, handleDatabaseChange }) => {
+const NotesPage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (description?: string) => void; }> = ({ refreshTrigger, handleDatabaseChange }) => {
     const [notes, setNotes] = useState<Note[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -43,7 +43,7 @@ const NotesPage: React.FC<{ key: number; handleDatabaseChange: (description?: st
 
     useEffect(() => {
         fetchNotes();
-    }, [key, fetchNotes]);
+    }, [refreshTrigger, fetchNotes]);
 
     const filteredNotes = useMemo(() => {
         if (!searchTerm) return notes;

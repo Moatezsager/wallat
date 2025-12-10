@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { Transaction, Debt, Category } from '../types';
@@ -261,7 +262,7 @@ const AnalysisResultDisplay: React.FC<{ result: any }> = ({ result }) => {
     );
 };
 
-const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
+const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) => {
     const [period, setPeriod] = useState<Period>('this_month');
     const [activeTab, setActiveTab] = useState<ActiveTab>('expense');
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -310,7 +311,7 @@ const ReportsPage: React.FC<{ key: number }> = ({ key }) => {
             setLoading(false);
         };
         fetchData();
-    }, [key, period]);
+    }, [refreshTrigger, period]);
 
     const reportData = useMemo(() => {
         const expenseData = new Map<string, { amount: number, color: string | null }>();

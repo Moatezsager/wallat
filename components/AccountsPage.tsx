@@ -379,7 +379,7 @@ const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () =>
 );
 
 // --- AccountsPage ---
-const AccountsPage: React.FC<{ key: number, handleDatabaseChange: (description?: string) => void }> = ({ key, handleDatabaseChange }) => {
+const AccountsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (description?: string) => void }> = ({ refreshTrigger, handleDatabaseChange }) => {
     const toast = useToast();
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [loading, setLoading] = useState(true);
@@ -393,7 +393,7 @@ const AccountsPage: React.FC<{ key: number, handleDatabaseChange: (description?:
         setLoading(false);
     }, []);
 
-    useEffect(() => { fetchAccounts(); }, [fetchAccounts, key]);
+    useEffect(() => { fetchAccounts(); }, [fetchAccounts, refreshTrigger]);
 
     const totalWealth = useMemo(() => accounts.reduce((sum, acc) => sum + acc.balance, 0), [accounts]);
 
