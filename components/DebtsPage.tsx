@@ -4,14 +4,164 @@ import { supabase } from '../lib/supabase';
 import { Debt, Contact, Account, Category } from '../types';
 import { useToast } from './Toast';
 import ConfirmDialog from './ConfirmDialog';
-import { PlusIcon, PencilSquareIcon, TrashIcon, CheckCircleIcon, ExclamationTriangleIcon, XMarkIcon, FunnelIcon, MagnifyingGlassIcon } from './icons';
+import { 
+    PlusIcon, PencilSquareIcon, TrashIcon, CheckCircleIcon, ExclamationTriangleIcon, XMarkIcon, 
+    FunnelIcon, MagnifyingGlassIcon, ContactsIcon, CalendarDaysIcon, DocumentTextIcon 
+} from './icons';
 
 // ... (Keep existing imports and helper functions: getDebtStatus, getDueDateInfo, formatCurrency, Modal, DebtForm, SettleDebtModal, DebtDetailContent, DebtFilterModal)
 const getDebtStatus = (dueDate: string | null): 'ok' | 'due_soon' | 'overdue' => { if (!dueDate) return 'ok'; const today = new Date(); today.setHours(0, 0, 0, 0); const due = new Date(dueDate); const diffTime = due.getTime() - today.getTime(); const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); if (diffDays < 0) return 'overdue'; if (diffDays <= 7) return 'due_soon'; return 'ok'; };
 const getDueDateInfo = (dueDate: string | null): { text: string; colorClass: string; isUrgent: boolean } => { if (!dueDate) return { text: 'غير محدد', colorClass: 'text-slate-500', isUrgent: false }; const today = new Date(); today.setHours(0, 0, 0, 0); const due = new Date(dueDate); due.setHours(0, 0, 0, 0); const diffTime = due.getTime() - today.getTime(); const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); if (diffDays < 0) { const days = Math.abs(diffDays); return { text: `متأخر منذ ${days} ${days === 1 ? 'يوم' : 'أيام'}`, colorClass: 'text-rose-400', isUrgent: true }; } if (diffDays === 0) { return { text: 'مستحق اليوم', colorClass: 'text-amber-400 font-bold', isUrgent: true }; } if (diffDays <= 7) { return { text: `بعد ${diffDays} ${diffDays === 1 ? 'يوم' : 'أيام'}`, colorClass: 'text-amber-400', isUrgent: true }; } return { text: `في ${new Date(dueDate).toLocaleDateString('ar-LY', {day: '2-digit', month: 'short'})}`, colorClass: 'text-slate-400', isUrgent: false }; };
 const formatCurrency = (amount: number) => { const options: Intl.NumberFormatOptions = { style: 'currency', currency: 'LYD', }; if (amount % 1 === 0) { options.minimumFractionDigits = 0; options.maximumFractionDigits = 0; } else { options.minimumFractionDigits = 2; options.maximumFractionDigits = 2; } return new Intl.NumberFormat('ar-LY', options).format(amount).replace('LYD', 'د.ل'); };
 const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; }> = ({ children, title, onClose }) => ( <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"> <div className="glass-card bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-white/10 shadow-2xl animate-slide-up"> <div className="flex justify-between items-center mb-6"> <h3 className="text-xl font-bold text-white">{title}</h3> <button onClick={onClose} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 transition-colors"><XMarkIcon className="w-5 h-5 text-slate-400" /></button> </div> {children} </div> </div> );
-const DebtForm: React.FC<{ debt?: Debt; onSave: () => void; onCancel: () => void; contacts: Contact[]; }> = ({ debt, onSave, onCancel, contacts }) => { const toast = useToast(); const [type, setType] = useState<'for_you' | 'on_you'>(debt?.type || 'on_you'); const [amount, setAmount] = useState(debt?.amount || ''); const [contactId, setContactId] = useState(debt?.contact_id || ''); const [dueDate, setDueDate] = useState(debt?.due_date ? new Date(debt.due_date).toISOString().split('T')[0] : ''); const [description, setDescription] = useState(debt?.description || ''); const [isSaving, setIsSaving] = useState(false); const handleSubmit = async (e: React.FormEvent) => { e.preventDefault(); setIsSaving(true); const debtData = { type, amount: Number(amount), contact_id: contactId || null, due_date: dueDate || null, description, paid: debt?.paid || false, }; const { error } = debt?.id ? await supabase.from('debts').update(debtData).eq('id', debt.id) : await supabase.from('debts').insert(debtData); if (error) { console.error('Error saving debt:', error.message); toast.error('حدث خطأ أثناء حفظ الدين.'); } else { onSave(); } setIsSaving(false); }; return ( <form onSubmit={handleSubmit} className="space-y-4"> <div> <label className="block text-sm font-medium text-slate-300 mb-2">نوع الدين</label> <div className="flex gap-3"> <button type="button" onClick={() => setType('on_you')} className={`flex-1 py-3 rounded-xl transition font-bold ${type === 'on_you' ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/20' : 'bg-slate-800 text-slate-400'}`}>دين عليك</button> <button type="button" onClick={() => setType('for_you')} className={`flex-1 py-3 rounded-xl transition font-bold ${type === 'for_you' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'bg-slate-800 text-slate-400'}`}>دين لك</button> </div> </div> <div> <label htmlFor="amount" className="block text-sm font-medium text-slate-300 mb-1">المبلغ</label> <input type="number" step="0.01" id="amount" value={amount} onChange={e => setAmount(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" /> </div> <div> <label htmlFor="contact" className="block text-sm font-medium text-slate-300 mb-1">جهة الاتصال (اختياري)</label> <select id="contact" value={contactId} onChange={e => setContactId(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none"> <option value="">اختر اسم</option> {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)} </select> </div> <div> <label htmlFor="due_date" className="block text-sm font-medium text-slate-300 mb-1">تاريخ الاستحقاق (اختياري)</label> <input type="date" id="due_date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" /> </div> <div> <label htmlFor="description" className="block text-sm font-medium text-slate-300 mb-1">الوصف (اختياري)</label> <textarea id="description" value={description} onChange={e => setDescription(e.target.value)} rows={2} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none"></textarea> </div> <div className="flex justify-end gap-3 pt-4"> <button type="button" onClick={onCancel} className="py-3 px-6 text-slate-400 hover:text-white font-bold transition">إلغاء</button> <button type="submit" disabled={isSaving} className="flex-1 py-3 px-6 bg-cyan-600 hover:bg-cyan-500 rounded-xl transition font-bold text-white shadow-lg shadow-cyan-900/20 disabled:bg-slate-500"> {isSaving ? 'جاري الحفظ...' : 'حفظ'} </button> </div> </form> ); };
+
+const DebtForm: React.FC<{ debt?: Debt; onSave: () => void; onCancel: () => void; contacts: Contact[]; }> = ({ debt, onSave, onCancel, contacts }) => {
+    const toast = useToast();
+    const [type, setType] = useState<'for_you' | 'on_you'>(debt?.type || 'on_you');
+    const [amount, setAmount] = useState(debt?.amount || '');
+    const [contactId, setContactId] = useState(debt?.contact_id || '');
+    const [dueDate, setDueDate] = useState(debt?.due_date ? new Date(debt.due_date).toISOString().split('T')[0] : '');
+    const [description, setDescription] = useState(debt?.description || '');
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSaving(true);
+        const debtData = {
+            type,
+            amount: Number(amount),
+            contact_id: contactId || null,
+            due_date: dueDate || null,
+            description,
+            paid: debt?.paid || false,
+        };
+
+        const { error } = debt?.id
+            ? await supabase.from('debts').update(debtData).eq('id', debt.id)
+            : await supabase.from('debts').insert(debtData);
+
+        if (error) {
+            console.error('Error saving debt:', error.message);
+            toast.error('حدث خطأ أثناء حفظ الدين.');
+        } else {
+            onSave();
+        }
+        setIsSaving(false);
+    };
+
+    const isPayable = type === 'on_you';
+    const activeColor = isPayable ? 'rose' : 'emerald';
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-6">
+            
+            {/* Type Toggles */}
+            <div className="flex bg-slate-950/50 p-1 rounded-2xl border border-white/5 relative">
+                <button 
+                    type="button" 
+                    onClick={() => setType('on_you')} 
+                    className={`flex-1 py-3 rounded-xl font-bold transition-all duration-300 relative z-10 ${type === 'on_you' ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/20' : 'text-slate-400 hover:text-white'}`}
+                >
+                    عليك (سداد)
+                </button>
+                <button 
+                    type="button" 
+                    onClick={() => setType('for_you')} 
+                    className={`flex-1 py-3 rounded-xl font-bold transition-all duration-300 relative z-10 ${type === 'for_you' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-400 hover:text-white'}`}
+                >
+                    لك (تحصيل)
+                </button>
+            </div>
+
+            {/* Amount Input */}
+            <div className="text-center space-y-2 relative py-4">
+                {/* Glow Effect */}
+                <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 blur-[60px] opacity-40 rounded-full transition-colors duration-500 ${isPayable ? 'bg-rose-600' : 'bg-emerald-600'}`}></div>
+                
+                <label className="text-slate-400 text-sm font-medium relative z-10">المبلغ</label>
+                <div className="relative inline-block w-full z-10">
+                    <input 
+                        type="number" 
+                        step="0.01" 
+                        value={amount} 
+                        onChange={e => setAmount(e.target.value)} 
+                        placeholder="0" 
+                        required 
+                        className={`w-full bg-transparent text-center text-7xl font-black placeholder-slate-800 focus:outline-none py-2 tracking-tighter transition-colors duration-300 ${isPayable ? 'text-rose-400 drop-shadow-[0_2px_10px_rgba(244,63,94,0.3)]' : 'text-emerald-400 drop-shadow-[0_2px_10px_rgba(16,185,129,0.3)]'}`} 
+                        autoFocus 
+                    />
+                </div>
+            </div>
+
+            {/* Details Section */}
+            <div className="space-y-4 bg-slate-800/30 p-1 rounded-3xl border border-white/5">
+                
+                {/* Contact Selection */}
+                <div className="space-y-1 px-1">
+                    <label className="text-xs font-bold text-slate-500 px-2 flex items-center gap-2">
+                        <ContactsIcon className="w-3 h-3"/> جهة الاتصال
+                    </label>
+                    <div className="relative">
+                        <select 
+                            value={contactId} 
+                            onChange={e => setContactId(e.target.value)} 
+                            className="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 pl-10 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none appearance-none"
+                        >
+                            <option value="">اختر اسم...</option>
+                            {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                        <ContactsIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none"/>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 pt-1 px-1">
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-500 px-2 flex items-center gap-2">
+                            <CalendarDaysIcon className="w-3 h-3"/> تاريخ الاستحقاق
+                        </label>
+                        <div className="relative">
+                            <input 
+                                type="date" 
+                                value={dueDate} 
+                                onChange={e => setDueDate(e.target.value)} 
+                                className="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 pl-10 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none" 
+                            />
+                            <CalendarDaysIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none"/>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="space-y-1 pb-1 px-1">
+                    <label className="text-xs font-bold text-slate-500 px-2 flex items-center gap-2">
+                        <DocumentTextIcon className="w-3 h-3"/> التفاصيل
+                    </label>
+                    <div className="relative">
+                        <textarea 
+                            value={description} 
+                            onChange={e => setDescription(e.target.value)} 
+                            placeholder="وصف الدين (اختياري)..." 
+                            rows={2} 
+                            className="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 pl-10 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none resize-none"
+                        ></textarea>
+                        <PencilSquareIcon className="absolute left-3 top-4 w-5 h-5 text-slate-500 pointer-events-none"/>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
+                <button type="button" onClick={onCancel} className="py-3 px-6 text-slate-400 hover:text-white font-bold transition rounded-xl hover:bg-white/5">إلغاء</button>
+                <button 
+                    type="submit" 
+                    disabled={isSaving} 
+                    className={`flex-1 py-3 px-6 rounded-xl transition font-bold text-white shadow-lg text-lg flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed ${isPayable ? 'bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-rose-900/30' : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-900/30'}`}
+                >
+                    {isSaving ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : 'حفظ الدين'}
+                </button>
+            </div>
+        </form>
+    );
+};
+
 const SettleDebtModal: React.FC<{ debt: Debt; accounts: Account[]; onConfirm: (accountId: string) => void; onCancel: () => void; }> = ({ debt, accounts, onConfirm, onCancel }) => { const toast = useToast(); const [selectedAccountId, setSelectedAccountId] = useState(''); const [isSaving, setIsSaving] = useState(false); const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (!selectedAccountId) { toast.warning("يرجى اختيار حساب لإتمام العملية."); return; } setIsSaving(true); onConfirm(selectedAccountId); }; const actionText = debt.type === 'on_you' ? 'خصم من' : 'إيداع في'; return ( <form onSubmit={handleSubmit} className="space-y-6"> <p className="text-center text-slate-300 text-lg"> تسوية دين لـ <span className="font-bold text-white block mt-1 text-xl">{debt.contacts?.name || 'شخص ما'}</span> </p> <div className="bg-slate-800/50 p-4 rounded-2xl text-center border border-white/5"> <p className="text-sm text-slate-400 font-medium mb-1">المبلغ</p> <p className={`text-4xl font-extrabold ${debt.type === 'on_you' ? 'text-rose-400' : 'text-emerald-400'}`}> {formatCurrency(debt.amount)} </p> </div> <div> <label htmlFor="account" className="block text-sm font-medium text-slate-300 mb-2">{actionText} حساب</label> <select id="account" value={selectedAccountId} onChange={e => setSelectedAccountId(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" > <option value="" disabled>اختر حساب</option> {accounts.map(acc => <option key={acc.id} value={acc.id}>{`${acc.name} (${formatCurrency(acc.balance)})`}</option>)} </select> </div> <div className="flex justify-end gap-3 pt-4"> <button type="button" onClick={onCancel} className="py-3 px-6 text-slate-400 hover:text-white font-bold transition">إلغاء</button> <button type="submit" disabled={isSaving} className="flex-1 py-3 px-6 bg-cyan-600 hover:bg-cyan-500 rounded-xl transition font-bold text-white shadow-lg shadow-cyan-900/20 disabled:bg-slate-500"> {isSaving ? 'جاري التأكيد...' : 'تأكيد التسوية'} </button> </div> </form> ); };
 const DebtDetailContent: React.FC<{ debt: Debt, onSelectContact: (contactId: string) => void, onClose: () => void; }> = ({ debt, onSelectContact, onClose }) => { const dueDateInfo = getDueDateInfo(debt.due_date); const handleContactClick = () => { if (debt.contact_id) { onSelectContact(debt.contact_id); onClose(); } }; return ( <div className="space-y-6"> <div className="text-center border-b border-white/10 pb-6"> <p className="text-sm text-slate-400 font-medium mb-1">{debt.description || (debt.type === 'on_you' ? 'مبلغ مستحق عليك' : 'مبلغ مستحق لك')}</p> <p className={`text-5xl font-extrabold tracking-tight ${debt.type === 'on_you' ? 'text-rose-400' : 'text-emerald-400'}`}> {formatCurrency(debt.amount)} </p> <div className="text-xl font-bold mt-3"> {debt.contacts?.name && debt.contact_id ? ( <> <span className="text-slate-300">لـ </span> <button onClick={handleContactClick} className="text-cyan-400 hover:text-cyan-300 underline decoration-cyan-500/30 hover:decoration-cyan-500 transition-all focus:outline-none"> {debt.contacts.name} </button> </> ) : ( <span className="text-slate-500">غير مرتبط بجهة اتصال</span> )} </div> </div> <div className="space-y-3 text-sm"> <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-white/5"> <span className="text-slate-400 font-medium">الحالة</span> <span className={`font-bold px-3 py-1 rounded-lg text-xs ${debt.paid ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-300'}`}> {debt.paid ? 'مدفوع' : dueDateInfo.text} </span> </div> <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-white/5"> <span className="text-slate-400 font-medium">تاريخ الاستحقاق</span> <span className="font-bold text-white"> {debt.due_date ? new Date(debt.due_date).toLocaleDateString('ar-LY', { day: 'numeric', month: 'long', year: 'numeric' }) : 'غير محدد'} </span> </div> {debt.account_id && debt.accounts && ( <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-white/5"> <span className="text-slate-400 font-medium">تم الإقراض من حساب</span> <span className="font-bold text-white"> {debt.accounts.name} </span> </div> )} <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-white/5"> <span className="text-slate-400 font-medium">تاريخ الإنشاء</span> <span className="font-bold text-white"> {new Date(debt.created_at).toLocaleDateString('ar-LY', { day: 'numeric', month: 'long', year: 'numeric' })} </span> </div> </div> </div> ); };
 type DebtFilterValues = { status: 'all' | 'unpaid' | 'paid'; dueDateStatus: 'all' | 'overdue' | 'due_soon'; };
