@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Bars3Icon as MenuIcon, ArrowLeftIcon, BellIcon, ClockIcon, ExclamationTriangleIcon } from './icons';
+import { Bars3Icon as MenuIcon, ArrowLeftIcon, ArrowRightIcon, BellIcon, ClockIcon, ExclamationTriangleIcon } from './icons';
 import { Page, Debt } from '../types';
 
 interface HeaderProps {
@@ -67,9 +67,15 @@ const Header: React.FC<HeaderProps> = ({ activePage, onMenuClick, isProfilePage,
         <header className="sticky top-0 z-20 glass-strong">
             <div className="max-w-5xl mx-auto flex items-center justify-between h-16 px-4 lg:px-8">
                 <div className="flex-1 flex justify-start items-center gap-2">
-                     <button onClick={onMenuClick} className="p-2 -mr-2 text-slate-300 hover:text-cyan-400 transition-colors rounded-xl hover:bg-white/5 active:scale-95">
-                        <MenuIcon className="w-7 h-7" />
-                    </button>
+                    {isProfilePage && onBack ? (
+                        <button onClick={onBack} className="p-2 -mr-2 text-slate-300 hover:text-cyan-400 transition-colors rounded-xl hover:bg-white/5 active:scale-95">
+                            <ArrowRightIcon className="w-6 h-6" />
+                        </button>
+                    ) : (
+                        <button onClick={onMenuClick} className="p-2 -mr-2 text-slate-300 hover:text-cyan-400 transition-colors rounded-xl hover:bg-white/5 active:scale-95">
+                            <MenuIcon className="w-7 h-7" />
+                        </button>
+                    )}
                 </div>
                 
                 <div className="flex-1 flex justify-center">
@@ -160,12 +166,6 @@ const Header: React.FC<HeaderProps> = ({ activePage, onMenuClick, isProfilePage,
                             </div>
                         )}
                     </div>
-
-                    {isProfilePage && onBack && (
-                        <button onClick={onBack} className="p-2 -ml-2 text-slate-300 hover:text-cyan-400 transition-colors rounded-xl hover:bg-white/5 active:scale-95">
-                            <ArrowLeftIcon className="w-6 h-6" />
-                        </button>
-                    )}
                 </div>
             </div>
         </header>

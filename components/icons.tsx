@@ -181,6 +181,13 @@ export const ArrowLeftIcon: React.FC<IconProps> = ({ className }) => (
   </IconWrapper>
 );
 
+export const ArrowRightIcon: React.FC<IconProps> = ({ className }) => (
+  <IconWrapper className={className}>
+    <path d="M5 12h14" />
+    <path d="m12 5 7 7-7 7" />
+  </IconWrapper>
+);
+
 export const WalletIcon: React.FC<IconProps> = ({ className }) => (
     <IconWrapper className={className}>
         <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1" />
@@ -690,6 +697,7 @@ export const iconMap: { [key: string]: React.FC<IconProps> } = {
     ChartPieIcon,
     ClipboardDocumentIcon,
     ArrowLeftIcon,
+    ArrowRightIcon,
     WalletIcon,
     ArrowDownIcon,
     ArrowUpIcon,
