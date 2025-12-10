@@ -10,123 +10,30 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        /* Global Modern Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #334155;
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #475569;
-        }
-
-        /* Masonry for Notes */
-        .masonry-grid {
-            column-count: 2;
-            column-gap: 1rem;
-        }
-        .masonry-item {
-            display: inline-block;
-            width: 100%;
-            margin-bottom: 1rem;
-            break-inside: avoid;
-        }
-        @media (min-width: 640px) {
-            .masonry-grid { column-gap: 1.5rem; }
-            .masonry-item { margin-bottom: 1.5rem; }
-        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        .masonry-grid { column-count: 2; column-gap: 1rem; }
+        .masonry-item { display: inline-block; width: 100%; margin-bottom: 1rem; break-inside: avoid; }
+        @media (min-width: 640px) { .masonry-grid { column-gap: 1.5rem; } .masonry-item { margin-bottom: 1.5rem; } }
         @media (min-width: 768px) { .masonry-grid { column-count: 3; } }
         @media (min-width: 1024px) { .masonry-grid { column-count: 4; } }
-
-        /* Content Editable tweaks */
         [contenteditable] { scrollbar-width: none; }
         [contenteditable]::-webkit-scrollbar { display: none; }
-        [contenteditable]:empty:before {
-            content: attr(data-placeholder);
-            color: #94a3b8;
-            cursor: text;
-            pointer-events: none;
-        }
-
-        /* Note fade effect */
-        .note-card-content {
-            max-height: 120px;
-            overflow: hidden;
-            position: relative;
-            -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
-            mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
-        }
-
-        /* Glassmorphism Utilities */
-        .glass {
-            background: rgba(30, 41, 59, 0.4);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-        }
-        
-        .glass-strong {
-            background: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .glass-card {
-            background: linear-gradient(145deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.4) 100%);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.03);
-        }
-
-        /* Gradient Text */
-        .text-gradient {
-            background-clip: text;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-image: linear-gradient(to right, #22d3ee, #3b82f6);
-        }
+        [contenteditable]:empty:before { content: attr(data-placeholder); color: #94a3b8; cursor: text; pointer-events: none; }
+        .glass { background: rgba(30, 41, 59, 0.4); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); }
+        .glass-strong { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        .glass-card { background: linear-gradient(145deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.4) 100%); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.03); }
     </style>
     <script>
         tailwind.config = {
           theme: {
             extend: {
-              fontFamily: {
-                sans: ['Cairo', 'sans-serif'],
-              },
-              colors: {
-                  slate: {
-                      850: '#172033', 
-                      900: '#0f172a',
-                      950: '#020617',
-                  }
-              },
-              animation: {
-                'fade-in': 'fadeIn 0.4s ease-out forwards',
-                'slide-up': 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-                'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                'float': 'float 6s ease-in-out infinite',
-              },
-              keyframes: {
-                fadeIn: {
-                  '0%': { opacity: 0 },
-                  '100%': { opacity: 1 },
-                },
-                slideUp: {
-                    '0%': { transform: 'translateY(20px)', opacity: 0 },
-                    '100%': { transform: 'translateY(0)', opacity: 1 },
-                },
-                float: {
-                    '0%, 100%': { transform: 'translateY(0)' },
-                    '50%': { transform: 'translateY(-10px)' },
-                }
-              }
+              fontFamily: { sans: ['Cairo', 'sans-serif'] },
+              colors: { slate: { 850: '#172033', 900: '#0f172a', 950: '#020617' } },
+              animation: { 'fade-in': 'fadeIn 0.4s ease-out forwards', 'slide-up': 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards', 'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite', 'float': 'float 6s ease-in-out infinite' },
+              keyframes: { fadeIn: { '0%': { opacity: 0 }, '100%': { opacity: 1 } }, slideUp: { '0%': { transform: 'translateY(20px)', opacity: 0 }, '100%': { transform: 'translateY(0)', opacity: 1 } }, float: { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-10px)' } } }
             }
           }
         }
@@ -134,18 +41,18 @@
 <script type="importmap">
 {
   "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.44.4/+esm",
-    "chart.js": "https://aistudiocdn.com/chart.js@^4.5.1",
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "@tanstack/react-query": "https://aistudiocdn.com/@tanstack/react-query@^5.90.12",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.2",
+    "vite": "https://aistudiocdn.com/vite@^7.2.7",
     "chart.js/": "https://aistudiocdn.com/chart.js@^4.5.1/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^0.14.0",
-    "@tanstack/react-query": "https://esm.sh/@tanstack/react-query@5.51.11?external=react,react-dom"
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.32.0",
+    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.87.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/"
   }
 }
 </script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-200 selection:bg-cyan-500/30 selection:text-cyan-100" style="background-image: radial-gradient(circle at 50% -20%, #1e293b 0%, #0f172a 40%, #020617 80%); min-height: 100vh; background-attachment: fixed;">
     <div id="root"></div>

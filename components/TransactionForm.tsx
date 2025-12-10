@@ -34,44 +34,66 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ transaction, onSave, 
         const newAmountValue = Number(amount);
 
         try {
-            const finalDate = new Date(`${date}T00:00:00`); // Local midnight on selected day
-            const originalDateString = transaction?.date ? new Date(transaction.date).toISOString().split('T')[0] : null;
-
-            // If it's an update and the date part hasn't changed, preserve the original time.
-            if (isUpdate && transaction?.date && date === originalDateString) {
+            const finalDate = new Date(`${date}T00:00:00`); 
+            
+            if (isUpdate && transaction?.date && date === new Date(transaction.date).toISOString().split('T')[0]) {
                 const originalDate = new Date(transaction.date);
                 finalDate.setHours(originalDate.getHours());
                 finalDate.setMinutes(originalDate.getMinutes());
-                finalDate.setSeconds(originalDate.getSeconds());
             } else {
-                // For new transactions or if the date was changed on an existing one, use the current time.
                 const now = new Date();
                 finalDate.setHours(now.getHours());
                 finalDate.setMinutes(now.getMinutes());
-                finalDate.setSeconds(now.getSeconds());
             }
-            
-            // Using an RPC is safer for handling balance updates atomically.
-            // This prevents race conditions and ensures data integrity.
-            const { error } = await supabase.rpc('save_transaction_and_update_balance', {
-                p_is_update: isUpdate,
-                p_transaction_id: isUpdate ? transaction.id : null,
-                p_account_id: accountId,
-                p_type: type,
-                p_amount: newAmountValue,
-                p_date: finalDate.toISOString(),
-                p_category_id: categoryId || null,
-                p_notes: notes,
-                p_old_account_id: isUpdate ? transaction.account_id : null,
-                p_old_type: isUpdate ? transaction.type : null,
-                p_old_amount: isUpdate ? transaction.amount : null,
-            });
 
-            if (error) throw error;
+            const transactionData = {
+                account_id: accountId,
+                type,
+                amount: newAmountValue,
+                date: finalDate.toISOString(),
+                category_id: categoryId || null,
+                notes
+            };
+
+            if (isUpdate && transaction) {
+                // 1. Revert old transaction effect
+                if (transaction.account_id) {
+                    const { data: oldAccount } = await supabase.from('accounts').select('balance').eq('id', transaction.account_id).single();
+                    if (oldAccount) {
+                        const revertAmount = transaction.type === 'income' ? -transaction.amount : transaction.amount;
+                        await supabase.from('accounts').update({ balance: oldAccount.balance + revertAmount }).eq('id', transaction.account_id);
+                    }
+                }
+
+                // 2. Apply new transaction effect
+                const { data: newAccount } = await supabase.from('accounts').select('balance').eq('id', accountId).single();
+                if (!newAccount) throw new Error("Account not found");
+                
+                const applyAmount = type === 'income' ? newAmountValue : -newAmountValue;
+                await supabase.from('accounts').update({ balance: newAccount.balance + applyAmount }).eq('id', accountId);
+
+                // 3. Update Transaction Record
+                const { error } = await supabase.from('transactions').update(transactionData).eq('id', transaction.id);
+                if (error) throw error;
+
+            } else {
+                // Insert Logic
+                const { data: account } = await supabase.from('accounts').select('balance').eq('id', accountId).single();
+                if (!account) throw new Error("Account not found");
+
+                const balanceChange = type === 'income' ? newAmountValue : -newAmountValue;
+                
+                const { error: accError } = await supabase.from('accounts').update({ balance: account.balance + balanceChange }).eq('id', accountId);
+                if (accError) throw accError;
+
+                const { error: txError } = await supabase.from('transactions').insert(transactionData);
+                if (txError) throw txError;
+            }
+
             onSave();
         } catch (error: any) {
             console.error('Error saving transaction:', error.message);
-            toast.error('حدث خطأ أثناء حفظ المعاملة. تأكد من أن دالة قاعدة البيانات RPC موجودة.');
+            toast.error('حدث خطأ أثناء حفظ المعاملة.');
         } finally {
             setIsSaving(false);
         }
@@ -84,40 +106,40 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ transaction, onSave, 
             <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1">نوع المعاملة</label>
                 <div className="flex gap-4">
-                    <button type="button" onClick={() => { setType('expense'); setCategoryId(''); }} className={`w-full p-2 rounded-md ${type === 'expense' ? 'bg-red-500 text-white' : 'bg-slate-700'}`}>مصروف</button>
-                    <button type="button" onClick={() => { setType('income'); setCategoryId(''); }} className={`w-full p-2 rounded-md ${type === 'income' ? 'bg-green-500 text-white' : 'bg-slate-700'}`}>دخل</button>
+                    <button type="button" onClick={() => { setType('expense'); setCategoryId(''); }} className={`w-full p-2 rounded-xl font-bold transition-all ${type === 'expense' ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'bg-slate-800 text-slate-400'}`}>مصروف</button>
+                    <button type="button" onClick={() => { setType('income'); setCategoryId(''); }} className={`w-full p-2 rounded-xl font-bold transition-all ${type === 'income' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-slate-800 text-slate-400'}`}>دخل</button>
                 </div>
             </div>
             <div>
                 <label htmlFor="amount" className="block text-sm font-medium text-slate-300 mb-1">المبلغ</label>
-                <input type="number" step="0.01" id="amount" value={amount} onChange={e => setAmount(e.target.value)} required className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white focus:ring-cyan-500 focus:border-cyan-500" />
+                <input type="number" step="0.01" id="amount" value={amount} onChange={e => setAmount(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none font-bold text-lg" placeholder="0.00" />
             </div>
              <div>
                 <label htmlFor="account" className="block text-sm font-medium text-slate-300 mb-1">الحساب</label>
-                <select id="account" value={accountId} onChange={e => setAccountId(e.target.value)} required className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white focus:ring-cyan-500 focus:border-cyan-500">
+                <select id="account" value={accountId} onChange={e => setAccountId(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
                     <option value="" disabled>اختر حساب</option>
                     {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
                 </select>
             </div>
              <div>
                 <label htmlFor="category" className="block text-sm font-medium text-slate-300 mb-1">الفئة</label>
-                <select id="category" value={categoryId || ''} onChange={e => setCategoryId(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white focus:ring-cyan-500 focus:border-cyan-500">
+                <select id="category" value={categoryId || ''} onChange={e => setCategoryId(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
                     <option value="">بدون فئة</option>
                     {filteredCategories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
                 </select>
             </div>
              <div>
                 <label htmlFor="date" className="block text-sm font-medium text-slate-300 mb-1">التاريخ</label>
-                <input type="date" id="date" value={date} onChange={e => setDate(e.target.value)} required className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white focus:ring-cyan-500 focus:border-cyan-500" />
+                <input type="date" id="date" value={date} onChange={e => setDate(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
             </div>
              <div>
                 <label htmlFor="notes" className="block text-sm font-medium text-slate-300 mb-1">ملاحظات</label>
-                <input type="text" id="notes" value={notes} onChange={e => setNotes(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white focus:ring-cyan-500 focus:border-cyan-500" />
+                <input type="text" id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="وصف للمعاملة..." className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
             </div>
-            <div className="flex justify-end gap-3 pt-4">
-                <button type="button" onClick={onCancel} className="py-2 px-4 bg-slate-600 hover:bg-slate-500 rounded-md transition">إلغاء</button>
-                <button type="submit" disabled={isSaving} className="py-2 px-4 bg-cyan-600 hover:bg-cyan-500 rounded-md transition disabled:bg-slate-500 disabled:cursor-not-allowed">
-                    {isSaving ? 'جاري الحفظ...' : 'حفظ'}
+            <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
+                <button type="button" onClick={onCancel} className="py-3 px-6 text-slate-400 hover:text-white font-bold transition">إلغاء</button>
+                <button type="submit" disabled={isSaving} className="py-3 px-8 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl transition font-bold shadow-lg disabled:opacity-70">
+                    {isSaving ? 'جاري الحفظ...' : 'حفظ المعاملة'}
                 </button>
             </div>
         </form>
