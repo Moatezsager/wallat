@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Page } from './types';
+import { Page, Debt } from './types';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import HomePage from './components/HomePage';
@@ -71,16 +71,16 @@ function AppContent() {
   };
 
   // Use React Query for Debt Notifications
-  const { data: debtNotificationCount = 0 } = useQuery({
+  const { data: debtNotifications = [] } = useQuery<Debt[]>({
     queryKey: ['debtNotifications', refreshTrigger], // Depend on refreshTrigger
     queryFn: async () => {
         const { data: debtData, error: debtError } = await supabase
         .from('debts')
-        .select('due_date')
+        .select('*, contacts(name)') // Fetch contact names too for notification display
         .eq('paid', false)
         .not('due_date', 'is', null);
 
-        if (debtError || !debtData) return 0;
+        if (debtError || !debtData) return [];
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -89,12 +89,15 @@ function AppContent() {
         sevenDaysFromNow.setHours(23, 59, 59, 999);
         sevenDaysFromNow.setDate(today.getDate() + 7);
 
-        return debtData.filter(debt => {
+        const filteredDebts = debtData.filter(debt => {
           const dueDate = new Date(debt.due_date!);
-          if (dueDate < today) return true;
-          if (dueDate >= today && dueDate <= sevenDaysFromNow) return true;
+          if (dueDate < today) return true; // Overdue
+          if (dueDate >= today && dueDate <= sevenDaysFromNow) return true; // Due soon
           return false;
-        }).length;
+        });
+        
+        // Sort: Overdue first, then upcoming
+        return (filteredDebts as unknown as Debt[]).sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime());
     },
     enabled: isAuthenticated, // Only fetch if authenticated
     refetchInterval: 60000, // Check every minute
@@ -187,12 +190,14 @@ function AppContent() {
             isProfilePage={!!activeContactId}
             profileName={activeContactName}
             onBack={handleBackToContacts}
+            notifications={debtNotifications}
+            onNavigate={(page) => setActivePage(page)}
         />
         <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} activePage={activePage} setActivePage={setActivePage} />
         <main className="max-w-5xl mx-auto p-4 md:p-6 animate-fade-in">
             {renderPage()}
         </main>
-        <BottomNav activePage={activePage} setActivePage={setActivePage} debtNotificationCount={debtNotificationCount} />
+        <BottomNav activePage={activePage} setActivePage={setActivePage} debtNotificationCount={debtNotifications.length} />
     </div>
   );
 }
