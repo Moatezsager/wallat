@@ -417,6 +417,45 @@ const TransactionDetailContent: React.FC<{ transaction: Transaction; onEdit: () 
     );
 };
 
+// --- Helper to parse and highlight activity text ---
+const renderFormattedActivity = (text: string) => {
+    // Splits by keywords and currency patterns while keeping the delimiters (capturing groups)
+    const regex = /(\d+(?:\.\d+)?\s*د\.ل)|(إضافة|تسجيل|جديد)|(تعديل|تسوية|تحويل)|(حذف|مصروف|عليك|سداد)|(إيراد|لك|تحصيل)|(حساب|دين|معاملة|لـ|مع|في|من)/g;
+    
+    const parts = text.split(regex);
+
+    return parts.map((part, i) => {
+        if (!part) return null;
+        
+        // Amount (Amber)
+        if (part.match(/\d+(?:\.\d+)?\s*د\.ل/)) 
+            return <span key={i} className="text-amber-400 font-bold font-mono mx-1 bg-amber-400/10 px-1.5 py-0.5 rounded text-sm">{part}</span>;
+        
+        // Positive Actions (Cyan)
+        if (['إضافة', 'تسجيل', 'جديد'].includes(part)) 
+            return <span key={i} className="text-cyan-400 font-bold">{part}</span>;
+        
+        // Neutral/Edit Actions (Blue)
+        if (['تعديل', 'تسوية', 'تحويل'].includes(part)) 
+            return <span key={i} className="text-blue-400 font-bold">{part}</span>;
+        
+        // Negative/Expense words (Rose)
+        if (['حذف', 'مصروف', 'عليك', 'سداد'].includes(part)) 
+            return <span key={i} className="text-rose-400 font-bold">{part}</span>;
+        
+        // Income words (Emerald)
+        if (['إيراد', 'لك', 'تحصيل'].includes(part)) 
+            return <span key={i} className="text-emerald-400 font-bold">{part}</span>;
+            
+        // Prepositions/Objects (Slate Light)
+        if (['حساب', 'دين', 'معاملة', 'لـ', 'مع', 'في', 'من'].includes(part))
+            return <span key={i} className="text-slate-400 font-normal mx-0.5">{part}</span>;
+
+        // Default text
+        return <span key={i} className="text-slate-200">{part}</span>;
+    });
+};
+
 const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (description?: string) => void; setActivePage: (page: Page) => void; }> = ({ refreshTrigger, handleDatabaseChange, setActivePage }) => {
     const [stats, setStats] = useState({ totalBalance: 0, debtsForYou: 0, debtsOnYou: 0 });
     const [lastTransactions, setLastTransactions] = useState<Transaction[]>([]);
@@ -488,25 +527,31 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
 
             {/* Top Status Bar: Last Activity */}
             {lastActivity && (
-                <div className="glass-card rounded-2xl p-3 px-4 border border-white/5 bg-slate-900/60 backdrop-blur-md shadow-sm flex flex-col gap-1.5 animate-fade-in">
-                    <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-1">
+                <div className="glass-card rounded-2xl p-4 border border-white/10 bg-gradient-to-r from-slate-900/80 to-slate-900/60 backdrop-blur-md shadow-lg flex flex-col gap-2 animate-fade-in relative overflow-hidden group">
+                    {/* Subtle Activity Glow */}
+                    <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500/50"></div>
+                    
+                    <div className="flex items-start justify-between border-b border-white/5 pb-2 mb-1">
                         <div className="flex items-center gap-2">
-                             <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse shrink-0 shadow-[0_0_8px_rgba(6,182,212,0.6)]"></div>
-                             <span className="text-xs text-cyan-400 font-bold tracking-wide">آخر نشاط</span>
+                             <div className="relative">
+                                <div className="w-2.5 h-2.5 rounded-full bg-cyan-500 animate-pulse shadow-[0_0_10px_rgba(6,182,212,0.8)]"></div>
+                                <div className="absolute inset-0 rounded-full bg-cyan-400 animate-ping opacity-20"></div>
+                             </div>
+                             <span className="text-xs text-cyan-400 font-bold tracking-wide uppercase">آخر نشاط</span>
                         </div>
                         <div className="flex items-center gap-2 shrink-0 text-[10px] text-slate-400 font-mono">
-                             <div className="flex items-center gap-1 bg-slate-800/50 px-2 py-0.5 rounded-lg border border-white/5 shadow-sm">
+                             <div className="flex items-center gap-1 bg-slate-800/80 px-2 py-1 rounded-lg border border-white/5 shadow-sm">
                                 <CalendarDaysIcon className="w-3 h-3 text-cyan-500/70" />
                                 <span className="tracking-tighter">{new Date(lastActivity.date).toLocaleDateString('ar-LY')}</span>
                             </div>
-                            <div className="flex items-center gap-1 bg-slate-800/50 px-2 py-0.5 rounded-lg border border-white/5 shadow-sm">
+                            <div className="flex items-center gap-1 bg-slate-800/80 px-2 py-1 rounded-lg border border-white/5 shadow-sm">
                                 <ClockIcon className="w-3 h-3 text-cyan-500/70" />
                                 <span>{lastActivity.time.slice(0, 5)}</span>
                             </div>
                         </div>
                     </div>
-                    <p className="text-sm text-slate-200 font-medium pr-1 leading-relaxed">
-                        {lastActivity.description}
+                    <p className="text-sm text-slate-200 font-medium pr-1 leading-7">
+                        {renderFormattedActivity(lastActivity.description)}
                     </p>
                 </div>
             )}
