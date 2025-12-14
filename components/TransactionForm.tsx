@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Transaction, Account, Category } from '../types';
 import { useToast } from './Toast';
+import { logActivity } from '../lib/logger';
 
 interface TransactionFormProps {
     transaction?: Transaction;
@@ -11,6 +12,10 @@ interface TransactionFormProps {
     accounts: Account[];
     categories: Category[];
 }
+
+const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('ar-LY', { style: 'currency', currency: 'LYD', minimumFractionDigits: 0 }).format(amount).replace('LYD', 'د.ل');
+};
 
 const TransactionForm: React.FC<TransactionFormProps> = ({ transaction, onSave, onCancel, accounts, categories }) => {
     const toast = useToast();
@@ -55,6 +60,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ transaction, onSave, 
                 notes
             };
 
+            let logDescription = '';
+            const categoryName = categories.find(c => c.id === categoryId)?.name || 'غير مصنف';
+
             if (isUpdate && transaction) {
                 // 1. Revert old transaction effect
                 if (transaction.account_id) {
@@ -76,6 +84,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ transaction, onSave, 
                 const { error } = await supabase.from('transactions').update(transactionData).eq('id', transaction.id);
                 if (error) throw error;
 
+                logDescription = `تعديل معاملة (${type === 'income' ? 'إيراد' : 'مصروف'}): ${formatCurrency(newAmountValue)} - ${notes || categoryName}`;
+
             } else {
                 // Insert Logic
                 const { data: account } = await supabase.from('accounts').select('balance').eq('id', accountId).single();
@@ -88,8 +98,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ transaction, onSave, 
 
                 const { error: txError } = await supabase.from('transactions').insert(transactionData);
                 if (txError) throw txError;
+
+                logDescription = `إضافة معاملة (${type === 'income' ? 'إيراد' : 'مصروف'}): ${formatCurrency(newAmountValue)} - ${notes || categoryName}`;
             }
 
+            logActivity(logDescription);
             onSave();
         } catch (error: any) {
             console.error('Error saving transaction:', error.message);

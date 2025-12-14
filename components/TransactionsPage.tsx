@@ -11,6 +11,7 @@ import {
 } from './icons';
 import { useToast } from './Toast';
 import ConfirmDialog from './ConfirmDialog';
+import { logActivity } from '../lib/logger';
 
 const formatCurrency = (amount: number, currency: string = 'د.ل') => {
     const options: Intl.NumberFormatOptions = { style: 'currency', currency: 'LYD' };
@@ -381,6 +382,10 @@ const TransactionsPage: React.FC = () => {
             }
 
             await supabase.from('transactions').delete().eq('id', id);
+            
+            // Log Activity
+            logActivity(`حذف معاملة: ${formatCurrency(amount)} (${type === 'income' ? 'إيراد' : type === 'expense' ? 'مصروف' : 'تحويل'})`);
+
             handleSave('تم حذف المعاملة بنجاح');
         } catch (error: any) {
             console.error("Error deleting transaction:", error.message);
@@ -438,7 +443,7 @@ const TransactionsPage: React.FC = () => {
                                     const CategoryIcon = (categoryIconName && iconMap.hasOwnProperty(categoryIconName)) ? iconMap[categoryIconName] : null;
                                     return (
                                         <button key={tx.id} onClick={() => handleOpenDetailModal(tx)}
-                                            className="w-full text-right glass-card p-4 rounded-2xl flex justify-between items-center hover:bg-white/5 transition-all group border-transparent hover:border-white/10">
+                                            className="w-full text-right glass-card p-4 rounded-2xl flex justify-between items-center hover:bg-white/5 transition-all group border-transparent hover:border-white/10 active:scale-[0.98] duration-200 hover:shadow-lg hover:shadow-black/20">
                                             <div className="flex items-center gap-4">
                                                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-md transition-transform group-hover:scale-110 ${
                                                     tx.type === 'income' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 

@@ -8,6 +8,7 @@ import {
     PlusIcon, XMarkIcon, ArrowUpIcon, ArrowDownIcon, HandRaisedIcon, UserPlusIcon, ArrowLeftIcon, AccountsIcon, ScaleIcon, ArrowsRightLeftIcon, CurrencyDollarIcon,
     WalletIcon, BanknoteIcon, LandmarkIcon, BriefcaseIcon, CalendarDaysIcon, TagIcon, PencilSquareIcon, iconMap, CheckCircleIcon
 } from './icons';
+import { logActivity } from '../lib/logger';
 
 type ModalType = 'expense' | 'income' | 'transfer' | 'add-debt' | 'settle-debt' | 'add-account';
 
@@ -58,8 +59,13 @@ const AddAccountModal: React.FC<{ onSuccess: () => void; onCancel: () => void; }
         setIsSaving(true);
         const accountData = { name, type, balance: parseFloat(balance) || 0, currency };
         const { error } = await supabase.from('accounts').insert(accountData);
-        if (error) { console.error('Error saving account:', error.message); toast.error('حدث خطأ أثناء إنشاء الحساب'); } 
-        else { onSuccess(); }
+        if (error) { 
+            console.error('Error saving account:', error.message); 
+            toast.error('حدث خطأ أثناء إنشاء الحساب'); 
+        } else { 
+            logActivity(`إضافة حساب جديد: ${name} (رصيد افتتاحي: ${formatCurrency(parseFloat(balance) || 0)})`);
+            onSuccess(); 
+        }
         setIsSaving(false);
     };
     const types = [{ id: 'بنكي', icon: LandmarkIcon, label: 'بنكي' }, { id: 'نقدي', icon: BanknoteIcon, label: 'نقدي' }, { id: 'مخصص', icon: BriefcaseIcon, label: 'مخصص' }];
@@ -112,14 +118,25 @@ const TransactionModal: React.FC<{ type: 'income' | 'expense'; accounts: Account
         const numericAmount = Number(amount);
         const amountWithSign = type === 'income' ? numericAmount : -numericAmount;
         try {
-            const { data: account, error: accError } = await supabase.from('accounts').select('balance').eq('id', accountId).single();
+            const { data: account, error: accError } = await supabase.from('accounts').select('balance, name').eq('id', accountId).single();
             if (accError || !account) throw accError || new Error("Account not found");
+            
             const { error: updateError } = await supabase.from('accounts').update({ balance: account.balance + amountWithSign }).eq('id', accountId);
             if (updateError) throw updateError;
+            
             const finalDate = new Date(`${date}T00:00:00`);
             const now = new Date(); finalDate.setHours(now.getHours()); finalDate.setMinutes(now.getMinutes()); finalDate.setSeconds(now.getSeconds());
+            
             const { error: insertError } = await supabase.from('transactions').insert({ amount: numericAmount, type, account_id: accountId, category_id: categoryId || null, date: finalDate.toISOString(), notes });
             if (insertError) throw insertError;
+
+            // Log Activity
+            const categoryName = categories.find(c => c.id === categoryId)?.name || 'غير مصنف';
+            const logMsg = type === 'income' 
+                ? `تسجيل إيراد: ${formatCurrency(numericAmount)} (${categoryName}) في ${account.name}`
+                : `تسجيل مصروف: ${formatCurrency(numericAmount)} (${categoryName}) من ${account.name}`;
+            logActivity(logMsg);
+
             onSuccess();
         } catch (err: any) { console.error('Error saving transaction:', err.message); toast.error('حدث خطأ أثناء حفظ المعاملة.'); } finally { setIsSaving(false); }
     };
@@ -209,6 +226,10 @@ const TransferModal: React.FC<{ accounts: Account[]; onSuccess: () => void; onCa
             await supabase.from('accounts').update({ balance: fromAccount.balance - numericAmount }).eq('id', fromAccountId);
             await supabase.from('accounts').update({ balance: toAccount.balance + numericAmount }).eq('id', toAccountId);
             await supabase.from('transactions').insert({ amount: numericAmount, type: 'transfer', account_id: fromAccountId, to_account_id: toAccountId, notes: notes || `تحويل من ${fromAccount.name} إلى ${toAccount.name}`, date: new Date().toISOString() });
+            
+            // Log Activity
+            logActivity(`تحويل مالي: ${formatCurrency(numericAmount)} من ${fromAccount.name} إلى ${toAccount.name}`);
+            
             onSuccess();
         } catch (err: any) { console.error('Error during transfer:', err.message); toast.error('حدث خطأ أثناء عملية التحويل.'); } finally { setIsSaving(false); }
     };
@@ -295,6 +316,11 @@ const AddDebtWizard: React.FC<{ contacts: Contact[]; accounts: Account[]; catego
                     await supabase.from('accounts').update({ balance: account.balance + balanceChange }).eq('id', linkedAccountId);
                 }
             }
+
+            // Log Activity
+            const typeText = debtType === 'on_you' ? 'دين عليك' : 'دين لك';
+            logActivity(`تسجيل ${typeText}: ${formatCurrency(Number(amount))} مع ${selectedContact.name}`);
+
             onSuccess();
         } catch (error: any) {
             console.error("Error saving debt:", error);
@@ -346,6 +372,27 @@ const AddDebtWizard: React.FC<{ contacts: Contact[]; accounts: Account[]; catego
             <div>
                 <label className="text-xs text-slate-400 font-bold mb-1 block">تاريخ الاستحقاق</label>
                 <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:outline-none" />
+            </div>
+            <div>
+                <label className="text-xs text-slate-400 font-bold mb-1 block">خصم/إيداع في حساب (اختياري)</label>
+                <div className="relative">
+                    <select 
+                        value={linkedAccountId} 
+                        onChange={e => setLinkedAccountId(e.target.value)} 
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 pl-10 text-white focus:border-cyan-500 focus:outline-none appearance-none"
+                    >
+                        <option value="">لا يوجد ارتباط بحساب</option>
+                        {accounts.map(acc => (
+                            <option key={acc.id} value={acc.id}>
+                                {acc.name} ({formatCurrency(acc.balance)})
+                            </option>
+                        ))}
+                    </select>
+                    <WalletIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none"/>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1 mr-1">
+                    {linkedAccountId ? (debtType === 'for_you' ? 'سيتم خصم المبلغ من هذا الحساب' : 'سيتم إيداع المبلغ في هذا الحساب') : ''}
+                </p>
             </div>
             <div>
                 <label className="text-xs text-slate-400 font-bold mb-1 block">الوصف</label>
@@ -497,6 +544,9 @@ const SettleDebtWizard: React.FC<{
                 date: new Date().toISOString(),
                 notes: `تسوية ديون مع ${selectedAggregate.contact.name}`
             });
+
+            // Log Activity
+            logActivity(`تسوية ديون: ${formatCurrency(amountToSettle)} مع ${selectedAggregate.contact.name} (${isPay ? 'سداد' : 'تحصيل'})`);
 
             onSuccess();
 

@@ -11,6 +11,7 @@ import {
 } from './icons';
 import Chart from 'chart.js/auto';
 import type { ChartConfiguration } from 'chart.js/auto';
+import { logActivity } from '../lib/logger';
 
 // ... keep helper functions and chart components ...
 const formatCurrency = (amount: number, currency: string = 'د.ل') => {
@@ -442,7 +443,8 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
                     supabase.from('debts').select('amount, type').eq('paid', false),
                     supabase.from('transactions').select('*, accounts:account_id(name, currency, type), categories(name, icon, color)').order('date', { ascending: false }).limit(5),
                     supabase.from('transactions').select('amount, date, type').in('type', ['income', 'expense']).gte('date', new Date(currentYear, 0, 1).toISOString()).lte('date', new Date(currentYear, 11, 31, 23, 59, 59).toISOString()),
-                    supabase.from('activities').select('description, activity_date, activity_time').eq('id', 1).single(),
+                    // Updated: Fetch latest activity by ordering ID desc
+                    supabase.from('activities').select('description, activity_date, activity_time').order('id', { ascending: false }).limit(1).single(),
                     supabase.from('categories').select('*'),
                     supabase.from('debts').select('*, contacts(name)').eq('paid', false).not('due_date', 'is', null).order('due_date', { ascending: true }).limit(5)
                 ]);
@@ -473,6 +475,12 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
         };
         fetchAllData();
     }, [refreshTrigger, currentYear]);
+
+    const handleTransactionSave = async () => {
+        setIsEditModalOpen(false);
+        // Logging is handled inside TransactionForm
+        handleDatabaseChange(); 
+    };
 
     return (
         <div className="space-y-6 pb-20">
@@ -643,7 +651,7 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
 
                         return (
                             <div key={tx.id} onClick={() => { setSelectedTransaction(tx); setIsDetailModalOpen(true); }} 
-                                className="group relative bg-slate-900/40 backdrop-blur-md p-3.5 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-slate-800/60 transition-all border border-white/5 hover:border-white/10 overflow-hidden">
+                                className="group relative bg-slate-900/40 backdrop-blur-md p-3.5 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-slate-800/60 transition-all border border-white/5 hover:border-white/10 overflow-hidden active:scale-[0.98] duration-200 hover:shadow-lg hover:shadow-black/20">
                                 
                                 <div className="flex items-center gap-4 relative z-10">
                                     <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-lg shadow-black/20" style={{ backgroundColor: bgColor }}>
@@ -680,7 +688,7 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
             )}
              {isEditModalOpen && selectedTransaction && (
                 <Modal title="تعديل المعاملة" onClose={() => setIsEditModalOpen(false)}>
-                    <TransactionForm transaction={selectedTransaction} onSave={() => { setIsEditModalOpen(false); handleDatabaseChange('تعديل معاملة'); }} onCancel={() => setIsEditModalOpen(false)} accounts={accounts} categories={categories} />
+                    <TransactionForm transaction={selectedTransaction} onSave={handleTransactionSave} onCancel={() => setIsEditModalOpen(false)} accounts={accounts} categories={categories} />
                 </Modal>
             )}
             

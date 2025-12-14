@@ -10,6 +10,7 @@ import {
     CalendarDaysIcon, PencilSquareIcon, TrashIcon, CheckCircleIcon, InformationCircleIcon,
     PaintBrushIcon, LandmarkIcon, BanknoteIcon, BriefcaseIcon
 } from './icons';
+import { logActivity } from '../lib/logger';
 
 const formatCurrency = (amount: number, currency: string = 'د.ل') => {
     return new Intl.NumberFormat('ar-LY', { style: 'currency', currency: 'LYD', minimumFractionDigits: 0 }).format(amount).replace('LYD', currency);
@@ -305,6 +306,8 @@ const AccountForm: React.FC<{ account?: Account | null; onSave: () => void; onCa
         const accountData = { name, type, balance: parseFloat(balance), currency, theme };
         const { error } = account?.id ? await supabase.from('accounts').update(accountData).eq('id', account.id) : await supabase.from('accounts').insert(accountData);
         if (!error) {
+            const action = account?.id ? 'تعديل' : 'إضافة';
+            logActivity(`${action} حساب: ${name} (الرصيد: ${formatCurrency(parseFloat(balance))})`);
             onSave();
         } else {
             console.error(error);
@@ -411,6 +414,7 @@ const AccountsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (de
             console.error(error);
             toast.error('تعذر حذف الحساب. تأكد من حذف المعاملات المرتبطة أولاً.');
         } else {
+            logActivity(`حذف حساب: ${modal.account.name}`);
             handleSave(`تم حذف حساب "${modal.account.name}" بنجاح`);
         }
     };

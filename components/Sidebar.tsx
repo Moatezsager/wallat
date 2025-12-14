@@ -13,7 +13,7 @@ interface SidebarProps {
 const NavItem: React.FC<{ label: string; icon: React.ReactNode; onClick: () => void; isActive: boolean; }> = ({ label, icon, onClick, isActive }) => (
     <button
         onClick={onClick}
-        className={`relative flex items-center w-full p-3.5 text-right rounded-2xl transition-all duration-200 group overflow-hidden ${
+        className={`relative flex items-center w-full p-3.5 text-right rounded-2xl transition-all duration-200 group overflow-hidden active:scale-95 ${
             isActive ? 'bg-cyan-500/10 text-cyan-400 shadow-lg shadow-cyan-500/5 border border-cyan-500/20' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
         }`}
     >
