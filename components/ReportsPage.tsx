@@ -5,7 +5,9 @@ import { Transaction, Debt, Category } from '../types';
 import type { Chart, ChartConfiguration } from 'chart.js/auto';
 import { 
     SparklesIcon, ExclamationTriangleIcon, CheckCircleIcon, XMarkIcon, 
-    ArrowTrendingUp, ArrowTrendingDown
+    ArrowTrendingUp, ArrowTrendingDown, ChartBarSquareIcon,
+    ChevronLeftIcon, ChevronRightIcon, CalendarDaysIcon, TagIcon,
+    ArrowDownIcon, ArrowUpIcon, iconMap, ScaleIcon
 } from './icons';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -50,7 +52,7 @@ const getDatesForPeriod = (period: Period) => {
     return { startDate, endDate, prevStartDate, prevEndDate };
 };
 
-const DoughnutChart: React.FC<{ data: number[], colors: string[], labels: string[] }> = ({ data, colors, labels }) => {
+const DoughnutChart: React.FC<{ data: number[], colors: string[], labels: string[], cutout?: string }> = ({ data, colors, labels, cutout = '75%' }) => {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const chartRef = useRef<Chart | null>(null);
 
@@ -69,14 +71,14 @@ const DoughnutChart: React.FC<{ data: number[], colors: string[], labels: string
                     data: data,
                     backgroundColor: colors,
                     borderColor: 'rgba(30, 41, 59, 1)', 
-                    borderWidth: 0,
+                    borderWidth: 2,
                     hoverOffset: 10,
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '75%',
+                cutout: cutout,
                 plugins: {
                     legend: { display: false },
                     tooltip: {
@@ -89,12 +91,8 @@ const DoughnutChart: React.FC<{ data: number[], colors: string[], labels: string
                         callbacks: {
                             label: function(context) {
                                 let label = context.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
-                                if (context.parsed !== null) {
-                                    label += formatCurrency(context.parsed);
-                                }
+                                if (label) { label += ': '; }
+                                if (context.parsed !== null) { label += formatCurrency(context.parsed); }
                                 return label;
                             }
                         }
@@ -104,9 +102,363 @@ const DoughnutChart: React.FC<{ data: number[], colors: string[], labels: string
         };
         chartRef.current = new (window as any).Chart(ctx, chartConfig);
         return () => chartRef.current?.destroy();
-    }, [data, labels, colors]);
+    }, [data, labels, colors, cutout]);
 
     return <div className="h-full w-full"><canvas ref={canvasRef}></canvas></div>;
+};
+
+// --- New Monthly Report Modal ---
+const MonthlyReportModal: React.FC<{ onClose: () => void; }> = ({ onClose }) => {
+    const [year, setYear] = useState(new Date().getFullYear());
+    const [month, setMonth] = useState(new Date().getMonth());
+    const [activeTab, setActiveTab] = useState<'income' | 'expense'>('expense');
+    const [loading, setLoading] = useState(false);
+    
+    // State to hold comprehensive monthly stats
+    const [monthlyData, setMonthlyData] = useState<{
+        totalIncome: number;
+        totalExpense: number;
+        incomeCategories: any[];
+        expenseCategories: any[];
+    }>({
+        totalIncome: 0,
+        totalExpense: 0,
+        incomeCategories: [],
+        expenseCategories: []
+    });
+    
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const monthNames = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+
+    // Auto-scroll to selected month
+    useEffect(() => {
+        if (scrollRef.current) {
+            const button = scrollRef.current.children[month] as HTMLElement;
+            if (button) {
+                const scrollLeft = button.offsetLeft - (scrollRef.current.clientWidth / 2) + (button.clientWidth / 2);
+                scrollRef.current.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+            }
+        }
+    }, [month]);
+
+    useEffect(() => {
+        const fetchMonthlyData = async () => {
+            setLoading(true);
+            try {
+                const startDate = new Date(year, month, 1);
+                const endDate = new Date(year, month + 1, 0, 23, 59, 59);
+
+                // Fetch ALL transactions for the month (Income + Expense)
+                const { data, error } = await supabase
+                    .from('transactions')
+                    .select('amount, type, categories(name, color, icon)')
+                    .gte('date', startDate.toISOString())
+                    .lte('date', endDate.toISOString())
+                    .in('type', ['income', 'expense']);
+
+                if (error) throw error;
+
+                let tIncome = 0;
+                let tExpense = 0;
+                const incMap = new Map<string, any>();
+                const expMap = new Map<string, any>();
+
+                data?.forEach((tx: any) => {
+                    const catName = tx.categories?.name || 'غير مصنف';
+                    const catColor = tx.categories?.color || '#64748b';
+                    const catIcon = tx.categories?.icon;
+
+                    if (tx.type === 'income') {
+                        tIncome += tx.amount;
+                        const current = incMap.get(catName) || { name: catName, amount: 0, count: 0, color: catColor, icon: catIcon };
+                        current.amount += tx.amount;
+                        current.count += 1;
+                        incMap.set(catName, current);
+                    } else if (tx.type === 'expense') {
+                        tExpense += tx.amount;
+                        const current = expMap.get(catName) || { name: catName, amount: 0, count: 0, color: catColor, icon: catIcon };
+                        current.amount += tx.amount;
+                        current.count += 1;
+                        expMap.set(catName, current);
+                    }
+                });
+
+                const processCategories = (map: Map<string, any>, total: number) => {
+                    return Array.from(map.values())
+                        .map(c => ({ ...c, percentage: total > 0 ? (c.amount / total) * 100 : 0 }))
+                        .sort((a, b) => b.amount - a.amount);
+                };
+
+                setMonthlyData({
+                    totalIncome: tIncome,
+                    totalExpense: tExpense,
+                    incomeCategories: processCategories(incMap, tIncome),
+                    expenseCategories: processCategories(expMap, tExpense)
+                });
+
+            } catch (err) {
+                console.error("Error fetching monthly data:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchMonthlyData();
+    }, [year, month]);
+
+    const activeCategories = activeTab === 'expense' ? monthlyData.expenseCategories : monthlyData.incomeCategories;
+    const activeTotal = activeTab === 'expense' ? monthlyData.totalExpense : monthlyData.totalIncome;
+
+    return (
+        <div className="fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-2xl flex items-center justify-center p-4 animate-fade-in">
+            <div className="relative w-full max-w-lg bg-slate-900 rounded-[2.5rem] shadow-2xl border border-white/5 flex flex-col max-h-[95vh] overflow-hidden animate-slide-up">
+                
+                {/* Header */}
+                <div className="pt-6 px-6 pb-2 shrink-0 z-10 flex justify-between items-center bg-slate-900">
+                    <div>
+                        <div className="flex items-center gap-2 mb-1">
+                            <button onClick={() => setYear(y => y - 1)} className="p-1 text-slate-500 hover:text-white transition"><ChevronRightIcon className="w-3 h-3"/></button>
+                            <span className="text-xs text-cyan-400 font-bold tracking-widest uppercase">{year}</span>
+                            <button onClick={() => setYear(y => y + 1)} className="p-1 text-slate-500 hover:text-white transition"><ChevronLeftIcon className="w-3 h-3"/></button>
+                        </div>
+                        <h3 className="text-xl font-black text-white">الموجز الشهري</h3>
+                    </div>
+                    <button onClick={onClose} className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 transition-colors border border-white/5 flex items-center justify-center group">
+                        <XMarkIcon className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar px-6 pb-6">
+                    
+                    {/* Month Selector */}
+                    <div className="relative my-4 group">
+                        <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-slate-900 to-transparent z-10 pointer-events-none"></div>
+                        <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-slate-900 to-transparent z-10 pointer-events-none"></div>
+                        <div ref={scrollRef} className="flex overflow-x-auto gap-2 pb-2 px-4 custom-scrollbar snap-x cursor-grab active:cursor-grabbing no-scrollbar">
+                            {monthNames.map((m, i) => (
+                                <button 
+                                    key={i} 
+                                    onClick={() => setMonth(i)} 
+                                    className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300 snap-center ${
+                                        month === i 
+                                        ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30 scale-105' 
+                                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                                    }`}
+                                >
+                                    {m}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {loading ? (
+                        <div className="py-20 flex flex-col items-center justify-center gap-4 text-slate-500">
+                            <div className="w-10 h-10 border-4 border-slate-700 border-t-cyan-500 rounded-full animate-spin"></div>
+                            <span className="text-xs animate-pulse">جاري جلب البيانات...</span>
+                        </div>
+                    ) : (
+                        <div className="space-y-6 animate-fade-in">
+                            
+                            {/* NEW: Balance Summary Chart (Income vs Expense) */}
+                            {monthlyData.totalIncome > 0 || monthlyData.totalExpense > 0 ? (
+                                <div className="glass-card p-4 rounded-3xl border border-white/5 bg-slate-800/40 relative overflow-hidden">
+                                    <h4 className="text-xs text-slate-400 font-bold mb-4 flex items-center gap-2">
+                                        <ScaleIcon className="w-4 h-4"/> الميزانية الشهرية
+                                    </h4>
+                                    <div className="flex items-center justify-between gap-4">
+                                        <div className="space-y-3 flex-1">
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+                                                    <span className="text-xs text-slate-300 font-bold">الدخل</span>
+                                                </div>
+                                                <span className="text-xs font-mono text-emerald-400 font-bold">{formatCurrency(monthlyData.totalIncome)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]"></span>
+                                                    <span className="text-xs text-slate-300 font-bold">المصروف</span>
+                                                </div>
+                                                <span className="text-xs font-mono text-rose-400 font-bold">{formatCurrency(monthlyData.totalExpense)}</span>
+                                            </div>
+                                            <div className="pt-2 border-t border-white/5 flex justify-between items-center">
+                                                <span className="text-[10px] text-slate-500 font-bold">الصافي</span>
+                                                <span className={`text-sm font-bold ${monthlyData.totalIncome - monthlyData.totalExpense >= 0 ? 'text-cyan-400' : 'text-rose-400'}`}>
+                                                    {formatCurrency(monthlyData.totalIncome - monthlyData.totalExpense)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="h-28 w-28 relative">
+                                            <DoughnutChart 
+                                                data={[monthlyData.totalIncome, monthlyData.totalExpense]} 
+                                                labels={['الدخل', 'المصروف']} 
+                                                colors={['#10b981', '#f43f5e']}
+                                                cutout="70%"
+                                            />
+                                            {/* Center Icon */}
+                                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                <div className="bg-slate-900 rounded-full p-1.5 border border-white/5">
+                                                    {monthlyData.totalIncome >= monthlyData.totalExpense 
+                                                        ? <ArrowTrendingUp className="w-4 h-4 text-emerald-500"/>
+                                                        : <ArrowTrendingDown className="w-4 h-4 text-rose-500"/>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : null}
+
+                            {/* Divider */}
+                            <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+
+                            {/* Toggle Tabs */}
+                            <div className="flex bg-slate-800/50 p-1 rounded-xl border border-white/5">
+                                <button onClick={() => setActiveTab('expense')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'expense' ? 'bg-rose-500 text-white shadow-lg shadow-rose-900/20' : 'text-slate-400 hover:text-white'}`}>
+                                    <ArrowUpIcon className="w-4 h-4"/> تحليل المصروفات
+                                </button>
+                                <button onClick={() => setActiveTab('income')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'income' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-400 hover:text-white'}`}>
+                                    <ArrowDownIcon className="w-4 h-4"/> تحليل الإيرادات
+                                </button>
+                            </div>
+
+                            {/* Category Breakdown Chart & List */}
+                            <div className="space-y-6">
+                                <div className="relative h-56 w-56 mx-auto">
+                                    {activeTotal === 0 ? (
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-800 rounded-full bg-slate-900/50">
+                                            <CalendarDaysIcon className="w-8 h-8 mb-2 opacity-50"/>
+                                            <span className="text-xs">لا توجد بيانات</span>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <DoughnutChart 
+                                                data={activeCategories.map(c => c.amount)} 
+                                                labels={activeCategories.map(c => c.name)} 
+                                                colors={activeCategories.map(c => c.color)} 
+                                                cutout="65%"
+                                            />
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">الإجمالي</span>
+                                                <span className={`text-xl font-black ${activeTab === 'expense' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                                    {formatCurrency(activeTotal)}
+                                                </span>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Categories List with Counts */}
+                                <div className="space-y-3">
+                                    {activeCategories.map((cat, idx) => {
+                                        const Icon = (cat.icon && iconMap[cat.icon]) ? iconMap[cat.icon] : TagIcon;
+                                        return (
+                                            <div key={idx} className="bg-slate-800/30 p-3 rounded-2xl border border-white/5 flex items-center gap-3 group hover:bg-slate-800/50 transition-colors">
+                                                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm shrink-0" style={{ backgroundColor: cat.color }}>
+                                                    <Icon className="w-5 h-5"/>
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <span className="font-bold text-slate-200 text-sm">{cat.name}</span>
+                                                        <span className="font-bold text-white text-sm">{formatCurrency(cat.amount)}</span>
+                                                    </div>
+                                                    <div className="relative w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
+                                                        <div 
+                                                            className="absolute top-0 right-0 h-full rounded-full transition-all duration-1000 ease-out" 
+                                                            style={{ width: `${cat.percentage}%`, backgroundColor: cat.color }}
+                                                        ></div>
+                                                    </div>
+                                                    <div className="flex justify-between items-center mt-1.5">
+                                                        <p className="text-[10px] text-slate-500 font-medium" dir="ltr">{cat.percentage.toFixed(1)}%</p>
+                                                        <p className="text-[10px] text-slate-400 font-medium bg-slate-800/50 px-2 py-0.5 rounded-md border border-white/5">
+                                                            {cat.count} {cat.count === 1 ? 'معاملة' : 'معاملات'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ... (Keep ReportView, DebtSummary, AnalysisResultDisplay components)
+const MonthlyBreakdownChart: React.FC<{ data: { income: number, expense: number }[] }> = ({ data }) => {
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const chartRef = useRef<Chart | null>(null);
+    const monthNames = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+
+    useEffect(() => {
+        if (!canvasRef.current || !(window as any).Chart) return;
+        if (chartRef.current) chartRef.current.destroy();
+
+        const ctx = canvasRef.current.getContext('2d');
+        if (!ctx) return;
+
+        // Gradients
+        const gradientIncome = ctx.createLinearGradient(0, 0, 0, 300);
+        gradientIncome.addColorStop(0, 'rgba(16, 185, 129, 0.8)'); // Emerald
+        gradientIncome.addColorStop(1, 'rgba(16, 185, 129, 0.1)');
+
+        const gradientExpense = ctx.createLinearGradient(0, 0, 0, 300);
+        gradientExpense.addColorStop(0, 'rgba(244, 63, 94, 0.8)'); // Rose
+        gradientExpense.addColorStop(1, 'rgba(244, 63, 94, 0.1)');
+
+        const chartConfig: ChartConfiguration<'bar'> = {
+            type: 'bar',
+            data: {
+                labels: monthNames,
+                datasets: [
+                    {
+                        label: 'الإيرادات',
+                        data: data.map(d => d.income),
+                        backgroundColor: gradientIncome,
+                        borderRadius: 4,
+                        barPercentage: 0.6,
+                        categoryPercentage: 0.8
+                    },
+                    {
+                        label: 'المصروفات',
+                        data: data.map(d => d.expense),
+                        backgroundColor: gradientExpense, 
+                        borderRadius: 4,
+                        barPercentage: 0.6,
+                        categoryPercentage: 0.8
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { position: 'bottom', labels: { color: '#94a3b8', font: { family: 'Cairo' } } }, 
+                    tooltip: { 
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)', 
+                        padding: 12, 
+                        cornerRadius: 12, 
+                        bodyFont: { family: 'Cairo' }, 
+                        titleFont: { family: 'Cairo' },
+                        rtl: true
+                    } 
+                },
+                scales: {
+                    x: { ticks: { color: '#64748b', font: { family: 'Cairo' } }, grid: { display: false } },
+                    y: { ticks: { color: '#64748b', font: { family: 'Cairo' } }, grid: { color: 'rgba(255, 255, 255, 0.05)' } } 
+                }
+            }
+        };
+
+        chartRef.current = new (window as any).Chart(ctx, chartConfig);
+        return () => { chartRef.current?.destroy(); };
+    }, [data]);
+
+    return <div className="h-64 w-full"><canvas ref={canvasRef}></canvas></div>;
 };
 
 const ReportView: React.FC<{ 
@@ -270,8 +622,9 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
     const [debts, setDebts] = useState<Debt[]>([]);
     const [loading, setLoading] = useState(true);
     
-    // AI Analysis State
+    // UI State
     const [isAnalysisModalOpen, setAnalysisModalOpen] = useState(false);
+    const [isMonthlyReportOpen, setIsMonthlyReportOpen] = useState(false); // For new modal
     const [analysisLoading, setAnalysisLoading] = useState(false);
     const [analysisResult, setAnalysisResult] = useState<any | string>('');
 
@@ -346,6 +699,18 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
             totalIncome
         };
     }, [transactions]);
+
+    const monthlyStats = useMemo(() => {
+        if (period !== 'this_year') return [];
+        const stats = Array.from({ length: 12 }, () => ({ income: 0, expense: 0 }));
+        transactions.forEach(tx => {
+            const d = new Date(tx.date);
+            const month = d.getMonth();
+            if (tx.type === 'income') stats[month].income += tx.amount;
+            if (tx.type === 'expense') stats[month].expense += tx.amount;
+        });
+        return stats;
+    }, [transactions, period]);
     
     const handleAnalysis = async () => {
         setAnalysisLoading(true);
@@ -493,12 +858,22 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
 
     return (
         <div className="space-y-6 pb-20">
-            <div className="glass-card p-1 rounded-xl flex shadow-lg">
-                {(['this_month', 'last_month', 'this_year'] as Period[]).map(p => (
-                    <button key={p} onClick={() => setPeriod(p)} className={`w-full py-2.5 rounded-lg text-sm font-bold transition-all duration-300 ${period === p ? 'bg-slate-800 text-cyan-400 shadow-inner' : 'text-slate-400 hover:text-white'}`}>
-                        {{ 'this_month': 'هذا الشهر', 'last_month': 'الشهر الماضي', 'this_year': 'هذه السنة' }[p]}
-                    </button>
-                ))}
+            <div className="flex justify-between items-center">
+                <div className="glass-card p-1 rounded-xl flex shadow-lg shrink-0">
+                    {(['this_month', 'last_month', 'this_year'] as Period[]).map(p => (
+                        <button key={p} onClick={() => setPeriod(p)} className={`px-4 py-2.5 rounded-lg text-sm font-bold transition-all duration-300 ${period === p ? 'bg-slate-800 text-cyan-400 shadow-inner' : 'text-slate-400 hover:text-white'}`}>
+                            {{ 'this_month': 'هذا الشهر', 'last_month': 'الشهر الماضي', 'this_year': 'هذه السنة' }[p]}
+                        </button>
+                    ))}
+                </div>
+                
+                <button 
+                    onClick={() => setIsMonthlyReportOpen(true)}
+                    className="p-3 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-xl transition shadow-lg border border-slate-700"
+                    title="الموجز الشهري المفصل"
+                >
+                    <CalendarDaysIcon className="w-5 h-5" />
+                </button>
             </div>
 
             <div className="grid grid-cols-3 gap-4 text-center">
@@ -515,6 +890,17 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
                     <p className="font-extrabold text-lg text-white tracking-tight">{formatCurrency(reportData.totalIncome - reportData.totalExpense)}</p>
                 </div>
             </div>
+
+            {/* Monthly Analysis Chart Section (Year View Only) */}
+            {period === 'this_year' && (
+                <div className="glass-card p-6 rounded-3xl shadow-2xl border border-white/5">
+                    <div className="flex items-center gap-2 mb-6 border-b border-white/5 pb-4">
+                        <ChartBarSquareIcon className="w-6 h-6 text-cyan-400" />
+                        <h3 className="text-xl font-bold text-white">التحليل الشهري</h3>
+                    </div>
+                    <MonthlyBreakdownChart data={monthlyStats} />
+                </div>
+            )}
 
             <div className="flex border-b border-slate-800">
                 {(['expense', 'income', 'debt'] as ActiveTab[]).map(tab => (
@@ -537,6 +923,7 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
                 </button>
             </div>
 
+            {/* AI Analysis Modal */}
             {isAnalysisModalOpen && (
                 <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
                     <div className="bg-slate-900 rounded-3xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-white/10 shadow-2xl animate-slide-up relative custom-scrollbar">
@@ -562,6 +949,11 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
                         )}
                     </div>
                 </div>
+            )}
+
+            {/* Monthly Report Modal (New Feature) */}
+            {isMonthlyReportOpen && (
+                <MonthlyReportModal onClose={() => setIsMonthlyReportOpen(false)} />
             )}
         </div>
     );

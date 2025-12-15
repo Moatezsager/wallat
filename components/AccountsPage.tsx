@@ -515,7 +515,10 @@ const AccountsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (de
                                 
                                 <div className="flex justify-between items-end">
                                     <div>
-                                        <p className="text-xs text-white/60 font-medium mb-1 uppercase tracking-wider">الرصيد</p>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <p className="text-xs text-white/60 font-medium uppercase tracking-wider">الرصيد</p>
+                                            <div className={`w-2 h-2 rounded-full ${acc.balance >= 0 ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]'}`}></div>
+                                        </div>
                                         <p className="text-3xl font-bold tracking-tight">{formatCurrency(acc.balance, acc.currency)}</p>
                                     </div>
                                     <div className="text-right">
