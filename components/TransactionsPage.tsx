@@ -267,8 +267,34 @@ const TransactionsPage: React.FC = () => {
             }
 
             if (searchTerm) {
-                // Simple search on notes column
-                query = query.ilike('notes', `%${searchTerm}%`);
+                // Perform a pre-search to get relevant IDs because joining via .or() is tricky in simple syntax
+                const { data: matchedAccounts } = await supabase
+                    .from('accounts')
+                    .select('id')
+                    .ilike('name', `%${searchTerm}%`);
+                
+                const { data: matchedCategories } = await supabase
+                    .from('categories')
+                    .select('id')
+                    .ilike('name', `%${searchTerm}%`);
+
+                const accIds = matchedAccounts?.map(a => a.id) || [];
+                const catIds = matchedCategories?.map(c => c.id) || [];
+
+                // Build OR clause strings
+                const orConditions = [`notes.ilike.%${searchTerm}%`];
+                
+                if (accIds.length > 0) {
+                    orConditions.push(`account_id.in.(${accIds.join(',')})`);
+                    orConditions.push(`to_account_id.in.(${accIds.join(',')})`);
+                }
+                
+                if (catIds.length > 0) {
+                    orConditions.push(`category_id.in.(${catIds.join(',')})`);
+                }
+
+                // Combine them
+                query = query.or(orConditions.join(','));
             }
 
             const { data, error, count } = await query;
@@ -296,13 +322,30 @@ const TransactionsPage: React.FC = () => {
         queryKey: ['transactions-stats', filters, searchTerm],
         queryFn: async () => {
              // Basic stat aggregation query
-             let query = supabase.from('transactions').select('amount, type');
-             // Apply same filters... (duplicated logic, ideally refactor into builder function)
+             let query = supabase.from('transactions').select('amount, type, account_id, to_account_id, category_id, notes'); // Include columns needed for filtering
+             
+             // Apply same filters... (duplicated logic)
              if (filters.types.length > 0) query = query.in('type', filters.types);
              if (filters.date_from) query = query.gte('date', new Date(filters.date_from).toISOString());
              if (filters.date_to) query = query.lte('date', new Date(filters.date_to).toISOString());
              if (filters.accounts.length > 0) query = query.in('account_id', filters.accounts);
-             if (searchTerm) query = query.ilike('notes', `%${searchTerm}%`);
+             
+             if (searchTerm) {
+                // Replicate search logic for stats
+                const { data: matchedAccounts } = await supabase.from('accounts').select('id').ilike('name', `%${searchTerm}%`);
+                const { data: matchedCategories } = await supabase.from('categories').select('id').ilike('name', `%${searchTerm}%`);
+                const accIds = matchedAccounts?.map(a => a.id) || [];
+                const catIds = matchedCategories?.map(c => c.id) || [];
+                const orConditions = [`notes.ilike.%${searchTerm}%`];
+                if (accIds.length > 0) {
+                    orConditions.push(`account_id.in.(${accIds.join(',')})`);
+                    orConditions.push(`to_account_id.in.(${accIds.join(',')})`);
+                }
+                if (catIds.length > 0) {
+                    orConditions.push(`category_id.in.(${catIds.join(',')})`);
+                }
+                query = query.or(orConditions.join(','));
+             }
              
              const { data } = await query;
              const s = (data || []).reduce((acc: any, curr: any) => {
@@ -421,7 +464,7 @@ const TransactionsPage: React.FC = () => {
             <div className="flex gap-3 items-center">
                 <div className="relative flex-grow group">
                     <MagnifyingGlassIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-cyan-400 transition-colors pointer-events-none" />
-                    <input type="text" placeholder="ابحث في الملاحظات..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                    <input type="text" placeholder="ابحث في الملاحظات، الحسابات، أو الفئات..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
                         className="w-full bg-slate-900/50 p-3 pr-12 rounded-2xl text-white border border-slate-700 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none transition shadow-inner" />
                 </div>
                 <button onClick={() => setIsFilterModalOpen(true)} className={`relative flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-2xl transition-all ${activeFilterCount > 0 ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50' : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700'}`}>

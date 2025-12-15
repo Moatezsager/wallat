@@ -13,6 +13,47 @@ import Chart from 'chart.js/auto';
 import type { ChartConfiguration } from 'chart.js/auto';
 import { logActivity } from '../lib/logger';
 
+// --- Animated Counter Component ---
+const AnimatedCounter: React.FC<{ value: number; currency?: string }> = ({ value, currency = 'د.ل' }) => {
+    const [displayValue, setDisplayValue] = useState(0);
+
+    useEffect(() => {
+        let start = 0;
+        const end = value;
+        if (start === end) return;
+
+        let totalDuration = 1000; // 1 second
+        let startTime: number | null = null;
+
+        const animate = (currentTime: number) => {
+            if (!startTime) startTime = currentTime;
+            const progress = currentTime - startTime;
+            const percentage = Math.min(progress / totalDuration, 1);
+            
+            // Ease out quart
+            const ease = 1 - Math.pow(1 - percentage, 4);
+            
+            const current = start + (end - start) * ease;
+            setDisplayValue(current);
+
+            if (progress < totalDuration) {
+                requestAnimationFrame(animate);
+            } else {
+                setDisplayValue(end);
+            }
+        };
+
+        requestAnimationFrame(animate);
+    }, [value]);
+
+    return (
+        <span>
+            {new Intl.NumberFormat('ar-LY', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(displayValue)}
+            <span className="text-sm font-medium mr-1 opacity-70">{currency}</span>
+        </span>
+    );
+};
+
 // ... keep helper functions and chart components ...
 const formatCurrency = (amount: number, currency: string = 'د.ل') => {
     const options: Intl.NumberFormatOptions = { style: 'currency', currency: 'LYD' };
@@ -153,6 +194,18 @@ const MonthlySummaryModal: React.FC<{
     const [stats, setStats] = useState({ income: 0, expense: 0, topCategories: [] as any[] });
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    // Auto-scroll logic for month selector
+    useEffect(() => {
+        if (scrollRef.current) {
+            const button = scrollRef.current.children[month] as HTMLElement;
+            if (button) {
+                const scrollLeft = button.offsetLeft - (scrollRef.current.clientWidth / 2) + (button.clientWidth / 2);
+                scrollRef.current.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+            }
+        }
+    }, [month]); // Trigger scroll when month changes
 
     useEffect(() => {
         const fetchData = async () => {
@@ -216,150 +269,181 @@ const MonthlySummaryModal: React.FC<{
     const totalForTab = activeTab === 'expense' ? stats.expense : stats.income;
 
     return (
-        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 animate-fade-in">
-            <div className="relative w-full max-w-lg bg-slate-900/90 rounded-[2.5rem] shadow-2xl border border-white/10 flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
+        <div className="fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-2xl flex items-center justify-center p-4 animate-fade-in">
+            <div className="relative w-full max-w-lg bg-slate-900 rounded-[3rem] shadow-2xl border border-white/5 flex flex-col max-h-[92vh] overflow-hidden animate-slide-up">
                 
-                {/* Decorative Background Elements */}
-                <div className="absolute top-0 left-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-[80px] pointer-events-none"></div>
-                <div className="absolute bottom-0 right-0 w-64 h-64 bg-rose-500/10 rounded-full blur-[80px] pointer-events-none"></div>
-
+                {/* Background ambient glow */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-64 bg-gradient-to-b from-cyan-500/10 to-transparent pointer-events-none blur-3xl"></div>
+                
                 {/* Header */}
-                <div className="p-6 pb-2 shrink-0 z-10 flex justify-between items-start">
+                <div className="pt-8 px-6 pb-2 shrink-0 z-10 flex justify-between items-center">
                     <div>
-                        <p className="text-sm text-slate-400 font-medium mb-1">الموجز المالي</p>
-                        <h3 className="text-2xl font-bold text-white flex items-center gap-2">
-                            {year}
-                        </h3>
+                        <p className="text-xs text-cyan-400 font-bold tracking-widest uppercase mb-1">تقرير {year}</p>
+                        <h3 className="text-2xl font-black text-white">الموجز المالي</h3>
                     </div>
-                    <button onClick={onClose} className="p-3 rounded-full bg-white/5 hover:bg-white/10 transition-colors border border-white/5">
-                        <XMarkIcon className="w-5 h-5 text-white" />
+                    <button onClick={onClose} className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 transition-colors border border-white/5 flex items-center justify-center group">
+                        <XMarkIcon className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
                     </button>
                 </div>
 
                 {/* Content */}
-                <div className="overflow-y-auto custom-scrollbar flex-grow px-6 pb-6 space-y-8 z-10">
+                <div className="overflow-y-auto custom-scrollbar flex-grow px-6 pb-6 z-10">
                     
-                    {/* Month Selector */}
-                    <div className="flex overflow-x-auto gap-3 pb-2 pt-2 custom-scrollbar snap-x no-scrollbar">
-                        {monthNames.map((m, i) => (
-                            <button 
-                                key={i} 
-                                onClick={() => setMonth(i)} 
-                                className={`px-5 py-2.5 rounded-2xl text-sm font-bold whitespace-nowrap transition-all duration-300 snap-center border ${
-                                    month === i 
-                                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25 border-transparent scale-105' 
-                                    : 'bg-slate-800/50 text-slate-400 border-white/5 hover:bg-slate-800'
-                                }`}
-                            >
-                                {m}
-                            </button>
-                        ))}
+                    {/* Modern Month Selector */}
+                    <div className="relative my-6 group">
+                        {/* Fade edges */}
+                        <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-slate-900 to-transparent z-10 pointer-events-none"></div>
+                        <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-slate-900 to-transparent z-10 pointer-events-none"></div>
+                        
+                        <div 
+                            ref={scrollRef}
+                            className="flex overflow-x-auto gap-3 pb-4 pt-2 px-4 custom-scrollbar snap-x cursor-grab active:cursor-grabbing no-scrollbar"
+                        >
+                            {monthNames.map((m, i) => {
+                                const isActive = month === i;
+                                return (
+                                    <button 
+                                        key={i} 
+                                        onClick={() => setMonth(i)} 
+                                        className={`relative shrink-0 px-5 py-3 rounded-2xl text-sm font-bold transition-all duration-500 snap-center overflow-hidden ${
+                                            isActive 
+                                            ? 'text-white shadow-[0_0_20px_rgba(6,182,212,0.4)] scale-105' 
+                                            : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                                        }`}
+                                    >
+                                        {isActive && (
+                                            <div className="absolute inset-0 bg-gradient-to-tr from-cyan-600 to-blue-600 -z-10"></div>
+                                        )}
+                                        {m}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
 
                     {loading ? (
-                        <div className="py-20 flex justify-center"><div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div></div>
+                        <div className="py-24 flex justify-center items-center flex-col gap-4">
+                            <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+                            <p className="text-slate-500 text-xs animate-pulse">جاري تحليل البيانات...</p>
+                        </div>
                     ) : (
-                        <>
-                            {/* Stats Cards */}
+                        <div className="space-y-8 animate-fade-in">
+                            
+                            {/* Stats Grid - Neon Style */}
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-5 rounded-[20px] border border-emerald-500/20 relative overflow-hidden">
-                                    <div className="absolute -right-2 -top-2 w-16 h-16 bg-emerald-500/20 rounded-full blur-2xl"></div>
-                                    <div className="flex items-center gap-2 mb-2 text-emerald-400">
-                                        <div className="p-1.5 bg-emerald-500/20 rounded-lg"><ArrowDownIcon className="w-4 h-4" /></div>
-                                        <span className="text-xs font-bold">الإيرادات</span>
+                                <div className="bg-slate-800/40 p-5 rounded-[24px] border border-emerald-500/10 relative overflow-hidden group">
+                                    <div className="absolute inset-0 bg-emerald-500/5 group-hover:bg-emerald-500/10 transition-colors duration-500"></div>
+                                    <div className="absolute -right-10 -top-10 w-32 h-32 bg-emerald-500/20 rounded-full blur-[50px]"></div>
+                                    
+                                    <div className="relative z-10">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400">
+                                                <ArrowDownIcon className="w-4 h-4" />
+                                            </div>
+                                            <span className="text-xs font-bold text-emerald-100/60">الدخل</span>
+                                        </div>
+                                        <p className="text-2xl font-black text-white tracking-tight">{formatCurrency(stats.income)}</p>
                                     </div>
-                                    <p className="font-extrabold text-2xl text-white tracking-tight">{formatCurrency(stats.income)}</p>
                                 </div>
-                                <div className="bg-gradient-to-br from-rose-500/10 to-rose-500/5 p-5 rounded-[20px] border border-rose-500/20 relative overflow-hidden">
-                                    <div className="absolute -right-2 -top-2 w-16 h-16 bg-rose-500/20 rounded-full blur-2xl"></div>
-                                    <div className="flex items-center gap-2 mb-2 text-rose-400">
-                                        <div className="p-1.5 bg-rose-500/20 rounded-lg"><ArrowUpIcon className="w-4 h-4" /></div>
-                                        <span className="text-xs font-bold">المصروفات</span>
+
+                                <div className="bg-slate-800/40 p-5 rounded-[24px] border border-rose-500/10 relative overflow-hidden group">
+                                    <div className="absolute inset-0 bg-rose-500/5 group-hover:bg-rose-500/10 transition-colors duration-500"></div>
+                                    <div className="absolute -right-10 -top-10 w-32 h-32 bg-rose-500/20 rounded-full blur-[50px]"></div>
+                                    
+                                    <div className="relative z-10">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <div className="p-2 bg-rose-500/20 rounded-lg text-rose-400">
+                                                <ArrowUpIcon className="w-4 h-4" />
+                                            </div>
+                                            <span className="text-xs font-bold text-rose-100/60">الصرف</span>
+                                        </div>
+                                        <p className="text-2xl font-black text-white tracking-tight">{formatCurrency(stats.expense)}</p>
                                     </div>
-                                    <p className="font-extrabold text-2xl text-white tracking-tight">{formatCurrency(stats.expense)}</p>
                                 </div>
                             </div>
 
-                            {/* Chart Area */}
-                            <div className="relative py-4">
+                            {/* Chart Section */}
+                            <div className="relative py-2">
+                                {/* Glowing Backdrop for Chart */}
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-gradient-to-r from-cyan-500/20 to-blue-600/20 rounded-full blur-[60px] animate-pulse-slow"></div>
+                                
                                 <div className="h-64 w-64 mx-auto relative z-10">
                                     {stats.income === 0 && stats.expense === 0 ? (
-                                        <div className="absolute inset-0 flex items-center justify-center text-slate-500 border-2 border-dashed border-slate-700 rounded-full bg-slate-800/30">لا توجد بيانات</div>
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-800 rounded-full bg-slate-900/50 backdrop-blur-sm">
+                                            <span className="text-2xl mb-2">🤷‍♂️</span>
+                                            <span className="text-xs">لا توجد بيانات</span>
+                                        </div>
                                     ) : (
                                         <>
-                                            <div className="absolute inset-4 bg-slate-900 rounded-full z-0 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]"></div>
+                                            <div className="absolute inset-4 bg-slate-900 rounded-full z-0 shadow-2xl"></div>
                                             <DoughnutChart income={stats.income} expense={stats.expense} />
                                             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20">
-                                                <span className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">الصافي</span>
-                                                <span className={`text-2xl font-black ${net >= 0 ? 'text-white' : 'text-rose-400'} drop-shadow-lg`}>{formatCurrency(net)}</span>
+                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">الصافي</span>
+                                                <span className={`text-3xl font-black ${net >= 0 ? 'text-white' : 'text-rose-400'} drop-shadow-lg`}>
+                                                    {formatCurrency(net)}
+                                                </span>
                                             </div>
                                         </>
                                     )}
                                 </div>
-                                {/* Glow behind chart */}
-                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl -z-10"></div>
                             </div>
 
-                            {/* Top Categories Section */}
-                            <div className="space-y-4">
-                                {/* Modern Tab Switcher */}
-                                <div className="p-1 bg-slate-950/50 rounded-xl flex border border-white/5 relative">
+                            {/* Top Categories */}
+                            <div className="bg-slate-950/30 rounded-[2rem] p-1 border border-white/5">
+                                {/* Tab Switcher */}
+                                <div className="flex bg-slate-900/80 rounded-[1.5rem] p-1 mb-4 relative">
                                     <div 
-                                        className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-slate-800 rounded-lg shadow-md transition-all duration-300 ease-out border border-white/5 ${activeTab === 'income' ? 'translate-x-0 right-1' : '-translate-x-[calc(100%+4px)] right-1'}`}
+                                        className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-slate-800 rounded-2xl shadow-lg transition-all duration-500 ease-out border border-white/5 ${activeTab === 'income' ? 'translate-x-0 right-1' : '-translate-x-[calc(100%+4px)] right-1'}`}
                                     ></div>
-                                    <button onClick={() => setActiveTab('income')} className={`flex-1 py-2.5 text-sm font-bold relative z-10 transition-colors duration-300 ${activeTab === 'income' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}>أبرز الإيرادات</button>
-                                    <button onClick={() => setActiveTab('expense')} className={`flex-1 py-2.5 text-sm font-bold relative z-10 transition-colors duration-300 ${activeTab === 'expense' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}>أبرز المصروفات</button>
+                                    <button onClick={() => setActiveTab('income')} className={`flex-1 py-3 text-xs font-bold relative z-10 transition-colors duration-300 ${activeTab === 'income' ? 'text-white' : 'text-slate-500'}`}>الأعلى دخلاً</button>
+                                    <button onClick={() => setActiveTab('expense')} className={`flex-1 py-3 text-xs font-bold relative z-10 transition-colors duration-300 ${activeTab === 'expense' ? 'text-white' : 'text-slate-500'}`}>الأكثر صرفاً</button>
                                 </div>
 
-                                <div className="space-y-3">
+                                <div className="space-y-2 px-2 pb-2">
                                     {stats.topCategories.length > 0 ? stats.topCategories.map((cat, idx) => {
                                          const percentage = totalForTab > 0 ? (cat.amount / totalForTab) * 100 : 0;
                                          const Icon = cat.icon && iconMap[cat.icon] ? iconMap[cat.icon] : TagIcon;
                                          
                                          return (
-                                            <div key={idx} className="group relative bg-slate-800/40 border border-white/5 p-4 rounded-2xl flex items-center gap-4 overflow-hidden hover:bg-slate-800/60 transition-all duration-300">
-                                                {/* Background Progress Bar */}
-                                                <div className="absolute bottom-0 left-0 h-1 bg-slate-700/30 w-full">
-                                                    <div className="h-full transition-all duration-1000 ease-out" style={{ width: `${percentage}%`, backgroundColor: cat.color }}></div>
+                                            <div key={idx} className="flex items-center gap-4 p-3 hover:bg-white/5 rounded-2xl transition-colors group">
+                                                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg transition-transform group-hover:scale-110 shrink-0" style={{ backgroundColor: `${cat.color}20`, color: cat.color, border: `1px solid ${cat.color}30` }}>
+                                                    <Icon className="w-5 h-5" />
                                                 </div>
 
-                                                {/* Icon Box */}
-                                                <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-lg transition-transform group-hover:scale-110" style={{ backgroundColor: `${cat.color}20`, color: cat.color }}>
-                                                    <Icon className="w-6 h-6" />
-                                                </div>
-
-                                                {/* Details */}
                                                 <div className="flex-1 min-w-0">
-                                                    <div className="flex justify-between items-center mb-1">
-                                                        <span className="font-bold text-white text-base truncate">{cat.name}</span>
-                                                        <span className="font-bold text-white text-base">{formatCurrency(cat.amount)}</span>
+                                                    <div className="flex justify-between items-center mb-1.5">
+                                                        <span className="font-bold text-slate-200 text-sm">{cat.name}</span>
+                                                        <span className="font-bold text-white text-sm">{formatCurrency(cat.amount)}</span>
                                                     </div>
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-[10px] font-bold text-slate-400 bg-slate-900/50 px-2 py-0.5 rounded-md border border-white/5 flex items-center gap-1">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-slate-500"></div>
-                                                            {cat.count} {cat.count > 10 ? 'عملية' : 'عمليات'}
-                                                        </span>
-                                                        <span className="text-xs font-bold" style={{ color: cat.color }}>{percentage.toFixed(1)}%</span>
+                                                    
+                                                    <div className="relative w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                                        <div 
+                                                            className="absolute top-0 right-0 h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_currentColor]" 
+                                                            style={{ width: `${percentage}%`, backgroundColor: cat.color, color: cat.color }}
+                                                        ></div>
                                                     </div>
                                                 </div>
                                             </div>
                                          )
                                     }) : (
-                                        <div className="text-center py-8 bg-slate-800/20 rounded-2xl border border-dashed border-slate-700">
-                                            <p className="text-slate-500 text-sm">لا توجد بيانات لهذا التصنيف.</p>
+                                        <div className="text-center py-12">
+                                            <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3 opacity-50">
+                                                <TagIcon className="w-6 h-6 text-slate-500"/>
+                                            </div>
+                                            <p className="text-slate-500 text-xs">لا توجد تصنيفات لعرضها</p>
                                         </div>
                                     )}
                                 </div>
                             </div>
-                        </>
+                        </div>
                     )}
                 </div>
 
-                {/* Footer */}
-                <div className="p-6 border-t border-white/5 bg-slate-900/50 backdrop-blur-md z-20">
-                    <button onClick={() => { onClose(); setActivePage('reports'); }} className="w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-2xl font-bold transition shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2 group">
-                        عرض التقرير التفصيلي
-                        <ChevronLeftIcon className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+                {/* Footer Action */}
+                <div className="p-6 pt-0 z-20">
+                    <button onClick={() => { onClose(); setActivePage('reports'); }} className="w-full py-4 bg-white text-slate-950 hover:bg-slate-200 rounded-[1.5rem] font-bold transition shadow-xl shadow-white/5 flex items-center justify-center gap-2 group active:scale-95">
+                        التقرير التفصيلي
+                        <ChevronLeftIcon className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                     </button>
                 </div>
 
@@ -558,15 +642,16 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
 
             {/* Dashboard Grid: Total Balance & Debts */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Hero Card - Premium Metal Look */}
+                {/* Hero Card - Premium Metal Look with Animated Texture */}
                 <div className="md:col-span-2 relative overflow-hidden rounded-[2rem] p-8 text-white flex flex-col justify-between min-h-[14rem] shadow-2xl group border border-white/10"
                     style={{ 
                         background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
                         boxShadow: '0 20px 40px -10px rgba(0,0,0,0.5)'
                     }}>
                     
-                    {/* Texture Overlay */}
+                    {/* Animated Texture Overlay */}
                     <div className="absolute inset-0 opacity-10 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent skew-x-12 translate-x-[-100%] animate-shimmer pointer-events-none"></div>
                     
                     {/* Gradient Orbs */}
                     <div className="absolute -top-24 -right-24 w-64 h-64 bg-cyan-500/20 rounded-full blur-[80px]"></div>
@@ -575,9 +660,11 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
                     <div className="relative z-10 flex justify-between items-start">
                         <div>
                             <p className="text-slate-400 font-medium text-sm mb-1 tracking-wider uppercase">إجمالي الرصيد</p>
-                            <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-white drop-shadow-sm">{formatCurrency(stats.totalBalance)}</h2>
+                            <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-white drop-shadow-sm">
+                                <AnimatedCounter value={stats.totalBalance} />
+                            </h2>
                         </div>
-                        <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center backdrop-blur-sm">
+                        <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center backdrop-blur-sm shadow-inner">
                              <img src="https://cdn-icons-png.flaticon.com/512/6404/6404078.png" alt="Chip" className="w-6 h-6 opacity-60 invert" />
                         </div>
                     </div>
@@ -587,7 +674,7 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
                              <p className="text-xs text-slate-500 font-mono tracking-widest">**** **** **** 8842</p>
                              <span className="text-xs font-bold text-slate-400">المحفظة الرئيسية</span>
                         </div>
-                        <button onClick={() => setActivePage('accounts')} className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-xl text-xs font-bold transition flex items-center gap-2 border border-white/5">
+                        <button onClick={() => setActivePage('accounts')} className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-xl text-xs font-bold transition flex items-center gap-2 border border-white/5 hover:scale-105 active:scale-95">
                             إدارة الحسابات <ChevronLeftIcon className="w-3 h-3" />
                         </button>
                     </div>
@@ -595,22 +682,22 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
 
                 {/* Debt Summary Cards - Stacked */}
                 <div className="grid grid-cols-2 md:grid-cols-1 gap-4">
-                    <button onClick={() => setActivePage('debts')} className="glass-card p-5 rounded-[2rem] flex flex-col justify-center items-start hover:bg-white/5 transition-all group relative overflow-hidden border border-white/5 h-full">
+                    <button onClick={() => setActivePage('debts')} className="glass-card p-5 rounded-[2rem] flex flex-col justify-center items-start hover:bg-white/5 transition-all group relative overflow-hidden border border-white/5 h-full hover:scale-[1.02] active:scale-95">
                         <div className="absolute right-0 top-0 w-20 h-20 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition-all"></div>
                         <div className="flex items-center gap-2 mb-2">
                             <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400 border border-emerald-500/20"><ArrowDownIcon className="w-4 h-4"/></div>
                             <span className="text-slate-400 text-xs font-bold">ديون لك</span>
                         </div>
-                        <span className="text-xl md:text-2xl font-bold text-white tracking-wide">{formatCurrency(stats.debtsForYou)}</span>
+                        <span className="text-xl md:text-2xl font-bold text-white tracking-wide"><AnimatedCounter value={stats.debtsForYou} /></span>
                     </button>
 
-                    <button onClick={() => setActivePage('debts')} className="glass-card p-5 rounded-[2rem] flex flex-col justify-center items-start hover:bg-white/5 transition-all group relative overflow-hidden border border-white/5 h-full">
+                    <button onClick={() => setActivePage('debts')} className="glass-card p-5 rounded-[2rem] flex flex-col justify-center items-start hover:bg-white/5 transition-all group relative overflow-hidden border border-white/5 h-full hover:scale-[1.02] active:scale-95">
                         <div className="absolute right-0 top-0 w-20 h-20 bg-rose-500/10 rounded-full blur-xl group-hover:bg-rose-500/20 transition-all"></div>
                         <div className="flex items-center gap-2 mb-2">
                              <div className="p-2 bg-rose-500/10 rounded-lg text-rose-400 border border-rose-500/20"><ArrowUpIcon className="w-4 h-4"/></div>
                             <span className="text-slate-400 text-xs font-bold">ديون عليك</span>
                         </div>
-                        <span className="text-xl md:text-2xl font-bold text-white tracking-wide">{formatCurrency(stats.debtsOnYou)}</span>
+                        <span className="text-xl md:text-2xl font-bold text-white tracking-wide"><AnimatedCounter value={stats.debtsOnYou} /></span>
                     </button>
                 </div>
             </div>
@@ -632,7 +719,7 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
                             const isDueSoon = daysRemaining >= 0 && daysRemaining <= 7;
                             
                             return (
-                                <div key={debt.id} className="min-w-[240px] glass-card p-4 rounded-2xl border border-white/5 relative overflow-hidden snap-center flex flex-col justify-between h-28">
+                                <div key={debt.id} className="min-w-[240px] glass-card p-4 rounded-2xl border border-white/5 relative overflow-hidden snap-center flex flex-col justify-between h-28 hover:-translate-y-1 transition-transform">
                                     <div className={`absolute top-0 right-0 w-1 h-full ${isOverdue ? 'bg-rose-500' : isDueSoon ? 'bg-amber-500' : 'bg-cyan-500'}`}></div>
                                     <div className="flex justify-between items-start pl-2">
                                         <div>

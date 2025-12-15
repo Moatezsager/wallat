@@ -14,14 +14,23 @@ const NavItem: React.FC<{ label: string; icon: React.ReactNode; onClick: () => v
     <button
         onClick={onClick}
         className={`relative flex items-center w-full p-3.5 text-right rounded-2xl transition-all duration-200 group overflow-hidden active:scale-95 ${
-            isActive ? 'bg-cyan-500/10 text-cyan-400 shadow-lg shadow-cyan-500/5 border border-cyan-500/20' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+            isActive ? 'text-white shadow-[0_0_20px_rgba(6,182,212,0.3)] border border-cyan-500/30' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
         }`}
     >
-        {isActive && <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-transparent opacity-50" />}
-        <div className={`relative z-10 transition-transform group-hover:scale-110 ${isActive ? 'text-cyan-400' : 'text-slate-500 group-hover:text-slate-300'}`}>
+        {/* Active Background with Glass Effect */}
+        {isActive && (
+            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-blue-600/10 backdrop-blur-md rounded-2xl" />
+        )}
+        
+        <div className={`relative z-10 transition-transform group-hover:scale-110 ${isActive ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.5)]' : 'text-slate-500 group-hover:text-slate-300'}`}>
             {icon}
         </div>
-        <span className="relative z-10 mr-4 font-medium">{label}</span>
+        <span className="relative z-10 mr-4 font-medium tracking-wide">{label}</span>
+        
+        {/* Active Indicator Line */}
+        {isActive && (
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-cyan-400 rounded-r-full shadow-[0_0_10px_rgba(34,211,238,0.8)]"></div>
+        )}
     </button>
 );
 
@@ -46,9 +55,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActiv
         <>
             <div className={`fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={onClose} />
             <div className={`fixed top-0 right-0 z-[60] h-full w-80 bg-slate-900/90 backdrop-blur-2xl shadow-2xl transform transition-transform duration-300 ease-out border-l border-white/5 ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-                <div className="p-6 flex flex-col h-full relative">
-                     {/* Decorative blur */}
-                    <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-cyan-500/10 to-transparent pointer-events-none"></div>
+                <div className="p-6 flex flex-col h-full relative overflow-hidden">
+                     {/* Decorative background elements */}
+                    <div className="absolute top-0 left-0 w-full h-48 bg-gradient-to-b from-cyan-500/10 to-transparent pointer-events-none"></div>
+                    <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-blue-500/10 rounded-full blur-[50px] pointer-events-none"></div>
 
                     <div className="flex items-center gap-4 mb-10 px-2 relative z-10">
                         <div className="w-10 h-10 bg-gradient-to-tr from-cyan-400 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
@@ -74,7 +84,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActiv
                             
                             {/* Text Container */}
                             <p className="relative text-[10px] text-slate-400 font-medium tracking-wide bg-slate-900/50 rounded-lg px-3 py-1.5 ring-1 ring-white/5 backdrop-blur-sm transition-all hover:ring-white/10">
-                                جميع الحقوق محفوظة © <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 text-transparent bg-clip-text font-bold text-xs">GreenBox 2025 v1.0.2</span>
+                                جميع الحقوق محفوظة © <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 text-transparent bg-clip-text font-bold text-xs">GreenBox 2025 v1.0.3</span>
                             </p>
                         </div>
                     </div>
