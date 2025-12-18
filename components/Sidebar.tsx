@@ -53,25 +53,31 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActiv
 
     return (
         <>
-            <div className={`fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={onClose} />
-            <div className={`fixed top-0 right-0 z-[60] h-full w-80 bg-slate-900/90 backdrop-blur-2xl shadow-2xl transform transition-transform duration-300 ease-out border-l border-white/5 ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+            {/* Mobile Scrim */}
+            <div className={`lg:hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={onClose} />
+            
+            {/* Sidebar Container */}
+            <div className={`fixed top-0 right-0 z-[60] h-full w-80 bg-slate-900/90 lg:bg-slate-900/40 backdrop-blur-2xl shadow-2xl lg:shadow-none transform transition-transform duration-300 ease-out border-l border-white/5 ${isOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}>
                 <div className="p-6 flex flex-col h-full relative overflow-hidden">
                      {/* Decorative background elements */}
                     <div className="absolute top-0 left-0 w-full h-48 bg-gradient-to-b from-cyan-500/10 to-transparent pointer-events-none"></div>
                     <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-blue-500/10 rounded-full blur-[50px] pointer-events-none"></div>
 
                     <div className="flex items-center gap-4 mb-10 px-2 relative z-10">
-                        <div className="w-10 h-10 bg-gradient-to-tr from-cyan-400 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
-                             <WalletIcon className="w-6 h-6 text-white" />
+                        <div className="w-12 h-12 bg-gradient-to-tr from-cyan-400 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                             <WalletIcon className="w-7 h-7 text-white" />
                         </div>
-                        <h2 className="text-2xl font-bold text-white tracking-tight">محفظتي</h2>
+                        <div>
+                            <h2 className="text-xl font-bold text-white tracking-tight">محفظتي الذكية</h2>
+                            <p className="text-[10px] text-cyan-400/60 font-bold uppercase tracking-widest">إدارة مالية متكاملة</p>
+                        </div>
                     </div>
 
-                    <nav className="flex flex-col space-y-1.5 relative z-10">
+                    <nav className="flex flex-col space-y-1.5 relative z-10 flex-1">
                         {mainNavItems.map(item => <NavItem key={item.page} label={item.label} icon={item.icon} isActive={activePage === item.page} onClick={() => handleNavigation(item.page as Page)} />)}
                         
                         <div className="my-6 border-t border-white/5 mx-2 relative">
-                            <span className="absolute left-1/2 -top-3 -translate-x-1/2 bg-slate-900 px-2 text-xs text-slate-600">أدوات</span>
+                            <span className="absolute left-1/2 -top-3 -translate-x-1/2 bg-slate-900 lg:bg-slate-950/20 px-2 text-[10px] text-slate-500 font-bold uppercase tracking-tighter">الأدوات والإحصائيات</span>
                         </div>
                         
                         {secondaryNavItems.map(item => <NavItem key={item.page} label={item.label} icon={item.icon} isActive={activePage === item.page} onClick={() => handleNavigation(item.page as Page)} />)}
@@ -84,7 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActiv
                             
                             {/* Text Container */}
                             <p className="relative text-[10px] text-slate-400 font-medium tracking-wide bg-slate-900/50 rounded-lg px-3 py-1.5 ring-1 ring-white/5 backdrop-blur-sm transition-all hover:ring-white/10">
-                                جميع الحقوق محفوظة © <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 text-transparent bg-clip-text font-bold text-xs">GreenBox 2025 v1.0.3</span>
+                                جميع الحقوق محفوظة © <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 text-transparent bg-clip-text font-bold text-xs">GreenBox 2025 v1.1.0</span>
                             </p>
                         </div>
                     </div>

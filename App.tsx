@@ -183,20 +183,31 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen font-sans pb-24 md:pb-0" dir="rtl">
-        <Header 
+    <div className="min-h-screen font-sans pb-24 md:pb-0 lg:flex lg:flex-row-reverse" dir="rtl">
+        {/* Persistent Sidebar on Desktop */}
+        <Sidebar 
+            isOpen={isSidebarOpen} 
+            onClose={() => setSidebarOpen(false)} 
             activePage={activePage} 
-            onMenuClick={() => setSidebarOpen(true)}
-            isProfilePage={!!activeContactId}
-            profileName={activeContactName}
-            onBack={handleBackToContacts}
-            notifications={debtNotifications}
-            onNavigate={(page) => setActivePage(page)}
+            setActivePage={setActivePage} 
         />
-        <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} activePage={activePage} setActivePage={setActivePage} />
-        <main className="max-w-5xl mx-auto p-4 md:p-6 animate-fade-in">
-            {renderPage()}
-        </main>
+        
+        <div className="flex-1 lg:mr-80">
+            <Header 
+                activePage={activePage} 
+                onMenuClick={() => setSidebarOpen(true)}
+                isProfilePage={!!activeContactId}
+                profileName={activeContactName}
+                onBack={handleBackToContacts}
+                notifications={debtNotifications}
+                onNavigate={(page) => setActivePage(page)}
+            />
+            <main className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 animate-fade-in">
+                {renderPage()}
+            </main>
+        </div>
+        
+        {/* Bottom Nav hidden on desktop */}
         <BottomNav activePage={activePage} setActivePage={setActivePage} debtNotificationCount={debtNotifications.length} />
     </div>
   );
