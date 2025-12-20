@@ -1,16 +1,16 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { Account, Category, Contact, Debt } from '../types';
+import { Account, Category, Contact, Debt, Investment } from '../types';
 import { useToast } from './Toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { 
     PlusIcon, XMarkIcon, ArrowUpIcon, ArrowDownIcon, HandRaisedIcon, UserPlusIcon, ArrowLeftIcon, AccountsIcon, ScaleIcon, ArrowsRightLeftIcon, CurrencyDollarIcon,
-    WalletIcon, BanknoteIcon, LandmarkIcon, BriefcaseIcon, CalendarDaysIcon, TagIcon, PencilSquareIcon, iconMap, CheckCircleIcon
+    WalletIcon, BanknoteIcon, LandmarkIcon, BriefcaseIcon, CalendarDaysIcon, TagIcon, PencilSquareIcon, iconMap, CheckCircleIcon, SparklesIcon
 } from './icons';
 import { logActivity } from '../lib/logger';
 
-type ModalType = 'expense' | 'income' | 'transfer' | 'add-debt' | 'settle-debt' | 'add-account';
+type ModalType = 'expense' | 'income' | 'transfer' | 'add-debt' | 'settle-debt' | 'add-account' | 'add-investment';
 
 const getAccountTypeIcon = (type: string) => {
     switch (type) {
@@ -45,6 +45,39 @@ const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () =>
         </div>
     </div>
 );
+
+const AddInvestmentModal: React.FC<{ onSuccess: () => void; onCancel: () => void; }> = ({ onSuccess, onCancel }) => {
+    const [name, setName] = useState('');
+    const [type, setType] = useState('ذهب');
+    const [amount, setAmount] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+    const toast = useToast();
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSaving(true);
+        const { error } = await supabase.from('investments').insert({ 
+            name, type, amount: Number(amount), current_value: Number(amount) 
+        });
+        if (error) toast.error('حدث خطأ');
+        else onSuccess();
+        setIsSaving(false);
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <input type="text" placeholder="اسم الاستثمار" value={name} onChange={e => setName(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:outline-none" />
+            <select value={type} onChange={e => setType(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:outline-none">
+                <option value="ذهب">ذهب</option>
+                <option value="أسهم">أسهم</option>
+                <option value="عملات">عملات</option>
+                <option value="مدخرات">مدخرات</option>
+            </select>
+            <input type="number" placeholder="المبلغ المستثمر" value={amount} onChange={e => setAmount(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:outline-none" />
+            <button type="submit" disabled={isSaving} className="w-full py-4 bg-cyan-600 text-white rounded-xl font-bold">حفظ الاستثمار</button>
+        </form>
+    );
+};
 
 const AddAccountModal: React.FC<{ onSuccess: () => void; onCancel: () => void; }> = ({ onSuccess, onCancel }) => {
     const toast = useToast();
@@ -737,12 +770,14 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
             case 'add-debt': description = 'إضافة دين جديد'; break;
             case 'settle-debt': description = 'تسوية دين'; break;
             case 'add-account': description = 'إضافة حساب جديد'; break;
+            case 'add-investment': description = 'تسجيل استثمار جديد'; break;
         }
         queryClient.invalidateQueries({ queryKey: ['accounts'] });
         queryClient.invalidateQueries({ queryKey: ['transactions'] });
         queryClient.invalidateQueries({ queryKey: ['transactions-stats'] });
         queryClient.invalidateQueries({ queryKey: ['debts'] });
         queryClient.invalidateQueries({ queryKey: ['debtNotifications'] });
+        queryClient.invalidateQueries({ queryKey: ['investments'] });
         
         toast.success(description);
         setActiveModal(null);
@@ -766,7 +801,7 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
         { label: 'إيراد', icon: <ArrowDownIcon className="w-5 h-5"/>, action: () => openModal('income'), gradient: 'from-emerald-500 to-teal-600', color: 'emerald' },
         { label: 'تحويل', icon: <ArrowsRightLeftIcon className="w-5 h-5"/>, action: () => openModal('transfer'), gradient: 'from-violet-500 to-indigo-600', color: 'violet' },
         { label: 'دين', icon: <HandRaisedIcon className="w-5 h-5"/>, action: () => openModal('add-debt'), gradient: 'from-amber-500 to-orange-600', color: 'amber' },
-        { label: 'تسديد', icon: <ScaleIcon className="w-5 h-5"/>, action: () => openModal('settle-debt'), gradient: 'from-sky-500 to-blue-600', color: 'sky' },
+        { label: 'استثمار', icon: <SparklesIcon className="w-5 h-5"/>, action: () => openModal('add-investment'), gradient: 'from-cyan-500 to-blue-600', color: 'cyan' },
     ];
     
     const modalConfig: Record<ModalType, { title: string, color: string }> = {
@@ -775,7 +810,8 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
         transfer: { title: 'تحويل أموال', color: 'from-violet-500' },
         'add-debt': { title: 'تسجيل دين', color: 'from-amber-500' },
         'settle-debt': { title: 'تسوية الديون', color: 'from-sky-500' },
-        'add-account': { title: 'حساب جديد', color: 'from-cyan-500' }
+        'add-account': { title: 'حساب جديد', color: 'from-cyan-500' },
+        'add-investment': { title: 'استثمار جديد', color: 'from-cyan-500' }
     };
 
     const renderModalContent = () => {
@@ -791,6 +827,8 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
                 return <SettleDebtWizard unpaidDebts={unpaidDebts} contacts={contacts} accounts={accounts} categories={categories} onSuccess={handleActionSuccess} step={modalStep} setStep={setModalStep} />
             case 'add-account':
                 return <AddAccountModal onSuccess={handleActionSuccess} onCancel={closeModal} />;
+            case 'add-investment':
+                return <AddInvestmentModal onSuccess={handleActionSuccess} onCancel={closeModal} />;
             default:
                 return null;
         }

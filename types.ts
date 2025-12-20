@@ -1,6 +1,6 @@
 
 // Fix: Define the Page type as a union of string literals to avoid circular dependency.
-export type Page = 'home' | 'accounts' | 'transactions' | 'debts' | 'contacts' | 'categories' | 'reports' | 'notes';
+export type Page = 'home' | 'accounts' | 'transactions' | 'debts' | 'contacts' | 'categories' | 'reports' | 'notes' | 'investments' | 'goals';
 
 // From user prompt:
 // accounts: id(uuid), name(text), type(text), balance(numeric), currency(text)
@@ -76,4 +76,26 @@ export interface Note {
   language: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// investments: id(uuid), name(text), amount(numeric), type(text), current_value(numeric), created_at(timestamptz)
+export interface Investment {
+  id: string;
+  name: string;
+  type: string; // "ذهب", "أسهم", "عملات", "مدخرات"
+  amount: number; // Purchase price
+  current_value: number;
+  created_at: string;
+}
+
+// goals: id(uuid), name(text), target_amount(numeric), current_amount(numeric), deadline(date), color(text), icon(text)
+export interface Goal {
+  id: string;
+  name: string;
+  target_amount: number;
+  current_amount: number;
+  deadline: string | null;
+  color: string;
+  icon: string;
+  created_at: string;
 }

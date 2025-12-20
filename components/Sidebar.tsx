@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Page } from '../types';
-import { HomeIcon, AccountsIcon, TransactionsIcon, CurrencyDollarIcon, ContactsIcon, CategoriesIcon, ReportsIcon, ClipboardDocumentIcon, ChartPieIcon, WalletIcon } from './icons';
+import { HomeIcon, AccountsIcon, TransactionsIcon, CurrencyDollarIcon, ContactsIcon, CategoriesIcon, ReportsIcon, ClipboardDocumentIcon, ChartPieIcon, WalletIcon, SparklesIcon, HeartPulseIcon } from './icons';
 
 interface SidebarProps {
     isOpen: boolean;
@@ -42,6 +42,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActiv
         { page: 'accounts', label: 'الحسابات', icon: <WalletIcon className="w-6 h-6" /> },
         { page: 'transactions', label: 'المعاملات', icon: <TransactionsIcon className="w-6 h-6" /> },
         { page: 'debts', label: 'الديون', icon: <CurrencyDollarIcon className="w-6 h-6" /> },
+        { page: 'investments', label: 'الاستثمارات', icon: <SparklesIcon className="w-6 h-6" /> },
+        { page: 'goals', label: 'أهداف الادخار', icon: <HeartPulseIcon className="w-6 h-6" /> },
         { page: 'contacts', label: 'جهات الاتصال', icon: <ContactsIcon className="w-6 h-6" /> },
     ];
     

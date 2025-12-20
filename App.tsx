@@ -12,6 +12,8 @@ import ContactProfilePage from './components/ContactProfilePage';
 import CategoriesPage from './components/CategoriesPage';
 import ReportsPage from './components/ReportsPage';
 import NotesPage from './components/NotesPage';
+import InvestmentsPage from './components/InvestmentsPage';
+import SavingsGoalsPage from './components/SavingsGoalsPage';
 import BottomNav from './components/BottomNav';
 import { ToastProvider } from './components/Toast';
 import { supabase } from './lib/supabase';
@@ -141,6 +143,8 @@ function AppContent() {
       case 'categories': return <CategoriesPage refreshTrigger={refreshTrigger} handleDatabaseChange={handleDatabaseChange} />;
       case 'reports': return <ReportsPage refreshTrigger={refreshTrigger} />;
       case 'notes': return <NotesPage refreshTrigger={refreshTrigger} handleDatabaseChange={handleDatabaseChange} />;
+      case 'investments': return <InvestmentsPage refreshTrigger={refreshTrigger} handleDatabaseChange={handleDatabaseChange} />;
+      case 'goals': return <SavingsGoalsPage refreshTrigger={refreshTrigger} handleDatabaseChange={handleDatabaseChange} />;
       default: return <HomePage refreshTrigger={refreshTrigger} handleDatabaseChange={handleDatabaseChange} setActivePage={setActivePage}/>;
     }
   };
@@ -152,7 +156,7 @@ function AppContent() {
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/20 rounded-full blur-[100px] animate-pulse-slow"></div>
         <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[100px] animate-pulse-slow" style={{animationDelay: '2s'}}></div>
 
-        <div className="glass-card w-full max-w-sm p-8 rounded-3xl shadow-2xl text-center animate-slide-up relative z-10">
+        <div className="glass-card w-full max-sm p-8 rounded-3xl shadow-2xl text-center animate-slide-up relative z-10">
           <div className="w-20 h-20 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-2xl mx-auto mb-8 flex items-center justify-center shadow-lg shadow-cyan-500/30 rotate-3 hover:rotate-0 transition-transform duration-500">
              <WalletIcon className="w-10 h-10 text-white" />
           </div>
