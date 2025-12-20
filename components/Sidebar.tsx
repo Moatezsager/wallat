@@ -56,10 +56,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActiv
     return (
         <>
             {/* Mobile Scrim */}
-            <div className={`lg:hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={onClose} />
+            <div className={`lg:hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm transition-opacity duration-300 print-hidden ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={onClose} />
             
             {/* Sidebar Container */}
-            <div className={`fixed top-0 right-0 z-[60] h-full w-80 bg-slate-900/90 lg:bg-slate-900/40 backdrop-blur-2xl shadow-2xl lg:shadow-none transform transition-transform duration-300 ease-out border-l border-white/5 ${isOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}>
+            <div className={`fixed top-0 right-0 z-[60] h-full w-80 bg-slate-900/90 lg:bg-slate-900/40 backdrop-blur-2xl shadow-2xl lg:shadow-none transform transition-transform duration-300 ease-out border-l border-white/5 print-hidden ${isOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}>
                 <div className="p-6 flex flex-col h-full relative overflow-hidden">
                      {/* Decorative background elements */}
                     <div className="absolute top-0 left-0 w-full h-48 bg-gradient-to-b from-cyan-500/10 to-transparent pointer-events-none"></div>

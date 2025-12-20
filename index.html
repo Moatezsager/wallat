@@ -24,19 +24,24 @@
 
         /* --- نسيقات التصدير والطباعة الاحترافية --- */
         @media print {
-            /* إخفاء كل عناصر الموقع */
-            body { background: white !important; color: black !important; padding: 0 !important; margin: 0 !important; }
-            #root > div:not(.print-container-wrapper) { display: none !important; }
-            .print-hidden { display: none !important; }
+            body { 
+                background: white !important; 
+                color: black !important; 
+                padding: 0 !important; 
+                margin: 0 !important; 
+            }
+            
+            /* إخفاء واجهة المستخدم */
+            .print-hidden { 
+                display: none !important; 
+            }
             
             /* إظهار حاوية الكشف فقط */
             .print-only { 
                 display: block !important; 
                 visibility: visible !important;
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
+                width: 100% !important;
+                position: relative !important;
             }
 
             /* تحسين جودة النصوص والجداول في PDF */
@@ -46,8 +51,11 @@
             
             @page { 
                 size: A4; 
-                margin: 1.5cm; 
+                margin: 1cm; 
             }
+
+            /* إخفاء أي مسافات فارغة ناتجة عن العناصر المخفية */
+            #root { padding: 0 !important; margin: 0 !important; }
         }
         
         /* الحالة الافتراضية للكشف في المتصفح */

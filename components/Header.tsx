@@ -64,7 +64,7 @@ const Header: React.FC<HeaderProps> = ({ activePage, onMenuClick, isProfilePage,
     const upcomingDebts = notifications.filter(d => getDebtStatus(d.due_date) === 'due_soon');
 
     return (
-        <header className="sticky top-0 z-20 glass-strong">
+        <header className="sticky top-0 z-20 glass-strong print-hidden">
             <div className="max-w-5xl mx-auto flex items-center justify-between h-16 px-4 lg:px-8">
                 <div className="flex-1 flex justify-start items-center gap-2">
                     {isProfilePage && onBack ? (

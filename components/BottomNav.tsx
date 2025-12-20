@@ -58,7 +58,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ activePage, setActivePage, debtNo
     ];
 
     return (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 pointer-events-none">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 pointer-events-none print-hidden">
             {/* Background Container */}
             <div className="relative h-20 w-full bg-slate-900/80 backdrop-blur-xl border-t border-white/10 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] pointer-events-auto flex items-center justify-between px-2 pb-2">
                 
