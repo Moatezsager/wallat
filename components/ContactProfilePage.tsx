@@ -31,6 +31,7 @@ const formatCurrency = (amount: number) => {
 };
 
 const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBack, handleDatabaseChange }) => {
+    // 1. استدعاء كافة الـ Hooks في بداية المكون (Unconditional Hooks)
     const [contact, setContact] = useState<Contact | null>(null);
     const [debts, setDebts] = useState<Debt[]>([]);
     const [loading, setLoading] = useState(true);
@@ -39,19 +40,28 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
     const [exportProgress, setExportProgress] = useState(0);
     const [exportStatus, setExportStatus] = useState('');
 
+    // توليد رقم مرجعي عشوائي للكشف - يجب أن يكون هنا قبل أي return
+    const reportRef = useMemo(() => `GB-${Math.floor(1000 + Math.random() * 9000)}-${new Date().getFullYear()}`, []);
+
     const fetchData = useCallback(async () => {
         setLoading(true);
-        const contactPromise = supabase.from('contacts').select('*').eq('id', contactId).single();
-        // جلب جميع الديون (حتى المدفوعة لإظهارها في الكشف الشامل إذا لزم الأمر، أو فقط النشطة)
-        const debtsPromise = supabase.from('debts').select('*').eq('contact_id', contactId).order('created_at', { ascending: false });
+        try {
+            const contactPromise = supabase.from('contacts').select('*').eq('id', contactId).single();
+            const debtsPromise = supabase.from('debts').select('*').eq('contact_id', contactId).order('created_at', { ascending: false });
 
-        const [{ data: contactData }, { data: debtsData }] = await Promise.all([contactPromise, debtsPromise]);
-        if (contactData) setContact(contactData);
-        if (debtsData) setDebts(debtsData as unknown as Debt[]);
-        setLoading(false);
+            const [{ data: contactData }, { data: debtsData }] = await Promise.all([contactPromise, debtsPromise]);
+            if (contactData) setContact(contactData);
+            if (debtsData) setDebts(debtsData as unknown as Debt[]);
+        } catch (err) {
+            console.error("Error fetching contact data:", err);
+        } finally {
+            setLoading(false);
+        }
     }, [contactId]);
 
-    useEffect(() => { fetchData(); }, [fetchData]);
+    useEffect(() => { 
+        fetchData(); 
+    }, [fetchData]);
 
     const { forYou, onYou, netBalance } = useMemo(() => {
         const activeDebts = debts.filter(d => !d.paid);
@@ -64,7 +74,6 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
         setIsExporting(true);
         setExportProgress(0);
         
-        // محاكاة خطوات التجهيز الاحترافية
         const steps = [
             { p: 20, s: 'جاري تجميع سجلات الديون...' },
             { p: 50, s: 'تحليل العمليات المالية وتدقيق الأرصدة...' },
@@ -75,17 +84,18 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
         for (const step of steps) {
             setExportStatus(step.s);
             setExportProgress(step.p);
-            await new Promise(r => setTimeout(r, 600));
+            await new Promise(r => setTimeout(r, 400));
         }
 
         setTimeout(() => {
             window.print();
             setIsExporting(false);
-        }, 500);
+        }, 300);
     };
 
-    if (loading) return <div className="p-20 text-center animate-pulse text-slate-500 font-bold">جاري تحميل الملف...</div>;
-    if (!contact) return <div className="p-8 text-center text-rose-400">جهة الاتصال غير موجودة.</div>;
+    // 2. جمل الشرط (Conditional Returns) تأتي دائماً بعد الـ Hooks
+    if (loading) return <div className="p-20 text-center animate-pulse text-slate-500 font-bold">جاري تحميل ملف العميل...</div>;
+    if (!contact) return <div className="p-8 text-center text-rose-400">عذراً، جهة الاتصال غير موجودة.</div>;
 
     return (
         <div className="space-y-6 animate-fade-in relative">
@@ -102,7 +112,7 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
                 </button>
             </div>
 
-            {/* Profile UI - UI Only */}
+            {/* Profile UI - Web View */}
             <div className="glass-card p-6 rounded-[2.5rem] border border-white/5 bg-slate-900/50 print:hidden">
                 <div className="flex items-center gap-5 mb-8">
                     <div className="w-20 h-20 bg-gradient-to-tr from-cyan-600 to-blue-700 rounded-3xl flex items-center justify-center font-bold text-white text-3xl shadow-xl">
@@ -110,7 +120,7 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
                     </div>
                     <div>
                         <h2 className="font-black text-3xl text-white mb-1">{contact.name}</h2>
-                        <p className="text-slate-500 font-bold text-sm">{contact.phone || 'بدون رقم هاتف'}</p>
+                        <p className="text-slate-500 font-bold text-sm">{contact.phone || 'بدون رقم هاتف مسجل'}</p>
                     </div>
                 </div>
 
@@ -126,7 +136,7 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
                 </div>
             </div>
 
-            {/* List for Web Interface */}
+            {/* List for Web View */}
             <div className="space-y-4 print:hidden">
                 <div className="flex bg-slate-900 p-1 rounded-2xl border border-white/5">
                     <button onClick={() => setActiveTab('for_you')} className={`flex-1 py-3 rounded-xl font-bold transition ${activeTab === 'for_you' ? 'bg-emerald-600 text-white' : 'text-slate-500'}`}>الديون النشطة لك</button>
@@ -144,7 +154,7 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
                         </div>
                     ))
                 ) : (
-                    <div className="text-center py-12 text-slate-600 font-medium">لا توجد ديون نشطة في هذا القسم.</div>
+                    <div className="text-center py-12 text-slate-600 font-medium">لا توجد سجلات في هذا التبويب.</div>
                 )}
             </div>
 
@@ -156,7 +166,7 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
                             <SparklesIcon className="w-10 h-10 text-cyan-400 animate-pulse" />
                         </div>
                         <div className="space-y-2">
-                            <h3 className="text-xl font-bold text-white">جاري إعداد كشف الحساب</h3>
+                            <h3 className="text-xl font-bold text-white">جاري إعداد الوثيقة</h3>
                             <p className="text-slate-400 text-sm font-medium">{exportStatus}</p>
                         </div>
                         <div className="relative h-2 bg-slate-800 rounded-full overflow-hidden">
@@ -165,123 +175,127 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
                                 style={{ width: `${exportProgress}%` }}
                             ></div>
                         </div>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">يرجى الانتظار قليلاً</p>
                     </div>
                 </div>
             )}
 
-            {/* --- PROFESSIONAL PRINT TEMPLATE (ALL DEBTS) --- */}
-            <div className="print-only print-container-wrapper bg-white text-black p-10 font-sans min-h-screen" dir="rtl">
-                {/* PDF Header */}
-                <div className="flex justify-between items-start border-b-8 border-slate-900 pb-8 mb-10">
+            {/* --- PROFESSIONAL PRINT TEMPLATE --- */}
+            <div className="print-only print-container-wrapper bg-white text-black p-12 font-sans min-h-screen flex flex-col" dir="rtl">
+                {/* PDF Header Section */}
+                <div className="flex justify-between items-start border-b-4 border-slate-900 pb-10 mb-12">
                     <div>
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-white">
-                                <WalletIcon className="w-8 h-8" />
+                        <div className="flex items-center gap-4 mb-4">
+                            <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                                <WalletIcon className="w-10 h-10" />
                             </div>
-                            <h1 className="text-4xl font-black tracking-tighter text-slate-900">كشف حساب مالي تفصيلي</h1>
+                            <div>
+                                <h1 className="text-4xl font-black tracking-tight text-slate-900">كشف مطالبات مالي</h1>
+                                <p className="text-slate-500 font-bold text-xs uppercase tracking-[0.2em] mt-1">نظام المحفظة الإلكترونية الذكية</p>
+                            </div>
                         </div>
-                        <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">نظام إدارة المحفظة الإلكترونية الذكية - تقرير مالي رسمي</p>
                     </div>
-                    <div className="text-left">
-                        <p className="text-slate-400 font-bold text-[10px] mb-1 uppercase">تاريخ إصدار التقرير</p>
-                        <p className="text-2xl font-black text-slate-900 font-mono">{new Date().toLocaleDateString('ar-LY')}</p>
-                    </div>
-                </div>
-
-                {/* PDF Info Sections */}
-                <div className="grid grid-cols-2 gap-10 mb-10">
-                    <div className="bg-slate-50 p-6 rounded-3xl border-2 border-slate-100">
-                        <p className="text-[10px] text-slate-400 font-bold uppercase mb-2">جهة إصدار الكشف</p>
-                        <h3 className="text-xl font-black text-slate-900">سجلاتي المالية الشخصية</h3>
-                        <p className="text-slate-500 text-sm mt-1">تطبيق محفظتي الذكية</p>
-                    </div>
-                    <div className="bg-slate-50 p-6 rounded-3xl border-2 border-slate-100">
-                        <p className="text-[10px] text-slate-400 font-bold uppercase mb-2">الطرف الثاني (العميل)</p>
-                        <h3 className="text-xl font-black text-slate-900">{contact.name}</h3>
-                        {contact.phone && <p className="text-slate-500 text-sm mt-1 font-bold">هاتف: {contact.phone}</p>}
+                    <div className="text-left bg-slate-50 p-4 rounded-2xl border border-slate-200 min-w-[200px]">
+                        <p className="text-slate-400 font-bold text-[9px] mb-1 uppercase">الرقم المرجعي</p>
+                        <p className="text-sm font-black text-slate-900 font-mono mb-3">{reportRef}</p>
+                        <p className="text-slate-400 font-bold text-[9px] mb-1 uppercase">تاريخ الإصدار</p>
+                        <p className="text-sm font-black text-slate-900 font-mono">{new Date().toLocaleDateString('ar-LY')}</p>
                     </div>
                 </div>
 
-                {/* PDF Summary Box */}
-                <div className="grid grid-cols-3 gap-6 mb-12">
-                    <div className="border-2 border-emerald-100 bg-emerald-50/30 p-6 rounded-3xl text-center">
-                        <p className="text-xs text-emerald-600 font-bold mb-2">إجمالي الديون لك</p>
-                        <p className="text-3xl font-black text-emerald-700">{formatCurrency(forYou)}</p>
+                {/* Info Cards */}
+                <div className="grid grid-cols-2 gap-8 mb-12">
+                    <div className="bg-slate-50/50 p-6 rounded-3xl border-2 border-slate-100">
+                        <p className="text-[10px] text-slate-400 font-bold uppercase mb-3 border-b border-slate-200 pb-2">بيانات العميل / الطرف المقابل</p>
+                        <h3 className="text-2xl font-black text-slate-900 mb-1">{contact.name}</h3>
+                        {contact.phone && <p className="text-slate-600 text-sm font-bold">الهاتف: <span className="font-mono">{contact.phone}</span></p>}
                     </div>
-                    <div className="border-2 border-rose-100 bg-rose-50/30 p-6 rounded-3xl text-center">
-                        <p className="text-xs text-rose-600 font-bold mb-2">إجمالي الديون عليك</p>
-                        <p className="text-3xl font-black text-rose-700">{formatCurrency(onYou)}</p>
-                    </div>
-                    <div className="bg-slate-900 p-6 rounded-3xl text-center shadow-xl">
-                        <p className="text-xs text-slate-400 font-bold mb-2 uppercase tracking-wide">الرصيد النهائي (الصافي)</p>
-                        <p className="text-3xl font-black text-white">{formatCurrency(Math.abs(netBalance))}</p>
-                        <p className={`text-[10px] font-bold mt-1 ${netBalance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {netBalance >= 0 ? 'مبلغ مستحق لك بذمة الطرف الآخر' : 'مبلغ مستحق عليك للطرف الآخر'}
-                        </p>
+                    <div className="bg-slate-900 p-6 rounded-3xl text-white shadow-2xl relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                        <p className="text-[10px] text-white/40 font-bold uppercase mb-4 border-b border-white/10 pb-2">الرصيد الختامي المستحق</p>
+                        <div className="flex items-end gap-2">
+                             <p className="text-4xl font-black">{formatCurrency(Math.abs(netBalance))}</p>
+                             <span className={`text-xs font-bold mb-1.5 ${netBalance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {netBalance >= 0 ? '(مستحق لك)' : '(مستحق عليك)'}
+                             </span>
+                        </div>
                     </div>
                 </div>
 
-                {/* PDF Comprehensive Table */}
-                <div className="mb-20">
-                    <h4 className="text-lg font-black mb-6 text-slate-900 border-r-8 border-slate-900 pr-3">سجل العمليات المالية (كافة الديون المسجلة)</h4>
-                    <table className="w-full">
+                {/* Detail Table */}
+                <div className="flex-grow mb-16">
+                    <div className="flex items-center gap-3 mb-6 px-2">
+                        <div className="w-2 h-8 bg-slate-900 rounded-full"></div>
+                        <h4 className="text-xl font-black text-slate-900">سجل العمليات التفصيلي</h4>
+                    </div>
+                    <table className="w-full border-collapse">
                         <thead>
                             <tr className="bg-slate-900 text-white">
-                                <th className="p-4 rounded-tr-2xl text-right text-xs uppercase">تاريخ العملية</th>
-                                <th className="p-4 text-right text-xs uppercase">البيان / الوصف</th>
-                                <th className="p-4 text-center text-xs uppercase">النوع</th>
-                                <th className="p-4 text-center text-xs uppercase">الحالة</th>
-                                <th className="p-4 text-left rounded-tl-2xl text-xs uppercase">المبلغ</th>
+                                <th className="p-5 text-right text-[10px] font-black uppercase rounded-tr-2xl">تاريخ العملية</th>
+                                <th className="p-5 text-right text-[10px] font-black uppercase">البيان والوصف</th>
+                                <th className="p-5 text-center text-[10px] font-black uppercase">التصنيف</th>
+                                <th className="p-5 text-center text-[10px] font-black uppercase">الحالة</th>
+                                <th className="p-5 text-left text-[10px] font-black uppercase rounded-tl-2xl">المبلغ</th>
                             </tr>
                         </thead>
                         <tbody>
                             {debts.map((debt, idx) => (
                                 <tr key={debt.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} border-b border-slate-100`}>
-                                    <td className="p-4 text-sm font-bold text-slate-600">{new Date(debt.created_at).toLocaleDateString('ar-LY')}</td>
-                                    <td className="p-4">
-                                        <p className="font-black text-slate-900">{debt.description || 'بدون وصف إضافي'}</p>
-                                        {debt.due_date && <p className="text-[10px] text-slate-500 mt-1">تاريخ الاستحقاق: {new Date(debt.due_date).toLocaleDateString('ar-LY')}</p>}
+                                    <td className="p-5 text-xs font-black text-slate-600 font-mono">{new Date(debt.created_at).toLocaleDateString('ar-LY')}</td>
+                                    <td className="p-5">
+                                        <p className="font-bold text-slate-900 mb-0.5">{debt.description || 'عملية مالية مسجلة'}</p>
+                                        {debt.due_date && <p className="text-[9px] text-slate-400">الاستحقاق: {new Date(debt.due_date).toLocaleDateString('ar-LY')}</p>}
                                     </td>
-                                    <td className="p-4 text-center">
-                                        <span className={`font-bold text-xs ${debt.type === 'for_you' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                            {debt.type === 'for_you' ? 'مستحق لك' : 'مستحق عليك'}
+                                    <td className="p-5 text-center">
+                                        <span className={`text-[9px] font-black px-3 py-1 rounded-full border ${debt.type === 'for_you' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700'}`}>
+                                            {debt.type === 'for_you' ? 'دائن (+)' : 'مدين (-)'}
                                         </span>
                                     </td>
-                                    <td className="p-4 text-center">
+                                    <td className="p-5 text-center">
                                         {debt.paid ? (
-                                            <span className="text-[9px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold uppercase">تم السداد</span>
+                                            <span className="text-[9px] font-bold text-emerald-600 flex items-center justify-center gap-1"><CheckCircleIcon className="w-3 h-3" /> تمت التسوية</span>
                                         ) : (
-                                            <span className="text-[9px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold uppercase">نشط</span>
+                                            <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">معلق</span>
                                         )}
                                     </td>
-                                    <td className={`p-4 text-left font-black font-mono text-lg ${debt.paid ? 'text-slate-400 line-through opacity-50' : (debt.type === 'for_you' ? 'text-emerald-600' : 'text-rose-600')}`}>
+                                    <td className={`p-5 text-left font-black font-mono text-base ${debt.paid ? 'text-slate-300 line-through' : (debt.type === 'for_you' ? 'text-emerald-700' : 'text-rose-700')}`}>
                                         {formatCurrency(debt.amount)}
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
-                    {debts.length === 0 && (
-                        <div className="text-center py-20 text-slate-400 font-bold border-2 border-dashed border-slate-100 rounded-b-3xl">لا توجد سجلات مالية مسجلة حالياً بين الطرفين</div>
-                    )}
                 </div>
 
-                {/* PDF Footer with Signatures */}
-                <div className="mt-auto pt-10 border-t-2 border-slate-100">
-                    <div className="grid grid-cols-2 gap-20 mb-20">
-                        <div className="text-center">
-                            <p className="text-xs text-slate-400 font-bold mb-16 uppercase">توقيع ومصادقة (الطرف الأول)</p>
-                            <div className="w-full h-px bg-slate-300"></div>
+                {/* OFFICIAL VALIDATION SECTION */}
+                <div className="mt-auto border-t-2 border-slate-100 pt-12 pb-8">
+                    <div className="grid grid-cols-2 gap-20 items-center">
+                        <div className="space-y-4">
+                            <h5 className="text-sm font-black text-slate-900 mb-2">المصادقة والاعتماد:</h5>
+                            <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                                تم استخراج هذا الكشف آلياً من نظام المحفظة الذكية. كافة البيانات المدرجة تخضع للمراجعة والتدقيق بين الأطراف المعنية.
+                            </p>
                         </div>
+                        
                         <div className="text-center">
-                            <p className="text-xs text-slate-400 font-bold mb-16 uppercase">توقيع ومصادقة (الطرف الثاني)</p>
-                            <div className="w-full h-px bg-slate-300"></div>
+                             <div className="inline-block border-2 border-slate-900 p-8 rounded-3xl relative min-w-[240px] bg-slate-50/30">
+                                <p className="text-[9px] font-black text-slate-900 uppercase tracking-widest absolute -top-3 left-1/2 -translate-x-1/2 bg-white px-3">توقيع ومصادقة مصدر الكشف</p>
+                                <div className="h-16 flex items-center justify-center">
+                                    <span className="text-slate-200 font-black text-4xl opacity-40 uppercase tracking-[0.3em]">GREENBOX</span>
+                                </div>
+                                <p className="text-[9px] text-slate-400 mt-4 italic font-bold">تعتبر هذه الوثيقة رسمية للمطالبة المالية</p>
+                             </div>
                         </div>
                     </div>
-                    <p className="text-slate-400 text-center text-[10px] leading-relaxed font-medium">
-                        تم إنشاء هذا المستند آلياً عبر تطبيق "محفظتي الإلكترونية الذكية" لعام 2025.<br/>
-                        يعتبر هذا الكشف كشفاً استرشادياً للحساب ولا يمثل مستنداً قانونياً إلزامياً إلا في حال التوقيع عليه من كلا الطرفين.
+                </div>
+
+                {/* GREENBOX BRANDING FOOTER */}
+                <div className="pt-8 border-t border-slate-100 flex flex-col items-center gap-2">
+                    <div className="flex items-center gap-2 opacity-60">
+                         <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-700 rounded-lg flex items-center justify-center text-white font-black text-xs shadow-sm">GB</div>
+                         <p className="text-xs font-black text-slate-900 tracking-tighter">GreenBox <span className="font-bold text-[10px] text-slate-400">Technologies</span></p>
+                    </div>
+                    <p className="text-[8px] text-slate-400 text-center font-bold uppercase tracking-[0.4em]">
+                        تم التطوير بواسطة شركة جرين بوكس للحلول التقنية 2025 ©
                     </p>
                 </div>
             </div>
