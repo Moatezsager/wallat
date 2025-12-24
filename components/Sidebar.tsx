@@ -94,8 +94,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActiv
                              <WalletIcon className="w-6 h-6 text-white" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-black text-white tracking-tight leading-none">محفظتي</h2>
-                            <p className="text-[10px] text-cyan-400 font-black uppercase tracking-[0.2em] mt-1.5 opacity-70">إصدار ليبيا 2025</p>
+                            <h2 className="text-xl font-black text-white tracking-tight leading-none">محفظتي الإلكترونية</h2>
                         </div>
                     </div>
 
