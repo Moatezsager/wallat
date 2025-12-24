@@ -228,6 +228,12 @@ export const ChevronRightIcon: React.FC<IconProps> = ({ className }) => (
   </IconWrapper>
 );
 
+export const ChevronDownIcon: React.FC<IconProps> = ({ className }) => (
+  <IconWrapper className={className}>
+    <path d="m6 9 6 6 6-6" />
+  </IconWrapper>
+);
+
 export const DocumentTextIcon: React.FC<IconProps> = ({ className }) => (
   <IconWrapper className={className}>
     <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
@@ -704,6 +710,7 @@ export const iconMap: { [key: string]: React.FC<IconProps> } = {
     ClockIcon,
     ChevronLeftIcon,
     ChevronRightIcon,
+    ChevronDownIcon,
     DocumentTextIcon,
     CheckCircleIcon,
     ExclamationTriangleIcon,

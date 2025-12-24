@@ -7,64 +7,286 @@ import TransactionForm from './TransactionForm';
 import { 
     ArrowDownIcon, ArrowUpIcon, ClockIcon, ChevronLeftIcon, ChevronRightIcon, XMarkIcon,
     PencilSquareIcon, TrashIcon, ArrowTrendingUp, iconMap, ExclamationTriangleIcon, CalendarDaysIcon, CheckCircleIcon, ChartBarSquareIcon, SparklesIcon,
-    LandmarkIcon, BanknoteIcon, BriefcaseIcon, WalletIcon, TagIcon, ArrowTrendingDown, ScaleIcon, AccountsIcon
+    LandmarkIcon, BanknoteIcon, BriefcaseIcon, WalletIcon, TagIcon, ArrowTrendingDown, ScaleIcon, AccountsIcon, ClipboardDocumentIcon, ZapIcon,
+    ChevronDownIcon
 } from './icons';
 import Chart from 'chart.js/auto';
 import type { ChartConfiguration } from 'chart.js/auto';
 import { logActivity } from '../lib/logger';
 
-// --- Animated Counter Component ---
-const AnimatedCounter: React.FC<{ value: number; currency?: string }> = ({ value, currency = 'د.ل' }) => {
-    const [displayValue, setDisplayValue] = useState(0);
+// --- Shared Components for Reports ---
+
+const DoughnutChart: React.FC<{ data: number[], colors: string[], labels: string[], cutout?: string }> = ({ data, colors, labels, cutout = '75%' }) => {
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const chartRef = useRef<Chart | null>(null);
 
     useEffect(() => {
-        let start = displayValue;
-        const end = value;
-        if (start === end) return;
+        if (!canvasRef.current) return;
+        if (chartRef.current) chartRef.current.destroy();
+        const ctx = canvasRef.current.getContext('2d');
+        if (!ctx) return;
+        chartRef.current = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{ 
+                    data, 
+                    backgroundColor: colors, 
+                    borderColor: 'rgba(15, 23, 42, 1)', 
+                    borderWidth: 2,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true, 
+                maintainAspectRatio: false, 
+                cutout,
+                plugins: { legend: { display: false } }
+            }
+        });
+        return () => chartRef.current?.destroy();
+    }, [data, labels, colors, cutout]);
+    return <div className="h-full w-full"><canvas ref={canvasRef}></canvas></div>;
+};
 
-        let totalDuration = 1000; // 1 second
-        let startTime: number | null = null;
+const MonthlyReportModal: React.FC<{ onClose: () => void; }> = ({ onClose }) => {
+    const [year, setYear] = useState(new Date().getFullYear());
+    const [month, setMonth] = useState(new Date().getMonth());
+    const [activeTab, setActiveTab] = useState<'income' | 'expense'>('expense');
+    const [loading, setLoading] = useState(false);
+    const [monthlyData, setMonthlyData] = useState<{ totalIncome: number; totalExpense: number; incomeCategories: any[]; expenseCategories: any[]; }>({
+        totalIncome: 0, totalExpense: 0, incomeCategories: [], expenseCategories: []
+    });
+    
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const monthNames = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
 
+    useEffect(() => {
+        if (scrollRef.current) {
+            const activeBtn = scrollRef.current.children[month] as HTMLElement;
+            if (activeBtn) {
+                scrollRef.current.scrollTo({
+                    left: activeBtn.offsetLeft - (scrollRef.current.clientWidth / 2) + (activeBtn.clientWidth / 2),
+                    behavior: 'smooth'
+                });
+            }
+        }
+    }, [month]);
+
+    useEffect(() => {
+        const fetchMonthlyData = async () => {
+            setLoading(true);
+            const startDate = new Date(year, month, 1);
+            const endDate = new Date(year, month + 1, 0, 23, 59, 59);
+            
+            const { data } = await supabase
+                .from('transactions')
+                .select('amount, type, categories(name, color, icon)')
+                .gte('date', startDate.toISOString())
+                .lte('date', endDate.toISOString())
+                .in('type', ['income', 'expense']);
+            
+            let tIncome = 0, tExpense = 0;
+            const incMap = new Map<string, any>(), expMap = new Map<string, any>();
+            
+            data?.forEach((tx: any) => {
+                const catName = tx.categories?.name || 'غير مصنف';
+                const catColor = tx.categories?.color || '#64748b';
+                const catIcon = tx.categories?.icon;
+
+                if (tx.type === 'income') {
+                    tIncome += tx.amount;
+                    const c = incMap.get(catName) || { name: catName, amount: 0, count: 0, color: catColor, icon: catIcon };
+                    c.amount += tx.amount;
+                    c.count += 1;
+                    incMap.set(catName, c);
+                } else {
+                    tExpense += tx.amount;
+                    const c = expMap.get(catName) || { name: catName, amount: 0, count: 0, color: catColor, icon: catIcon };
+                    c.amount += tx.amount;
+                    c.count += 1;
+                    expMap.set(catName, c);
+                }
+            });
+
+            const process = (map: Map<string, any>, total: number) => 
+                Array.from(map.values())
+                    .map(c => ({ ...c, percentage: total > 0 ? (c.amount / total) * 100 : 0 }))
+                    .sort((a, b) => b.amount - a.amount);
+
+            setMonthlyData({ 
+                totalIncome: tIncome, 
+                totalExpense: tExpense, 
+                incomeCategories: process(incMap, tIncome), 
+                expenseCategories: process(expMap, tExpense) 
+            });
+            setLoading(false);
+        };
+        fetchMonthlyData();
+    }, [year, month]);
+
+    const activeCategories = activeTab === 'expense' ? monthlyData.expenseCategories : monthlyData.incomeCategories;
+    const activeTotal = activeTab === 'expense' ? monthlyData.totalExpense : monthlyData.totalIncome;
+
+    return (
+        <div className="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-2xl flex items-center justify-center p-4 animate-fade-in pt-safe pb-safe">
+            <div className="relative w-full max-w-lg bg-slate-900 rounded-[2.5rem] shadow-2xl border border-white/10 flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
+                
+                <div className="p-6 pb-2 shrink-0 z-10 flex justify-between items-center bg-slate-900/50">
+                    <div>
+                        <div className="flex items-center gap-2 mb-1">
+                            <button onClick={() => setYear(y => y - 1)} className="p-1 text-slate-500 hover:text-cyan-400 transition"><ChevronRightIcon className="w-3 h-3"/></button>
+                            <span className="text-[10px] font-black text-cyan-500 uppercase tracking-widest">{year}</span>
+                            <button onClick={() => setYear(y => y + 1)} className="p-1 text-slate-500 hover:text-cyan-400 transition"><ChevronLeftIcon className="w-3 h-3"/></button>
+                        </div>
+                        <h3 className="text-xl font-black text-white">الموجز المالي</h3>
+                    </div>
+                    <button onClick={onClose} className="p-2.5 rounded-full bg-white/5 text-slate-400 border border-white/5 hover:text-white transition-colors">
+                        <XMarkIcon className="w-5 h-5" />
+                    </button>
+                </div>
+
+                <div className="px-6 shrink-0">
+                    <div ref={scrollRef} className="flex gap-2 overflow-x-auto no-scrollbar py-4 snap-x">
+                        {monthNames.map((name, i) => (
+                            <button 
+                                key={i} 
+                                onClick={() => setMonth(i)}
+                                className={`shrink-0 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all snap-center border ${month === i ? 'bg-cyan-500 text-white border-cyan-400 shadow-lg shadow-cyan-500/20 scale-105' : 'bg-slate-800 text-slate-500 border-white/5 hover:bg-slate-700'}`}
+                            >
+                                {name}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="p-6 pt-2 overflow-y-auto custom-scrollbar flex-1 space-y-8">
+                    {loading ? (
+                        <div className="py-20 flex flex-col items-center justify-center gap-4">
+                            <div className="w-12 h-12 border-4 border-slate-800 border-t-cyan-500 rounded-full animate-spin"></div>
+                            <p className="text-slate-500 font-bold animate-pulse text-sm">جاري تحليل البيانات...</p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="bg-slate-800/40 p-5 rounded-[2rem] border border-white/5 relative overflow-hidden">
+                                <div className="flex items-center justify-between gap-6 relative z-10">
+                                    <div className="space-y-4 flex-1">
+                                        <div className="flex justify-between items-center group">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                                                <span className="text-xs font-bold text-slate-400">إجمالي الدخل</span>
+                                            </div>
+                                            <span className="text-sm font-black text-emerald-400">{new Intl.NumberFormat('ar-LY').format(monthlyData.totalIncome)} د.ل</span>
+                                        </div>
+                                        <div className="flex justify-between items-center group">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]"></div>
+                                                <span className="text-xs font-bold text-slate-400">إجمالي المصروف</span>
+                                            </div>
+                                            <span className="text-sm font-black text-rose-400">{new Intl.NumberFormat('ar-LY').format(monthlyData.totalExpense)} د.ل</span>
+                                        </div>
+                                        <div className="pt-3 border-t border-white/5 flex justify-between items-center">
+                                            <span className="text-[10px] font-black text-slate-500 uppercase">الصافي</span>
+                                            <span className={`text-base font-black ${monthlyData.totalIncome - monthlyData.totalExpense >= 0 ? 'text-cyan-400' : 'text-rose-500'}`}>
+                                                {new Intl.NumberFormat('ar-LY').format(monthlyData.totalIncome - monthlyData.totalExpense)} د.ل
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="h-28 w-28 shrink-0 relative">
+                                        <DoughnutChart 
+                                            data={[monthlyData.totalIncome || 1, monthlyData.totalExpense || 0]} 
+                                            labels={['دخل', 'صرف']} 
+                                            colors={['#10b981', '#f43f5e']} 
+                                            cutout="75%"
+                                        />
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <ScaleIcon className="w-5 h-5 text-slate-700" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div className="flex bg-slate-800/80 p-1.5 rounded-2xl border border-white/5 shadow-inner">
+                                    <button onClick={() => setActiveTab('expense')} className={`flex-1 py-3 rounded-xl text-sm font-black transition-all flex items-center justify-center gap-2 ${activeTab === 'expense' ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/30 scale-[1.02]' : 'text-slate-500 hover:text-slate-300'}`}>
+                                        <ArrowUpIcon className="w-4 h-4"/> المصروفات
+                                    </button>
+                                    <button onClick={() => setActiveTab('income')} className={`flex-1 py-3 rounded-xl text-sm font-black transition-all flex items-center justify-center gap-2 ${activeTab === 'income' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/30 scale-[1.02]' : 'text-slate-500 hover:text-slate-300'}`}>
+                                        <ArrowDownIcon className="w-4 h-4"/> الإيرادات
+                                    </button>
+                                </div>
+
+                                <div className="space-y-3">
+                                    {activeCategories.length > 0 ? activeCategories.map((cat, i) => {
+                                        const Icon = (cat.icon && iconMap[cat.icon]) ? iconMap[cat.icon] : TagIcon;
+                                        return (
+                                            <div key={i} className="flex items-center gap-4 bg-slate-900/40 p-4 rounded-3xl border border-white/5 hover:bg-slate-800/40 transition-colors group">
+                                                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg transition-transform group-hover:scale-110" style={{ backgroundColor: cat.color }}>
+                                                    <Icon className="w-6 h-6" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex justify-between items-center mb-1.5">
+                                                        <div className="flex items-center gap-2 overflow-hidden">
+                                                            <span className="text-sm font-bold text-white truncate">{cat.name}</span>
+                                                            <span className="shrink-0 text-[10px] font-black px-2 py-0.5 bg-white/5 rounded-full text-slate-500 border border-white/5">{cat.count} عملية</span>
+                                                        </div>
+                                                        <span className="text-sm font-black text-slate-200 shrink-0">{new Intl.NumberFormat('ar-LY').format(cat.amount)} د.ل</span>
+                                                    </div>
+                                                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                                        <div className="h-full transition-all duration-1000 ease-out rounded-full" style={{ width: `${cat.percentage}%`, backgroundColor: cat.color }}></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }) : (
+                                        <div className="text-center py-12 border-2 border-dashed border-slate-800 rounded-[2rem] flex flex-col items-center gap-3">
+                                            <div className="w-12 h-12 bg-slate-800/50 rounded-full flex items-center justify-center">
+                                                <ClipboardDocumentIcon className="w-6 h-6 text-slate-600" />
+                                            </div>
+                                            <p className="text-slate-600 text-xs font-bold">لا توجد سجلات لهذا القسم في {monthNames[month]}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+                <div className="pb-safe shrink-0"></div>
+            </div>
+        </div>
+    );
+};
+
+const AnimatedCounter: React.FC<{ value: number; currency?: string }> = ({ value, currency = 'د.ل' }) => {
+    const [displayValue, setDisplayValue] = useState(0);
+    useEffect(() => {
+        let start = displayValue; const end = value; if (start === end) return;
+        let totalDuration = 1000; let startTime: number | null = null;
         const animate = (currentTime: number) => {
             if (!startTime) startTime = currentTime;
             const progress = currentTime - startTime;
             const percentage = Math.min(progress / totalDuration, 1);
-            
-            // Ease out quart
             const ease = 1 - Math.pow(1 - percentage, 4);
-            
             const current = start + (end - start) * ease;
             setDisplayValue(current);
-
-            if (progress < totalDuration) {
-                requestAnimationFrame(animate);
-            } else {
-                setDisplayValue(end);
-            }
+            if (progress < totalDuration) requestAnimationFrame(animate); else setDisplayValue(end);
         };
-
         requestAnimationFrame(animate);
     }, [value]);
-
     return (
-        <span>
+        <span className="tabular-nums">
             {new Intl.NumberFormat('ar-LY', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(displayValue)}
-            <span className="text-sm font-medium mr-1 opacity-70">{currency}</span>
+            <span className="text-[0.4em] font-medium mr-1.5 opacity-60">{currency}</span>
         </span>
     );
 };
 
 const formatCurrency = (amount: number, currency: string = 'د.ل') => {
-    const options: Intl.NumberFormatOptions = { style: 'currency', currency: 'LYD' };
-    if (amount % 1 === 0) { options.minimumFractionDigits = 0; options.maximumFractionDigits = 0; } 
-    else { options.minimumFractionDigits = 2; options.maximumFractionDigits = 2; }
-    return new Intl.NumberFormat('ar-LY', options).format(amount).replace('LYD', currency);
+    return new Intl.NumberFormat('ar-LY', { style: 'currency', currency: 'LYD', minimumFractionDigits: 0 }).format(amount).replace('LYD', currency);
 };
 
-const numericMonthLabels = Array.from({ length: 12 }, (_, i) => String(i + 1));
-const monthNames = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
-
-const getDaysRemaining = (dueDate: string) => {
+const getDaysInfo = (dueDate: string | null) => {
+    if (!dueDate) return null;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const due = new Date(dueDate);
@@ -74,582 +296,276 @@ const getDaysRemaining = (dueDate: string) => {
     return diffDays;
 };
 
-const YearlyChart: React.FC<{ data: { income: number, expense: number }[] }> = ({ data }) => {
-    const canvasRef = useRef<HTMLCanvasElement | null>(null);
-    const chartRef = useRef<Chart | null>(null);
-
-    useEffect(() => {
-        if (!canvasRef.current) return;
-        if (chartRef.current) chartRef.current.destroy();
-
-        const ctx = canvasRef.current.getContext('2d');
-        if (!ctx) return;
-
-        const chartConfig: ChartConfiguration<'bar'> = {
-            type: 'bar',
-            data: {
-                labels: numericMonthLabels,
-                datasets: [
-                    {
-                        label: 'الإيرادات',
-                        data: data.map(d => d.income),
-                        backgroundColor: '#10b981',
-                        borderRadius: 4,
-                        barPercentage: 0.6,
-                        categoryPercentage: 0.7
-                    },
-                    {
-                        label: 'المصروفات',
-                        data: data.map(d => d.expense),
-                        backgroundColor: '#f43f5e', 
-                        borderRadius: 4,
-                        barPercentage: 0.6,
-                        categoryPercentage: 0.7
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', padding: 12, cornerRadius: 12, bodyFont: { family: 'Cairo' }, titleFont: { family: 'Cairo' }, displayColors: true } },
-                scales: {
-                    x: { ticks: { color: '#64748b', font: { family: 'Cairo' } }, grid: { display: false } },
-                    y: { ticks: { color: '#64748b', font: { family: 'Cairo' } }, grid: { color: 'rgba(255, 255, 255, 0.03)', tickLength: 0 } } 
-                }
-            }
-        };
-
-        chartRef.current = new Chart(ctx, chartConfig);
-        return () => { chartRef.current?.destroy(); };
-    }, [data]);
-
-    return <div className="h-56 lg:h-72 w-full"><canvas ref={canvasRef}></canvas></div>;
-};
-
-const DoughnutChart: React.FC<{ income: number, expense: number }> = ({ income, expense }) => {
-    const canvasRef = useRef<HTMLCanvasElement | null>(null);
-    const chartRef = useRef<Chart | null>(null);
-
-    useEffect(() => {
-        if (!canvasRef.current) return;
-        if (chartRef.current) chartRef.current.destroy();
-        
-        const ctx = canvasRef.current.getContext('2d');
-        if (!ctx) return;
-
-        const chartConfig: ChartConfiguration<'doughnut'> = {
-            type: 'doughnut',
-            data: {
-                labels: ['الإيرادات', 'المصروفات'],
-                datasets: [{
-                    data: [income, expense],
-                    backgroundColor: ['#10b981', '#f43f5e'],
-                    borderColor: 'rgba(15, 23, 42, 1)', 
-                    borderWidth: 0,
-                    hoverOffset: 10,
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '80%',
-                plugins: { legend: { display: false } }
-            }
-        };
-        chartRef.current = new Chart(ctx, chartConfig);
-        return () => chartRef.current?.destroy();
-    }, [income, expense]);
-
-    return <div className="h-full w-full"><canvas ref={canvasRef}></canvas></div>;
-};
-
-
-const MonthlySummaryModal: React.FC<{ 
-    onClose: () => void; 
-    year: number; 
-    setActivePage: (page: Page) => void; 
-}> = ({ onClose, year, setActivePage }) => {
-    const [month, setMonth] = useState(new Date().getMonth());
-    const [stats, setStats] = useState({ income: 0, expense: 0, topCategories: [] as any[] });
-    const [loading, setLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
-    const scrollRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        if (scrollRef.current) {
-            const button = scrollRef.current.children[month] as HTMLElement;
-            if (button) {
-                const scrollLeft = button.offsetLeft - (scrollRef.current.clientWidth / 2) + (button.clientWidth / 2);
-                scrollRef.current.scrollTo({ left: scrollLeft, behavior: 'smooth' });
-            }
-        }
-    }, [month]);
-
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                const startDate = new Date(year, month, 1);
-                const endDate = new Date(year, month + 1, 0, 23, 59, 59);
-
-                const { data, error } = await supabase
-                    .from('transactions')
-                    .select('amount, type, categories(name, color, icon)')
-                    .gte('date', startDate.toISOString())
-                    .lte('date', endDate.toISOString());
-
-                if (error) throw error;
-
-                let inc = 0, exp = 0;
-                const categoryMap = new Map<string, any>();
-
-                if (data) {
-                    data.forEach((tx: any) => {
-                        if (tx.type === 'income') inc += tx.amount;
-                        else if (tx.type === 'expense') exp += tx.amount;
-
-                        if (tx.type === activeTab) {
-                            const catName = tx.categories?.name || 'غير مصنف';
-                            const current = categoryMap.get(catName) || { 
-                                name: catName, 
-                                amount: 0,
-                                count: 0,
-                                color: tx.categories?.color || '#64748b',
-                                icon: tx.categories?.icon
-                            };
-                            current.amount += tx.amount;
-                            current.count += 1;
-                            categoryMap.set(catName, current);
-                        }
-                    });
-                }
-
-                const topCats = Array.from(categoryMap.values())
-                    .sort((a, b) => b.amount - a.amount)
-                    .slice(0, 6); 
-
-                setStats({ income: inc, expense: exp, topCategories: topCats });
-            } catch (err) {
-                console.error("Error fetching summary:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchData();
-    }, [month, year, activeTab]);
-
-    const net = stats.income - stats.expense;
-    const totalForTab = activeTab === 'expense' ? stats.expense : stats.income;
-
-    return (
-        <div className="fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-2xl flex items-center justify-center p-4 animate-fade-in">
-            <div className="relative w-full max-w-lg bg-slate-900 rounded-[3rem] shadow-2xl border border-white/5 flex flex-col max-h-[92vh] overflow-hidden animate-slide-up">
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-64 bg-gradient-to-b from-cyan-500/10 to-transparent pointer-events-none blur-3xl"></div>
-                <div className="pt-8 px-6 pb-2 shrink-0 z-10 flex justify-between items-center">
-                    <div>
-                        <p className="text-xs text-cyan-400 font-bold tracking-widest uppercase mb-1">تقرير {year}</p>
-                        <h3 className="text-2xl font-black text-white">الموجز المالي</h3>
-                    </div>
-                    <button onClick={onClose} className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 transition-colors border border-white/5 flex items-center justify-center group">
-                        <XMarkIcon className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
-                    </button>
-                </div>
-                <div className="overflow-y-auto custom-scrollbar flex-grow px-6 pb-6 z-10">
-                    <div className="relative my-6 group">
-                        <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-slate-900 to-transparent z-10 pointer-events-none"></div>
-                        <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-slate-900 to-transparent z-10 pointer-events-none"></div>
-                        <div ref={scrollRef} className="flex overflow-x-auto gap-3 pb-4 pt-2 px-4 custom-scrollbar snap-x cursor-grab active:cursor-grabbing no-scrollbar">
-                            {monthNames.map((m, i) => (
-                                <button key={i} onClick={() => setMonth(i)} className={`relative shrink-0 px-5 py-3 rounded-2xl text-sm font-bold transition-all duration-500 snap-center overflow-hidden ${month === i ? 'text-white shadow-[0_0_20px_rgba(6,182,212,0.4)] scale-105' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}>
-                                    {month === i && <div className="absolute inset-0 bg-gradient-to-tr from-cyan-600 to-blue-600 -z-10"></div>}
-                                    {m}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {loading ? (
-                        <div className="py-24 flex justify-center items-center flex-col gap-4">
-                            <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-                            <p className="text-slate-500 text-xs animate-pulse">جاري تحليل البيانات...</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-8 animate-fade-in">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-slate-800/40 p-5 rounded-[24px] border border-emerald-500/10 relative overflow-hidden group">
-                                    <div className="relative z-10">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400"><ArrowDownIcon className="w-4 h-4" /></div>
-                                            <span className="text-xs font-bold text-emerald-100/60">الدخل</span>
-                                        </div>
-                                        <p className="text-2xl font-black text-white tracking-tight">{formatCurrency(stats.income)}</p>
-                                    </div>
-                                </div>
-                                <div className="bg-slate-800/40 p-5 rounded-[24px] border border-rose-500/10 relative overflow-hidden group">
-                                    <div className="relative z-10">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <div className="p-2 bg-rose-500/20 rounded-lg text-rose-400"><ArrowUpIcon className="w-4 h-4" /></div>
-                                            <span className="text-xs font-bold text-rose-100/60">الصرف</span>
-                                        </div>
-                                        <p className="text-2xl font-black text-white tracking-tight">{formatCurrency(stats.expense)}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="relative py-2">
-                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-gradient-to-r from-cyan-500/20 to-blue-600/20 rounded-full blur-[60px] animate-pulse-slow"></div>
-                                <div className="h-64 w-64 mx-auto relative z-10">
-                                    {stats.income === 0 && stats.expense === 0 ? (
-                                        <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-800 rounded-full bg-slate-900/50 backdrop-blur-sm">
-                                            <span className="text-2xl mb-2">🤷‍♂️</span>
-                                            <span className="text-xs">لا توجد بيانات</span>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <div className="absolute inset-4 bg-slate-900 rounded-full z-0 shadow-2xl"></div>
-                                            <DoughnutChart income={stats.income} expense={stats.expense} />
-                                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20">
-                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">الصافي</span>
-                                                <span className={`text-3xl font-black ${net >= 0 ? 'text-white' : 'text-rose-400'} drop-shadow-lg`}>
-                                                    {formatCurrency(net)}
-                                                </span>
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="bg-slate-950/30 rounded-[2rem] p-1 border border-white/5">
-                                <div className="flex bg-slate-900/80 rounded-[1.5rem] p-1 mb-4 relative">
-                                    <div className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-slate-800 rounded-2xl shadow-lg transition-all duration-500 ease-out border border-white/5 ${activeTab === 'income' ? 'translate-x-0 right-1' : '-translate-x-[calc(100%+4px)] right-1'}`}></div>
-                                    <button onClick={() => setActiveTab('income')} className={`flex-1 py-3 text-xs font-bold relative z-10 transition-colors duration-300 ${activeTab === 'income' ? 'text-white' : 'text-slate-500'}`}>الأعلى دخلاً</button>
-                                    <button onClick={() => setActiveTab('expense')} className={`flex-1 py-3 text-xs font-bold relative z-10 transition-colors duration-300 ${activeTab === 'expense' ? 'text-white' : 'text-slate-500'}`}>الأكثر صرفاً</button>
-                                </div>
-                                <div className="space-y-2 px-2 pb-2">
-                                    {stats.topCategories.length > 0 ? stats.topCategories.map((cat, idx) => {
-                                         const percentage = totalForTab > 0 ? (cat.amount / totalForTab) * 100 : 0;
-                                         const Icon = cat.icon && iconMap[cat.icon] ? iconMap[cat.icon] : TagIcon;
-                                         return (
-                                            <div key={idx} className="flex items-center gap-4 p-3 hover:bg-white/5 rounded-2xl transition-colors group">
-                                                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg transition-transform group-hover:scale-110 shrink-0" style={{ backgroundColor: `${cat.color}20`, color: cat.color, border: `1px solid ${cat.color}30` }}>
-                                                    <Icon className="w-5 h-5" />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex justify-between items-center mb-1.5">
-                                                        <span className="font-bold text-slate-200 text-sm">{cat.name}</span>
-                                                        <span className="font-bold text-white text-sm">{formatCurrency(cat.amount)}</span>
-                                                    </div>
-                                                    <div className="relative w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                                        <div className="absolute top-0 right-0 h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_currentColor]" style={{ width: `${percentage}%`, backgroundColor: cat.color, color: cat.color }}></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                         )
-                                    }) : <div className="text-center py-12"><p className="text-slate-500 text-xs">لا توجد تصنيفات لعرضها</p></div>}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-                <div className="p-6 pt-0 z-20">
-                    <button onClick={() => { onClose(); setActivePage('reports'); }} className="w-full py-4 bg-white text-slate-950 hover:bg-slate-200 rounded-[1.5rem] font-bold transition shadow-xl shadow-white/5 flex items-center justify-center gap-2 group active:scale-95">التقرير التفصيلي <ChevronLeftIcon className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /></button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; }> = ({ children, title, onClose }) => (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-        <div className="glass-card bg-slate-900 rounded-3xl p-6 w-full max-w-md shadow-2xl animate-slide-up border border-white/10">
-            <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-white">{title}</h3>
-                <button onClick={onClose} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 transition-colors"><XMarkIcon className="w-5 h-5 text-slate-400" /></button>
-            </div>
-            {children}
-        </div>
-    </div>
-);
-
-const TransactionDetailContent: React.FC<{ transaction: Transaction; onEdit: () => void; onDelete: () => void; }> = ({ transaction, onEdit, onDelete }) => {
-    const details = [
-        { label: 'المبلغ', value: formatCurrency(transaction.amount, transaction.accounts?.currency), color: transaction.type === 'income' ? 'text-emerald-400' : 'text-rose-400' },
-        { label: 'النوع', value: transaction.type === 'income' ? 'إيراد' : 'مصروف' },
-        { label: 'الحساب', value: transaction.accounts?.name || 'N/A' },
-        { label: 'الفئة', value: transaction.categories?.name || 'غير مصنف' },
-        { label: 'التاريخ', value: new Date(transaction.date).toLocaleDateString('ar-LY', { day: 'numeric', month: 'long', year: 'numeric' }) },
-    ];
-    return (
-        <div className="space-y-6">
-            <div className="bg-slate-800/50 rounded-2xl p-5 space-y-4 border border-white/5">
-                {details.map(item => (
-                    <div key={item.label} className="flex justify-between items-center text-sm">
-                        <span className="text-slate-400 font-medium">{item.label}</span>
-                        <span className={`font-bold text-base ${item.color || 'text-slate-200'}`}>{item.value}</span>
-                    </div>
-                ))}
-                {transaction.notes && <div className="pt-4 border-t border-white/5"><p className="text-xs text-slate-500 mb-2 font-bold">ملاحظات</p><p className="text-sm text-slate-300 bg-black/20 p-3 rounded-xl">{transaction.notes}</p></div>}
-            </div>
-            <div className="flex justify-end gap-3">
-                <button onClick={onDelete} className="flex-1 py-3 px-4 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 rounded-xl transition flex items-center justify-center gap-2 font-bold"><TrashIcon className="w-5 h-5"/> حذف</button>
-                <button onClick={onEdit} className="flex-1 py-3 px-4 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 rounded-xl transition flex items-center justify-center gap-2 font-bold"><PencilSquareIcon className="w-5 h-5"/> تعديل</button>
-            </div>
-        </div>
-    );
-};
-
-const renderFormattedActivity = (text: string) => {
-    const regex = /(\d+(?:\.\d+)?\s*د\.ل)|(إضافة|تسجيل|جديد)|(تعديل|تسوية|تحويل)|(حذف|مصروف|عليك|سداد)|(إيراد|لك|تحصيل)|(حساب|دين|معاملة|لـ|مع|في|من)/g;
-    const parts = text.split(regex);
-    return parts.map((part, i) => {
-        if (!part) return null;
-        if (part.match(/\d+(?:\.\d+)?\s*د\.ل/)) return <span key={i} className="text-amber-400 font-bold font-mono mx-1 bg-amber-400/10 px-1.5 py-0.5 rounded text-sm">{part}</span>;
-        if (['إضافة', 'تسجيل', 'جديد'].includes(part)) return <span key={i} className="text-cyan-400 font-bold">{part}</span>;
-        if (['تعديل', 'تسوية', 'تحويل'].includes(part)) return <span key={i} className="text-blue-400 font-bold">{part}</span>;
-        if (['حذف', 'مصروف', 'عليك', 'سداد'].includes(part)) return <span key={i} className="text-rose-400 font-bold">{part}</span>;
-        if (['إيراد', 'لك', 'تحصيل'].includes(part)) return <span key={i} className="text-emerald-400 font-bold">{part}</span>;
-        if (['حساب', 'دين', 'معاملة', 'لـ', 'مع', 'في', 'من'].includes(part)) return <span key={i} className="text-slate-400 font-normal mx-0.5">{part}</span>;
-        return <span key={i} className="text-slate-200">{part}</span>;
-    });
-};
-
 const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (description?: string) => void; setActivePage: (page: Page) => void; }> = ({ refreshTrigger, handleDatabaseChange, setActivePage }) => {
     const [stats, setStats] = useState({ netWorth: 0, debtsForYou: 0, debtsOnYou: 0 });
     const [lastTransactions, setLastTransactions] = useState<Transaction[]>([]);
-    const [upcomingDebts, setUpcomingDebts] = useState<Debt[]>([]);
-    const [yearlyData, setYearlyData] = useState<{ income: number[], expense: number[] }>({ income: [], expense: [] });
+    const [urgentDebts, setUrgentDebts] = useState<Debt[]>([]);
+    const [recentActivities, setRecentActivities] = useState<any[]>([]);
+    const [isActivitiesExpanded, setIsActivitiesExpanded] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-    const [lastActivity, setLastActivity] = useState<{ description: string; time: string; date: string } | null>(null);
-
-    const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
-    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
-    const [accounts, setAccounts] = useState<Account[]>([]);
-    const [categories, setCategories] = useState<Category[]>([]);
+    const [isMonthlyModalOpen, setIsMonthlyModalOpen] = useState(false);
+    const [annualChartData, setAnnualChartData] = useState<{ income: number[], expense: number[] }>({ income: Array(12).fill(0), expense: Array(12).fill(0) });
+    const chartRef = useRef<Chart | null>(null);
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
     useEffect(() => {
         const fetchAllData = async () => {
             setLoading(true);
             try {
-                const [accRes, debtRes, lastTxRes, yearlyRes, activityRes, catRes, upcomingDebtsRes] = await Promise.all([
+                const now = new Date();
+                const yearStart = new Date(now.getFullYear(), 0, 1).toISOString();
+                
+                const [accRes, debtRes, lastTxRes, annualRes, urgentDebtsRes, activitiesRes] = await Promise.all([
                     supabase.from('accounts').select('*'),
                     supabase.from('debts').select('amount, type').eq('paid', false),
                     supabase.from('transactions').select('*, accounts:account_id(name, currency, type), categories(name, icon, color)').order('date', { ascending: false }).limit(5),
-                    supabase.from('transactions').select('amount, date, type').in('type', ['income', 'expense']).gte('date', new Date(currentYear, 0, 1).toISOString()).lte('date', new Date(currentYear, 11, 31, 23, 59, 59).toISOString()),
-                    supabase.from('activities').select('description, activity_date, activity_time').order('id', { ascending: false }).limit(1).single(),
-                    supabase.from('categories').select('*'),
-                    supabase.from('debts').select('*, contacts(name)').eq('paid', false).not('due_date', 'is', null).order('due_date', { ascending: true }).limit(5)
+                    supabase.from('transactions').select('amount, type, date').gte('date', yearStart).in('type', ['income', 'expense']),
+                    supabase.from('debts').select('*, contacts(name)').eq('paid', false).not('due_date', 'is', null).order('due_date', { ascending: true }),
+                    supabase.from('activities').select('*').order('activity_date', { ascending: false }).order('activity_time', { ascending: false }).limit(10)
                 ]);
-                setAccounts(accRes.data || []);
-                setCategories(catRes.data || []);
-                
-                const totalBalance = (accRes.data || []).reduce((sum, acc) => sum + acc.balance, 0);
-                const debtsForYou = (debtRes.data || []).filter(d => d.type === 'for_you').reduce((sum, d) => sum + d.amount, 0);
-                const debtsOnYou = (debtRes.data || []).filter(d => d.type === 'on_you').reduce((sum, d) => sum + d.amount, 0);
-                
-                // Logic: (Accounts Balance + For You Debts) - On You Debts
-                const netWorth = totalBalance + debtsForYou - debtsOnYou;
 
-                setStats({ netWorth, debtsForYou, debtsOnYou });
+                const totalBalance = (accRes.data || []).reduce((sum, acc) => sum + acc.balance, 0);
+                const forYou = (debtRes.data || []).filter(d => d.type === 'for_you').reduce((sum, d) => sum + d.amount, 0);
+                const onYou = (debtRes.data || []).filter(d => d.type === 'on_you').reduce((sum, d) => sum + d.amount, 0);
+                setStats({ netWorth: totalBalance + forYou - onYou, debtsForYou: forYou, debtsOnYou: onYou });
                 setLastTransactions(lastTxRes.data as unknown as Transaction[] || []);
-                setUpcomingDebts(upcomingDebtsRes.data as unknown as Debt[] || []);
-                if (activityRes.data) setLastActivity({ description: activityRes.data.description, date: activityRes.data.activity_date, time: activityRes.data.activity_time });
-                const incomeByMonth = Array(12).fill(0);
-                const expenseByMonth = Array(12).fill(0);
-                (yearlyRes.data || []).forEach((tx: any) => {
+                setRecentActivities(activitiesRes.data || []);
+
+                const incArr = Array(12).fill(0), expArr = Array(12).fill(0);
+                annualRes.data?.forEach(tx => {
                     const month = new Date(tx.date).getMonth();
-                    if (tx.type === 'income') incomeByMonth[month] += tx.amount;
-                    else if (tx.type === 'expense') expenseByMonth[month] += tx.amount;
+                    if (tx.type === 'income') incArr[month] += tx.amount;
+                    else expArr[month] += tx.amount;
                 });
-                setYearlyData({ income: incomeByMonth, expense: expenseByMonth });
+                setAnnualChartData({ income: incArr, expense: expArr });
+
+                const filteredUrgent = (urgentDebtsRes.data as unknown as Debt[] || []).filter(d => {
+                    const days = getDaysInfo(d.due_date);
+                    return days !== null && days <= 7;
+                }).slice(0, 3);
+                setUrgentDebts(filteredUrgent);
+
             } catch (error) { console.error(error); } finally { setLoading(false); }
         };
         fetchAllData();
-    }, [refreshTrigger, currentYear]);
+    }, [refreshTrigger]);
+
+    useEffect(() => {
+        if (!canvasRef.current || loading) return;
+        if (chartRef.current) chartRef.current.destroy();
+        const ctx = canvasRef.current.getContext('2d');
+        if (!ctx) return;
+
+        const months = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+        chartRef.current = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: months,
+                datasets: [
+                    { label: 'الإيرادات', data: annualChartData.income, backgroundColor: '#10b981', borderRadius: 4 },
+                    { label: 'المصروفات', data: annualChartData.expense, backgroundColor: '#f43f5e', borderRadius: 4 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { color: '#64748b', font: { family: 'Cairo', size: 10 } }, grid: { display: false } },
+                    y: { display: false }
+                }
+            }
+        });
+    }, [annualChartData, loading]);
+
+    // النشاطات المعروضة بناءً على حالة التوسيع
+    const displayedActivities = isActivitiesExpanded ? recentActivities : recentActivities.slice(0, 1);
 
     return (
-        <div className="space-y-6 lg:space-y-10 pb-20 max-w-7xl mx-auto">
-            <QuickActions onActionSuccess={handleDatabaseChange} />
-
-            {/* Net Worth Card - Re-designed and Cleaned */}
-            <div className="relative overflow-hidden rounded-[2.5rem] p-8 lg:p-12 text-white flex flex-col justify-between min-h-[14rem] lg:min-h-[18rem] shadow-2xl group border border-white/10"
-                style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' }}>
-                <div className="absolute inset-0 opacity-10 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
-                <div className="absolute -top-24 -right-24 w-96 h-96 bg-cyan-500/10 rounded-full blur-[100px]"></div>
+        <div className="space-y-6 pb-24 max-w-5xl mx-auto px-1 flex flex-col">
+            
+            {/* 1. Net Worth Card (Priority) */}
+            <div className="relative overflow-hidden rounded-[2.5rem] p-7 text-white flex flex-col justify-between min-h-[12rem] shadow-2xl border border-white/5 bg-slate-900 order-1 animate-slide-up">
+                <div className="absolute inset-0 opacity-5 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
+                <div className="absolute -top-10 -right-10 w-48 h-48 bg-cyan-500/20 rounded-full blur-[60px]"></div>
                 
-                <div className="relative z-10 flex justify-between items-start">
-                    <div>
-                        <p className="text-slate-400 font-bold text-xs lg:text-sm mb-1 tracking-widest uppercase flex items-center gap-2">
-                             صافي الممتلكات الكلي <ScaleIcon className="w-3.5 h-3.5 text-cyan-500/50" />
-                        </p>
-                        <h2 className="text-4xl lg:text-7xl font-black tracking-tight text-white drop-shadow-xl">
-                            <AnimatedCounter value={stats.netWorth} />
-                        </h2>
-                    </div>
-                    {/* Modern Action Button - Wallet Icon */}
-                    <button 
-                        onClick={() => setActivePage('accounts')} 
-                        className="p-4 bg-white/5 hover:bg-cyan-500/20 backdrop-blur-xl rounded-[1.5rem] border border-white/10 transition-all hover:scale-110 active:scale-95 group shadow-xl"
-                        title="إدارة الحسابات"
-                    >
-                        <WalletIcon className="w-7 h-7 text-cyan-400 group-hover:text-white transition-transform" />
+                <div className="relative z-10">
+                    <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+                         صافي الممتلكات <ScaleIcon className="w-3 h-3 opacity-50" />
+                    </p>
+                    <h2 className="text-4xl xs:text-5xl font-black tracking-tight leading-tight">
+                        <AnimatedCounter value={stats.netWorth} />
+                    </h2>
+                </div>
+
+                <div className="relative z-10 flex items-center justify-between mt-6">
+                    <button onClick={() => setIsMonthlyModalOpen(true)} className="bg-cyan-500/10 border border-cyan-500/20 px-4 py-2 rounded-xl flex items-center gap-2 transition active:scale-95">
+                        <SparklesIcon className="w-4 h-4 text-cyan-400" />
+                        <span className="text-xs font-bold text-cyan-400">موجز الشهر</span>
+                    </button>
+                    <button onClick={() => setActivePage('accounts')} className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 transition-all active:scale-95 shadow-xl">
+                        <WalletIcon className="w-6 h-6 text-cyan-400" />
                     </button>
                 </div>
-
-                <div className="relative z-10 flex items-center gap-4 mt-8">
-                    <div className="bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                        <span className="text-[10px] lg:text-xs font-bold text-emerald-400 uppercase tracking-tighter">وضع مالي مستقر</span>
-                    </div>
-                    <div className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl">
-                        <span className="text-[10px] lg:text-xs font-medium text-slate-400">إجمالي الحسابات: {formatCurrency(accounts.reduce((s,a)=>s+a.balance,0))}</span>
-                    </div>
-                </div>
             </div>
 
-            {lastActivity && (
-                <div className="glass-card rounded-2xl p-4 lg:p-6 border border-white/10 bg-gradient-to-r from-slate-900/80 to-slate-900/60 backdrop-blur-md shadow-lg flex flex-col gap-2 animate-fade-in relative overflow-hidden group">
-                    <div className="absolute top-0 left-0 w-1 lg:w-2 h-full bg-cyan-500/50"></div>
-                    <div className="flex items-start justify-between border-b border-white/5 pb-2 mb-1">
-                        <div className="flex items-center gap-2">
-                             <div className="relative">
-                                <div className="w-2.5 h-2.5 rounded-full bg-cyan-500 animate-pulse shadow-[0_0_10px_rgba(6,182,212,0.8)]"></div>
-                             </div>
-                             <span className="text-xs lg:text-sm text-cyan-400 font-bold tracking-wide uppercase">آخر نشاط مسجل</span>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0 text-[10px] lg:text-xs text-slate-400 font-mono">
-                             <div className="flex items-center gap-1 bg-slate-800/80 px-2 py-1 rounded-lg border border-white/5 shadow-sm">
-                                <CalendarDaysIcon className="w-3 h-3 text-cyan-500/70" />
-                                <span>{new Date(lastActivity.date).toLocaleDateString('ar-LY')}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <p className="text-sm lg:text-base text-slate-200 font-medium pr-1 leading-7">
-                        {renderFormattedActivity(lastActivity.description)}
-                    </p>
-                </div>
-            )}
-
-            <div className="grid grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-6">
-                <button onClick={() => setActivePage('debts')} className="glass-card p-6 lg:p-8 rounded-[2.5rem] flex flex-col justify-center items-start hover:bg-white/5 transition-all group relative overflow-hidden border border-white/5 hover:scale-[1.03] active:scale-95">
-                    <div className="absolute right-0 top-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-all"></div>
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-400 border border-emerald-500/20"><ArrowDownIcon className="w-6 h-6"/></div>
-                        <span className="text-slate-400 text-xs lg:text-base font-bold">ديون لك</span>
-                    </div>
-                    <span className="text-2xl lg:text-4xl font-black text-white"><AnimatedCounter value={stats.debtsForYou} /></span>
+            {/* 2. Stats Cards (Overview) - MOVED HERE */}
+            <div className="grid grid-cols-2 gap-3 order-2 animate-fade-in">
+                <button onClick={() => setActivePage('debts')} className="glass-card p-5 rounded-[1.5rem] flex flex-col items-start hover:bg-white/5 transition-all group border border-white/5 bg-slate-900/40 shadow-lg">
+                    <div className="p-2.5 bg-emerald-500/10 rounded-xl text-emerald-400 mb-3 group-hover:scale-110 transition-transform"><ArrowDownIcon className="w-5 h-5"/></div>
+                    <span className="text-slate-400 text-[10px] font-bold uppercase mb-1">ديون لك</span>
+                    <span className="text-lg font-black text-white tabular-nums">{formatCurrency(stats.debtsForYou)}</span>
                 </button>
-                <button onClick={() => setActivePage('debts')} className="glass-card p-6 lg:p-8 rounded-[2.5rem] flex flex-col justify-center items-start hover:bg-white/5 transition-all group relative overflow-hidden border border-white/5 hover:scale-[1.03] active:scale-95">
-                    <div className="absolute right-0 top-0 w-32 h-32 bg-rose-500/10 rounded-full blur-2xl group-hover:bg-rose-500/20 transition-all"></div>
-                    <div className="flex items-center gap-3 mb-4">
-                         <div className="p-3 bg-rose-500/10 rounded-xl text-rose-400 border border-rose-500/20"><ArrowUpIcon className="w-6 h-6"/></div>
-                        <span className="text-slate-400 text-xs lg:text-base font-bold">ديون عليك</span>
-                    </div>
-                    <span className="text-2xl lg:text-4xl font-black text-white"><AnimatedCounter value={stats.debtsOnYou} /></span>
+                <button onClick={() => setActivePage('debts')} className="glass-card p-5 rounded-[1.5rem] flex flex-col items-start hover:bg-white/5 transition-all group border border-white/5 bg-slate-900/40 shadow-lg">
+                    <div className="p-2.5 bg-rose-500/10 rounded-xl text-rose-400 mb-3 group-hover:scale-110 transition-transform"><ArrowUpIcon className="w-5 h-5"/></div>
+                    <span className="text-slate-400 text-[10px] font-bold uppercase mb-1">ديون عليك</span>
+                    <span className="text-lg font-black text-white tabular-nums">{formatCurrency(stats.debtsOnYou)}</span>
                 </button>
             </div>
 
-            {upcomingDebts.length > 0 && (
-                <div className="animate-fade-in">
-                    <div className="flex justify-between items-center mb-4 px-2">
-                        <h2 className="text-lg lg:text-xl font-bold text-slate-200 flex items-center gap-3">
-                            <ExclamationTriangleIcon className="w-6 h-6 text-amber-500" />
-                            تنبيهات الاستحقاق العاجلة
-                        </h2>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {upcomingDebts.map(debt => {
-                            const daysRemaining = getDaysRemaining(debt.due_date!);
-                            return (
-                                <div key={debt.id} className="glass-card p-5 rounded-2xl border border-white/5 relative overflow-hidden flex flex-col justify-between h-32 hover:-translate-y-1 transition-all hover:bg-white/5">
-                                    <div className={`absolute top-0 right-0 w-1.5 h-full ${daysRemaining < 0 ? 'bg-rose-500' : 'bg-amber-500'}`}></div>
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <p className="font-bold text-white text-base truncate max-w-[150px]">{debt.contacts?.name || 'دين'}</p>
-                                            <p className="text-xs text-slate-500">{new Date(debt.due_date!).toLocaleDateString('ar-LY')}</p>
-                                        </div>
-                                        <div className={`text-base font-black ${debt.type === 'on_you' ? 'text-rose-400' : 'text-emerald-400'}`}>{formatCurrency(debt.amount)}</div>
+            {/* 3. Quick Actions (Ease of use) */}
+            <div className="order-3">
+                <QuickActions onActionSuccess={handleDatabaseChange} />
+            </div>
+
+            {/* 4. Activities Section - DEVELOPED (The "What just happened") */}
+            <div className="space-y-4 animate-fade-in order-4">
+                <div className="flex justify-between items-center px-1">
+                    <h2 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-widest">
+                        <ZapIcon className="w-4 h-4 text-amber-400" /> آخر نشاط مسجل
+                    </h2>
+                    {recentActivities.length > 1 && (
+                        <button 
+                            onClick={() => setIsActivitiesExpanded(!isActivitiesExpanded)} 
+                            className="text-[10px] font-black text-cyan-500 flex items-center gap-1 bg-cyan-500/5 px-3 py-1 rounded-full border border-cyan-500/10 active:scale-95 transition-all"
+                        >
+                            {isActivitiesExpanded ? 'إخفاء' : 'سجل النشاطات (10)'}
+                            <ChevronDownIcon className={`w-3 h-3 transition-transform duration-300 ${isActivitiesExpanded ? 'rotate-180' : ''}`} />
+                        </button>
+                    )}
+                </div>
+                <div className="glass-card rounded-[2rem] border border-white/5 overflow-hidden transition-all duration-500 ease-in-out">
+                    {loading ? (
+                        <div className="p-6">
+                            <div className="h-10 bg-slate-800/50 rounded-xl animate-pulse"></div>
+                        </div>
+                    ) : recentActivities.length > 0 ? (
+                        <div className="divide-y divide-white/5">
+                            {displayedActivities.map((act, index) => (
+                                <div 
+                                    key={act.id} 
+                                    className={`p-4 flex items-start gap-4 hover:bg-white/5 transition-colors ${index === 0 && !isActivitiesExpanded ? 'bg-cyan-500/5' : ''} animate-slide-up`}
+                                    style={{ animationDelay: `${index * 50}ms` }}
+                                >
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border border-white/5 shadow-sm ${index === 0 ? 'bg-cyan-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                                        {index === 0 ? <SparklesIcon className="w-5 h-5" /> : <ClockIcon className="w-5 h-5" />}
                                     </div>
-                                    <div className="mt-2">
-                                         <span className={`text-[10px] lg:text-xs px-3 py-1 rounded-lg font-bold flex items-center gap-2 w-fit ${daysRemaining < 0 ? 'bg-rose-500/10 text-rose-400' : 'bg-amber-500/10 text-amber-400'}`}>
-                                            <ClockIcon className="w-4 h-4" />
-                                            {daysRemaining < 0 ? `متأخر منذ ${Math.abs(daysRemaining)} يوم` : daysRemaining === 0 ? 'مستحق اليوم' : `باقي ${daysRemaining} أيام`}
-                                        </span>
+                                    <div className="flex-1 min-w-0">
+                                        <p className={`text-sm font-bold leading-snug mb-1 ${index === 0 ? 'text-white' : 'text-slate-300'}`}>{act.description}</p>
+                                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                                            <span className="flex items-center gap-1"><CalendarDaysIcon className="w-3 h-3" /> {new Date(act.activity_date).toLocaleDateString('ar-LY')}</span>
+                                            <span className="w-1 h-1 rounded-full bg-slate-700"></span>
+                                            <span className="flex items-center gap-1"><ClockIcon className="w-3 h-3" /> {act.activity_time}</span>
+                                        </div>
                                     </div>
                                 </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-10 text-slate-600 font-bold">لا يوجد نشاط مسجل بعد</div>
+                    )}
+                </div>
+            </div>
+
+            {/* 5. Urgent Debts Section (Alerts) */}
+            {urgentDebts.length > 0 && (
+                <div className="space-y-3 animate-fade-in order-5">
+                    <div className="flex justify-between items-center px-1">
+                        <h2 className="text-sm font-black text-rose-500 flex items-center gap-2 uppercase tracking-wider">
+                            <ExclamationTriangleIcon className="w-4 h-4 animate-pulse" /> استحقاقات عاجلة
+                        </h2>
+                        <button onClick={() => setActivePage('debts')} className="text-[10px] font-bold text-slate-500 bg-slate-800 px-3 py-1 rounded-full border border-white/5 transition active:scale-95">عرض الكل</button>
+                    </div>
+                    <div className="flex overflow-x-auto gap-3 pb-2 no-scrollbar snap-x">
+                        {urgentDebts.map(debt => {
+                            const days = getDaysInfo(debt.due_date);
+                            const isOverdue = days !== null && days < 0;
+                            const isToday = days === 0;
+                            
+                            return (
+                                <button key={debt.id} onClick={() => setActivePage('debts')} className="flex-shrink-0 w-[80%] xs:w-[260px] snap-center glass-card p-4 rounded-[1.5rem] border border-white/5 bg-slate-900/60 flex flex-col justify-between h-32 relative overflow-hidden group active:scale-[0.98] transition-all">
+                                    <div className={`absolute top-0 right-0 w-24 h-24 blur-3xl opacity-10 pointer-events-none rounded-full ${isOverdue ? 'bg-rose-600' : 'bg-amber-500'}`}></div>
+                                    
+                                    <div className="flex justify-between items-start relative z-10">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white ${isOverdue ? 'bg-rose-500' : 'bg-amber-500'}`}>
+                                                <ClockIcon className="w-5 h-5" />
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="font-bold text-white text-xs truncate max-w-[120px]">{debt.contacts?.name || 'غير معروف'}</p>
+                                                <p className="text-[9px] text-slate-500 font-bold">{debt.type === 'on_you' ? 'عليك' : 'لك'}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-left">
+                                            <p className={`font-black text-sm tabular-nums ${debt.type === 'on_you' ? 'text-rose-400' : 'text-emerald-400'}`}>{formatCurrency(debt.amount)}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-auto flex justify-between items-center relative z-10 pt-2 border-t border-white/5">
+                                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase ${isOverdue ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : isToday ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-slate-800 text-slate-400'}`}>
+                                            {isOverdue ? `متأخر منذ ${Math.abs(days)} يوم` : isToday ? 'مستحق اليوم' : `باقي ${days} يوم`}
+                                        </div>
+                                        <ChevronLeftIcon className="w-4 h-4 text-slate-600 group-hover:translate-x-[-2px] transition-transform" />
+                                    </div>
+                                </button>
                             );
                         })}
                     </div>
                 </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-                <div className="lg:col-span-8 glass-card rounded-[2.5rem] p-8 lg:p-10 border border-white/5">
-                    <div className="flex justify-between items-center mb-8">
-                        <h2 className="text-xl lg:text-2xl font-bold text-white flex items-center gap-3">
-                            <ChartBarSquareIcon className="w-7 h-7 text-cyan-400" />
-                            تحليل التدفق المالي السنوي
-                        </h2>
-                        <div className="flex items-center gap-3">
-                             <button onClick={() => setIsSummaryModalOpen(true)} className="bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 px-5 py-2.5 rounded-2xl font-bold text-sm transition-all flex items-center gap-3">
-                                <ScaleIcon className="w-5 h-5" /> الملخص الشهري
-                            </button>
-                            <div className="flex items-center gap-2 bg-slate-900/50 rounded-xl p-1 border border-white/10 shadow-inner">
-                                 <button onClick={() => setCurrentYear(y => y - 1)} className="p-2 text-slate-500 hover:text-white transition"><ChevronRightIcon className="w-4 h-4"/></button>
-                                 <span className="text-sm font-black px-4 text-slate-300">{currentYear}</span>
-                                 <button onClick={() => setCurrentYear(y => y + 1)} className="p-2 text-slate-500 hover:text-white transition"><ChevronLeftIcon className="w-4 h-4"/></button>
-                            </div>
-                        </div>
+            {/* 6. Annual Performance Chart (Visual history) */}
+            <div className="glass-card p-6 rounded-[2rem] border border-white/5 order-6 shadow-xl animate-fade-in">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-white flex items-center gap-2 text-sm"><ChartBarSquareIcon className="w-5 h-5 text-cyan-400"/> الأداء المالي {new Date().getFullYear()}</h3>
+                    <div className="flex items-center gap-4 text-[10px] font-bold">
+                        <div className="flex items-center gap-1.5 text-emerald-400"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> دخل</div>
+                        <div className="flex items-center gap-1.5 text-rose-400"><span className="w-2 h-2 rounded-full bg-rose-500"></span> صرف</div>
                     </div>
-                    <YearlyChart data={Array.from({ length: 12 }, (_, i) => ({ income: yearlyData.income[i] || 0, expense: yearlyData.expense[i] || 0}))} />
                 </div>
-
-                <div className="lg:col-span-4 flex flex-col h-full">
-                    <div className="flex justify-between items-end mb-4 px-2">
-                        <h2 className="text-xl font-bold text-white">المعاملات الأخيرة</h2>
-                        <button onClick={() => setActivePage('transactions')} className="text-xs lg:text-sm font-bold text-cyan-500 hover:underline">عرض الكل</button>
-                    </div>
-                    <div className="space-y-4 flex-1">
-                        {loading ? [...Array(4)].map((_, i) => <div key={i} className="h-20 bg-slate-800/50 rounded-2xl animate-pulse"></div>) 
-                        : lastTransactions.length > 0 ? lastTransactions.map(tx => {
-                            const Icon = (tx.categories?.icon && iconMap[tx.categories.icon]) || (tx.type === 'income' ? ArrowDownIcon : ArrowUpIcon);
-                            const bgColor = tx.categories?.color || (tx.type === 'income' ? '#10b981' : '#f43f5e');
-                            return (
-                                <div key={tx.id} onClick={() => { setSelectedTransaction(tx); setIsDetailModalOpen(true); }} 
-                                    className="group relative bg-slate-900/40 backdrop-blur-md p-4 rounded-[1.5rem] flex items-center justify-between cursor-pointer hover:bg-slate-800/60 transition-all border border-white/5 hover:border-white/10 active:scale-[0.98] duration-200">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg" style={{ backgroundColor: bgColor }}><Icon className="w-6 h-6" /></div>
-                                        <div>
-                                            <p className="font-bold text-slate-200 text-base line-clamp-1">{tx.notes || tx.categories?.name || 'معاملة'}</p>
-                                            <p className="text-xs text-slate-500 font-medium">{tx.accounts?.name} • {new Date(tx.date).toLocaleDateString('ar-LY')}</p>
-                                        </div>
-                                    </div>
-                                    <div className={`font-black text-base ${tx.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
-                                    </div>
-                                </div>
-                            )
-                        }) : <div className="text-center py-10 text-slate-500 border border-dashed border-slate-800 rounded-3xl">لا توجد سجلات حالية</div>}
-                    </div>
+                <div className="h-48 w-full">
+                    {loading ? <div className="h-full w-full bg-slate-800/50 rounded-xl animate-pulse"></div> : <canvas ref={canvasRef}></canvas>}
                 </div>
             </div>
 
-            {isDetailModalOpen && selectedTransaction && (
-                <Modal title="تفاصيل المعاملة" onClose={() => setIsDetailModalOpen(false)}>
-                    <TransactionDetailContent transaction={selectedTransaction} onEdit={() => { setIsDetailModalOpen(false); setIsEditModalOpen(true); }} onDelete={() => { }} />
-                </Modal>
-            )}
-             {isEditModalOpen && selectedTransaction && (
-                <Modal title="تعديل المعاملة" onClose={() => setIsEditModalOpen(false)}>
-                    <TransactionForm transaction={selectedTransaction} onSave={() => { setIsEditModalOpen(false); handleDatabaseChange(); }} onCancel={() => setIsEditModalOpen(false)} accounts={accounts} categories={categories} />
-                </Modal>
-            )}
-            {isSummaryModalOpen && (
-                <MonthlySummaryModal onClose={() => setIsSummaryModalOpen(false)} year={currentYear} setActivePage={setActivePage} />
-            )}
+            {/* 7. Recent Transactions (Details of flow) - MOVED TO END */}
+            <div className="space-y-4 order-7 animate-fade-in">
+                <div className="flex justify-between items-end px-1">
+                    <h2 className="text-lg font-bold text-white">آخر المعاملات</h2>
+                    <button onClick={() => setActivePage('transactions')} className="text-xs font-bold text-cyan-500">عرض الكل</button>
+                </div>
+                <div className="space-y-2">
+                    {loading ? [...Array(3)].map((_, i) => <div key={i} className="h-16 bg-slate-800/50 rounded-2xl animate-pulse"></div>) 
+                    : lastTransactions.length > 0 ? lastTransactions.map(tx => {
+                        const Icon = (tx.categories?.icon && iconMap[tx.categories.icon]) || (tx.type === 'income' ? ArrowDownIcon : ArrowUpIcon);
+                        return (
+                            <div key={tx.id} className="bg-slate-900/40 p-4 rounded-2xl flex items-center justify-between border border-white/5 active:bg-slate-800/60 transition-colors shadow-sm">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-inner" style={{ backgroundColor: tx.categories?.color || '#334155' }}><Icon className="w-5 h-5" /></div>
+                                    <div>
+                                        <p className="font-bold text-slate-200 text-sm line-clamp-1">{tx.notes || tx.categories?.name || 'معاملة'}</p>
+                                        <p className="text-[10px] text-slate-500">{tx.accounts?.name}</p>
+                                    </div>
+                                </div>
+                                <div className={`font-black text-sm tabular-nums ${tx.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
+                                </div>
+                            </div>
+                        )
+                    }) : <div className="text-center py-8 text-slate-600 border border-dashed border-slate-800 rounded-2xl text-xs">لا توجد سجلات</div>}
+                </div>
+            </div>
+
+            {isMonthlyModalOpen && <MonthlyReportModal onClose={() => setIsMonthlyModalOpen(false)} />}
         </div>
     );
 };

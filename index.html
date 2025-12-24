@@ -3,63 +3,51 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>محفظتي الاكترونية</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        :root {
+            --sat: env(safe-area-inset-top);
+            --sar: env(safe-area-inset-right);
+            --sab: env(safe-area-inset-bottom);
+            --sal: env(safe-area-inset-left);
+        }
+
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #475569; }
         
+        body {
+            -webkit-tap-highlight-color: transparent;
+            overscroll-behavior-y: contain;
+            background-color: #020617;
+        }
+
         .glass-card { 
-            background: linear-gradient(180deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.6) 100%); 
-            backdrop-filter: blur(12px); 
-            -webkit-backdrop-filter: blur(12px);
+            background: linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.7) 100%); 
+            backdrop-filter: blur(16px); 
+            -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.08); 
         }
 
-        /* --- نسيقات التصدير والطباعة الاحترافية --- */
+        .pb-safe { padding-bottom: var(--sab); }
+        .pt-safe { padding-top: var(--sat); }
+
         @media print {
-            body { 
-                background: white !important; 
-                color: black !important; 
-                padding: 0 !important; 
-                margin: 0 !important; 
-            }
-            
-            /* إخفاء واجهة المستخدم */
-            .print-hidden { 
-                display: none !important; 
-            }
-            
-            /* إظهار حاوية الكشف فقط */
-            .print-only { 
-                display: block !important; 
-                visibility: visible !important;
-                width: 100% !important;
-                position: relative !important;
-            }
-
-            /* تحسين جودة النصوص والجداول في PDF */
-            table { border-collapse: collapse !important; width: 100% !important; }
-            th, td { border: 1px solid #e2e8f0 !important; padding: 12px !important; text-align: right !important; }
-            th { background-color: #f8fafc !important; color: #0f172a !important; font-weight: 800 !important; }
-            
-            @page { 
-                size: A4; 
-                margin: 1cm; 
-            }
-
-            /* إخفاء أي مسافات فارغة ناتجة عن العناصر المخفية */
-            #root { padding: 0 !important; margin: 0 !important; }
+            .print-hidden { display: none !important; }
+            .print-only { display: block !important; visibility: visible !important; }
+            body { background: white !important; color: black !important; }
+            @page { size: A4; margin: 1cm; }
         }
         
-        /* الحالة الافتراضية للكشف في المتصفح */
         .print-only { display: none; }
+
+        /* تحسين ملمس العناصر التفاعلية */
+        button:active { transform: scale(0.96); transition: transform 0.1s; }
     </style>
     <script>
         tailwind.config = {
@@ -67,7 +55,10 @@
             extend: {
               fontFamily: { sans: ['Cairo', 'sans-serif'] },
               colors: { slate: { 850: '#172033', 900: '#0f172a', 950: '#020617' } },
-              animation: { 'fade-in': 'fadeIn 0.5s ease-out forwards', 'slide-up': 'slideUp 0.5s ease-out forwards' },
+              animation: { 
+                'fade-in': 'fadeIn 0.3s ease-out forwards', 
+                'slide-up': 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards' 
+              },
               keyframes: { 
                   fadeIn: { '0%': { opacity: 0 }, '100%': { opacity: 1 } }, 
                   slideUp: { '0%': { transform: 'translateY(20px)', opacity: 0 }, '100%': { transform: 'translateY(0)', opacity: 1 } }
@@ -92,7 +83,7 @@
 }
 </script>
 </head>
-<body class="bg-slate-950 text-slate-200">
+<body class="bg-slate-950 text-slate-200 antialiased selection:bg-cyan-500/30">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
 </body>
