@@ -10,7 +10,9 @@ export interface Account {
   type: string; // "نقدي", "بنكي", "مخصص"
   balance: number;
   currency: string;
-  theme?: string; // New property for custom card appearance
+  theme?: string; 
+  card_pattern?: string;
+  custom_icon?: string;
 }
 
 // transactions: id(uuid), account_id(uuid), amount(numeric), date(timestamptz), category_id(uuid), type(text), notes(text), to_account_id(uuid)
