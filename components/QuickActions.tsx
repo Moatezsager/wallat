@@ -264,15 +264,18 @@ const TransferModal: React.FC<{ accounts: Account[]; onSuccess: () => void; onCa
         if (fromId === toId) return toast.warning('لا يمكن التحويل لنفس الحساب');
         setIsSaving(true);
         const val = Number(amount);
-        const { data: fromAcc } = await supabase.from('accounts').select('balance').eq('id', fromId).single();
-        const { data: toAcc } = await supabase.from('accounts').select('balance').eq('id', toId).single();
+        
+        // FIX: Added 'name' to select to fix build error TS2339
+        const { data: fromAcc } = await supabase.from('accounts').select('balance, name').eq('id', fromId).single();
+        const { data: toAcc } = await supabase.from('accounts').select('balance, name').eq('id', toId).single();
+        
         if (fromAcc && toAcc) {
-            await supabase.from('accounts').update({ balance: fromAcc.balance - val }).eq('id', fromId);
-            await supabase.from('accounts').update({ balance: toAcc.balance + val }).eq('id', toId);
+            await supabase.from('accounts').update({ balance: (fromAcc as Account).balance - val }).eq('id', fromId);
+            await supabase.from('accounts').update({ balance: (toAcc as Account).balance + val }).eq('id', toId);
             await supabase.from('transactions').insert({
                 account_id: fromId, to_account_id: toId, amount: val, type: 'transfer', date: new Date().toISOString()
             });
-            logActivity(`تحويل ${formatCurrency(val)} من ${fromAcc.name} إلى ${toAcc.name}`);
+            logActivity(`تحويل ${formatCurrency(val)} من ${(fromAcc as Account).name} إلى ${(toAcc as Account).name}`);
             onSuccess();
         }
         setIsSaving(false);
@@ -384,7 +387,7 @@ const AddDebtWizard: React.FC<{
                     const txType = type === 'on_you' ? 'income' : 'expense'; 
                     const balanceChange = txType === 'income' ? val : -val;
                     
-                    await supabase.from('accounts').update({ balance: acc.balance + balanceChange }).eq('id', accountId);
+                    await supabase.from('accounts').update({ balance: (acc as Account).balance + balanceChange }).eq('id', accountId);
                     await supabase.from('transactions').insert({
                         account_id: accountId,
                         amount: val,
@@ -636,7 +639,7 @@ const SettleDebtWizard: React.FC<{
             }
 
             // Update Account Net Balance
-            await supabase.from('accounts').update({ balance: acc.balance + netImpact }).eq('id', accountId);
+            await supabase.from('accounts').update({ balance: (acc as Account).balance + netImpact }).eq('id', accountId);
 
             logActivity(`تسوية ${selectedDebtIds.size} ديون لـ ${selectedContact?.name} بإجمالي صافي ${formatCurrency(Math.abs(netImpact))}`);
             onSuccess();
