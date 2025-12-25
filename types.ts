@@ -13,6 +13,9 @@ export interface Account {
   theme?: string; 
   card_pattern?: string;
   custom_icon?: string;
+  // Added properties to match the new professional UI styles
+  style_preset?: string;
+  pattern_type?: string;
 }
 
 // transactions: id(uuid), account_id(uuid), amount(numeric), date(timestamptz), category_id(uuid), type(text), notes(text), to_account_id(uuid)
