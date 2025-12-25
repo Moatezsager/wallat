@@ -16,8 +16,9 @@ import {
     ArrowUpIcon,
     ArrowDownIcon,
     ClockIcon,
-    // Fix: Replaced PhoneIcon with SmartphoneIcon which is available in icons.tsx
-    SmartphoneIcon
+    SmartphoneIcon,
+    FunnelIcon,
+    PrinterIcon
 } from './icons';
 
 interface ContactProfilePageProps {
@@ -40,11 +41,19 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
     const [debts, setDebts] = useState<Debt[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'all' | 'unpaid' | 'paid'>('all');
+    
+    // إعدادات التصدير
+    const [showExportModal, setShowExportModal] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [exportProgress, setExportProgress] = useState(0);
     const [exportStatus, setExportStatus] = useState('');
+    const [pdfFilters, setPdfFilters] = useState({
+        type: 'all' as 'all' | 'for_you' | 'on_you',
+        status: 'all' as 'all' | 'unpaid' | 'paid'
+    });
 
     const reportRef = useMemo(() => `REF-${Math.floor(1000 + Math.random() * 9000)}`, []);
+    const currentDate = useMemo(() => new Date().toLocaleDateString('ar-LY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }), []);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -78,13 +87,31 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
         return debts.filter(d => d.paid);
     }, [debts, activeTab]);
 
+    // معالجة البيانات المخصصة للتصدير
+    const debtsToPrint = useMemo(() => {
+        return debts.filter(d => {
+            const typeMatch = pdfFilters.type === 'all' || d.type === pdfFilters.type;
+            const statusMatch = pdfFilters.status === 'all' || 
+                              (pdfFilters.status === 'paid' && d.paid) || 
+                              (pdfFilters.status === 'unpaid' && !d.paid);
+            return typeMatch && statusMatch;
+        });
+    }, [debts, pdfFilters]);
+
+    const printStats = useMemo(() => {
+        const forYou = debtsToPrint.filter(d => d.type === 'for_you').reduce((sum, d) => sum + d.amount, 0);
+        const onYou = debtsToPrint.filter(d => d.type === 'on_you').reduce((sum, d) => sum + d.amount, 0);
+        return { forYou, onYou, net: forYou - onYou };
+    }, [debtsToPrint]);
+
     const handleExportPDF = async () => {
+        setShowExportModal(false);
         setIsExporting(true);
         setExportProgress(0);
         const steps = [
-            { p: 30, s: 'جاري تجميع السجلات...' },
-            { p: 60, s: 'تدقيق الأرصدة النهائية...' },
-            { p: 90, s: 'تجهيز الكشف للطباعة...' },
+            { p: 30, s: 'جاري تجميع السجلات المخصصة...' },
+            { p: 60, s: 'تدقيق الأرصدة والعمليات...' },
+            { p: 90, s: 'تجهيز قالب الطباعة الاحترافي...' },
             { p: 100, s: 'جاهز!' }
         ];
         for (const step of steps) {
@@ -98,7 +125,7 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
     if (loading) return (
         <div className="flex flex-col items-center justify-center py-32 space-y-4">
             <div className="w-12 h-12 border-4 border-slate-800 border-t-cyan-500 rounded-full animate-spin"></div>
-            <p className="text-slate-500 font-bold animate-pulse text-sm">جاري تحميل السجل...</p>
+            <p className="text-slate-500 font-bold animate-pulse text-sm">جاري تحميل السجل المالي...</p>
         </div>
     );
 
@@ -112,10 +139,10 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
                     <ArrowRightIcon className="w-6 h-6" />
                 </button>
                 <button 
-                    onClick={handleExportPDF} 
-                    className="flex items-center gap-2 px-4 py-2.5 bg-white/5 border border-white/10 text-cyan-400 rounded-2xl font-bold text-sm hover:bg-white/10 transition active:scale-95"
+                    onClick={() => setShowExportModal(true)} 
+                    className="flex items-center gap-2 px-4 py-2.5 bg-cyan-600 text-white rounded-2xl font-black text-sm hover:bg-cyan-500 transition active:scale-95 shadow-lg shadow-cyan-900/20"
                 >
-                    <DocumentArrowDownIcon className="w-5 h-5" /> تصدير PDF
+                    <DocumentArrowDownIcon className="w-5 h-5" /> تصدير مخصص
                 </button>
             </div>
 
@@ -134,7 +161,7 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
                         ) : 'لا يوجد رقم هاتف'}
                     </div>
 
-                    <div className="w-full grid grid-cols-1 gap-3">
+                    <div className="w-full">
                         <div className={`p-5 rounded-3xl border transition-all ${stats.net >= 0 ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">الرصيد الصافي المستحق</p>
                             <p className={`text-4xl font-black tabular-nums ${stats.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -159,7 +186,7 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
                 ))}
             </div>
 
-            {/* Transactions / Statement List */}
+            {/* Transactions List */}
             <div className="space-y-3 print:hidden">
                 <div className="flex items-center justify-between px-2 mb-2">
                     <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -190,9 +217,6 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
                                         <p className={`text-lg font-black tabular-nums ${debt.paid ? 'text-slate-500 line-through' : isForYou ? 'text-emerald-400' : 'text-rose-400'}`}>
                                             {isForYou ? '+' : '-'}{formatCurrency(debt.amount)}
                                         </p>
-                                        {debt.due_date && !debt.paid && (
-                                            <span className="text-[9px] font-black text-amber-500/80 uppercase tracking-tighter">استحقاق: {new Date(debt.due_date).toLocaleDateString('ar-LY')}</span>
-                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -200,27 +224,60 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
                     })
                 ) : (
                     <div className="text-center py-20 border-2 border-dashed border-slate-800 rounded-[2.5rem]">
-                        <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <ClockIcon className="w-8 h-8 text-slate-700" />
-                        </div>
                         <p className="text-slate-600 font-bold text-sm">لا توجد سجلات مطابقة حالياً</p>
                     </div>
                 )}
             </div>
 
+            {/* Export Settings Modal */}
+            {showExportModal && (
+                <div className="fixed inset-0 z-[110] bg-slate-950/95 backdrop-blur-xl flex items-center justify-center p-6 animate-fade-in print:hidden">
+                    <div className="w-full max-w-sm bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 space-y-8 animate-slide-up">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-xl font-black text-white flex items-center gap-2"><FunnelIcon className="w-6 h-6 text-cyan-500"/> تخصيص الكشف</h3>
+                            <button onClick={() => setShowExportModal(false)} className="p-2 bg-white/5 rounded-full text-slate-500 hover:text-white"><XMarkIcon className="w-5 h-5"/></button>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">نوع المعاملات</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {(['all', 'for_you', 'on_you'] as const).map(t => (
+                                        <button key={t} onClick={() => setPdfFilters(f => ({...f, type: t}))} className={`py-2.5 rounded-xl text-[10px] font-black border transition-all ${pdfFilters.type === t ? 'bg-cyan-600 text-white border-cyan-500' : 'bg-slate-800 text-slate-500 border-white/5'}`}>
+                                            {t === 'all' ? 'الكل' : t === 'for_you' ? 'لك' : 'عليك'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">الحالة المالية</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {(['all', 'unpaid', 'paid'] as const).map(s => (
+                                        <button key={s} onClick={() => setPdfFilters(f => ({...f, status: s}))} className={`py-2.5 rounded-xl text-[10px] font-black border transition-all ${pdfFilters.status === s ? 'bg-cyan-600 text-white border-cyan-500' : 'bg-slate-800 text-slate-500 border-white/5'}`}>
+                                            {s === 'all' ? 'الكل' : s === 'unpaid' ? 'معلقة' : 'تمت'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <button 
+                            onClick={handleExportPDF} 
+                            className="w-full py-4 bg-cyan-600 text-white rounded-2xl font-black text-lg shadow-xl shadow-cyan-900/30 active:scale-95 flex items-center justify-center gap-3 transition-transform"
+                        >
+                            <PrinterIcon className="w-6 h-6" /> توليد الكشف المخصص
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Exporting Progress Modal */}
             {isExporting && (
-                <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-6 animate-fade-in print:hidden">
+                <div className="fixed inset-0 z-[120] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-6 animate-fade-in print:hidden">
                     <div className="w-full max-w-xs space-y-8 text-center">
                         <div className="relative w-24 h-24 mx-auto">
                             <div className="absolute inset-0 border-4 border-slate-800 rounded-full"></div>
-                            <div 
-                                className="absolute inset-0 border-4 border-cyan-500 rounded-full transition-all duration-300"
-                                style={{ 
-                                    clipPath: `inset(0 ${100 - exportProgress}% 0 0)`,
-                                    transform: 'rotate(-90deg)'
-                                }}
-                            ></div>
                             <div className="absolute inset-0 flex items-center justify-center">
                                 <SparklesIcon className="w-10 h-10 text-cyan-400 animate-pulse" />
                             </div>
@@ -233,67 +290,108 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
                 </div>
             )}
 
-            {/* --- PRINT ONLY TEMPLATE (PROFESSIONAL) --- */}
-            <div className="print-only bg-white text-black p-12 font-sans min-h-screen" dir="rtl">
-                <div className="flex justify-between items-center border-b-4 border-slate-900 pb-8 mb-10">
+            {/* --- PRINT TEMPLATE (ENHANCED FOR LARGE AMOUNTS) --- */}
+            <div className="print-only bg-white text-black p-8 font-sans min-h-screen relative" dir="rtl">
+                {/* PDF Header with Date */}
+                <div className="flex justify-between items-start border-b-[6px] border-slate-900 pb-8 mb-10">
                     <div>
-                        <h1 className="text-3xl font-black text-slate-900">كشف حساب مالي</h1>
-                        <p className="text-slate-500 font-bold text-xs uppercase mt-1 tracking-widest">محفظتي الإلكترونية الذكية</p>
+                        <h1 className="text-4xl font-black text-slate-900 mb-2">كشف حساب مالي</h1>
+                        <p className="text-slate-500 font-bold text-sm uppercase tracking-[0.2em]">محفظتي الإلكترونية الذكية</p>
+                        <div className="mt-4 bg-slate-100 px-4 py-2 rounded-xl inline-flex items-center gap-2">
+                            <CalendarDaysIcon className="w-4 h-4 text-slate-900" />
+                            <span className="text-sm font-black text-slate-900">{currentDate}</span>
+                        </div>
                     </div>
                     <div className="text-left">
                         <p className="text-[10px] font-black text-slate-400 uppercase">الرقم المرجعي</p>
-                        <p className="font-mono text-sm font-black">{reportRef}</p>
+                        <p className="font-mono text-sm font-black bg-slate-900 text-white px-3 py-1 rounded-lg">{reportRef}</p>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-8 mb-12">
-                    <div className="bg-slate-50 p-6 rounded-3xl border-2 border-slate-100">
+                {/* Client Info & Summary Summary */}
+                <div className="grid grid-cols-5 gap-6 mb-12">
+                    <div className="col-span-2 bg-slate-50 p-6 rounded-[2.5rem] border-2 border-slate-100 flex flex-col justify-center">
                         <h4 className="text-[10px] font-black text-slate-400 uppercase mb-3">جهة الاتصال</h4>
-                        <p className="text-2xl font-black text-slate-900">{contact.name}</p>
-                        <p className="text-slate-600 font-bold text-sm mt-1">{contact.phone}</p>
+                        <p className="text-2xl font-black text-slate-900 leading-tight">{contact.name}</p>
+                        <p className="text-slate-500 font-bold text-sm mt-1">{contact.phone || 'بدون هاتف'}</p>
                     </div>
-                    <div className="bg-slate-900 p-6 rounded-3xl text-white">
-                        <h4 className="text-[10px] font-white/40 font-black uppercase mb-3">صافي الرصيد الحالي</h4>
-                        <p className="text-4xl font-black">{formatCurrency(Math.abs(stats.net))}</p>
-                        <p className="text-xs font-bold mt-2 text-cyan-400">{stats.net >= 0 ? 'مستحق لك (دائن)' : 'مستحق عليك (مدين)'}</p>
+                    <div className="col-span-3 bg-slate-900 p-8 rounded-[2.5rem] text-white flex flex-col justify-center shadow-xl">
+                        <div className="flex justify-between items-center mb-4">
+                            <h4 className="text-[11px] text-white/40 font-black uppercase tracking-widest">إجمالي الرصيد المستحق (للكشف الحالي)</h4>
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-black ${printStats.net >= 0 ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}`}>
+                                {printStats.net >= 0 ? 'رصيد دائن (+)' : 'رصيد مدين (-)'}
+                            </span>
+                        </div>
+                        <p className="text-5xl font-black tabular-nums">{formatCurrency(Math.abs(printStats.net))}</p>
                     </div>
                 </div>
 
-                <table className="w-full text-sm border-collapse">
-                    <thead>
-                        <tr className="bg-slate-900 text-white">
-                            <th className="p-4 text-right rounded-tr-xl">التاريخ</th>
-                            <th className="p-4 text-right">البيان</th>
-                            <th className="p-4 text-center">النوع</th>
-                            <th className="p-4 text-left rounded-tl-xl">المبلغ</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {debts.map((d, i) => (
-                            <tr key={d.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                                <td className="p-4 font-mono text-slate-500 border-b border-slate-100">{new Date(d.created_at).toLocaleDateString('ar-LY')}</td>
-                                <td className="p-4 font-bold border-b border-slate-100">{d.description || 'عملية مسجلة'}</td>
-                                <td className="p-4 text-center border-b border-slate-100">
-                                    <span className={`text-[10px] font-black px-2 py-1 rounded border ${d.type === 'for_you' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-rose-50 border-rose-200 text-rose-700'}`}>
-                                        {d.type === 'for_you' ? 'دائن (+)' : 'مدين (-)'}
-                                    </span>
-                                </td>
-                                <td className={`p-4 text-left font-black border-b border-slate-100 ${d.paid ? 'text-slate-300' : d.type === 'for_you' ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                    {formatCurrency(d.amount)}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-
-                <div className="mt-20 flex justify-between items-end border-t-2 border-slate-100 pt-10">
-                    <div className="text-slate-400 text-[10px] font-bold">
-                        <p>تاريخ الإصدار: {new Date().toLocaleString('ar-LY')}</p>
-                        <p>هذا المستند تم توليده آلياً ولا يحتاج لختم رسمي.</p>
+                {/* PDF Stats Grid */}
+                <div className="grid grid-cols-2 gap-4 mb-10">
+                    <div className="p-5 border-2 border-slate-100 rounded-3xl bg-slate-50/50">
+                        <p className="text-[10px] font-black text-slate-400 uppercase mb-1">إجمالي ما لك</p>
+                        <p className="text-2xl font-black text-emerald-600">{formatCurrency(printStats.forYou)}</p>
                     </div>
-                    <div className="text-center">
-                        <div className="w-32 h-1 bg-slate-900 mb-2"></div>
-                        <p className="text-[10px] font-black text-slate-900 uppercase">توقيع المصادقة</p>
+                    <div className="p-5 border-2 border-slate-100 rounded-3xl bg-slate-50/50">
+                        <p className="text-[10px] font-black text-slate-400 uppercase mb-1">إجمالي ما عليك</p>
+                        <p className="text-2xl font-black text-rose-600">{formatCurrency(printStats.onYou)}</p>
+                    </div>
+                </div>
+
+                {/* Transactions with Amount on Independent Line */}
+                <div className="space-y-4">
+                    <h3 className="text-xs font-black text-slate-900 uppercase tracking-[0.3em] mb-4 flex items-center gap-2">
+                        <div className="w-8 h-1 bg-slate-900"></div> تفاصيل السجلات المالية
+                    </h3>
+                    
+                    <div className="border-t-2 border-slate-100">
+                        {debtsToPrint.length > 0 ? (
+                            debtsToPrint.map((d, i) => (
+                                <div key={d.id} className={`py-6 border-b-2 border-slate-50 flex justify-between items-start ${d.paid ? 'opacity-40' : ''}`}>
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-3 mb-1">
+                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded border ${d.type === 'for_you' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-rose-50 border-rose-200 text-rose-700'}`}>
+                                                {d.type === 'for_you' ? 'دائن (+)' : 'مدين (-)'}
+                                            </span>
+                                            <span className="text-[10px] font-mono text-slate-400">{new Date(d.created_at).toLocaleDateString('ar-LY')}</span>
+                                            {d.paid && <span className="text-[9px] font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded uppercase">تمت التسوية</span>}
+                                        </div>
+                                        <p className="text-lg font-bold text-slate-900 mb-2 leading-snug">{d.description || 'عملية مسجلة'}</p>
+                                        
+                                        {/* المبلغ في سطر مستقل وبخط عريض جداً */}
+                                        <div className="bg-slate-50/80 p-4 rounded-2xl inline-block min-w-[200px]">
+                                            <p className="text-[9px] font-black text-slate-400 uppercase mb-1">قيمة العملية</p>
+                                            <p className={`text-3xl font-black tabular-nums ${d.type === 'for_you' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                                {d.type === 'for_you' ? '+' : '-'}{formatCurrency(d.amount)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {d.due_date && !d.paid && (
+                                        <div className="text-left border-r-2 border-slate-100 pr-4 mr-4">
+                                            <p className="text-[9px] font-black text-slate-400 uppercase mb-1">تاريخ الاستحقاق</p>
+                                            <p className="text-sm font-black text-slate-900">{new Date(d.due_date).toLocaleDateString('ar-LY')}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            ))
+                        ) : (
+                            <p className="text-center py-20 text-slate-400 font-bold italic">لا توجد عمليات تطابق إعدادات التصدير المختارة.</p>
+                        )}
+                    </div>
+                </div>
+
+                {/* Footer with branding */}
+                <div className="mt-20 pt-10 border-t-2 border-slate-100">
+                    <div className="flex justify-between items-end">
+                        <div className="text-slate-400 text-[9px] font-bold space-y-1">
+                            <p>تاريخ إصدار التقرير: {new Date().toLocaleString('ar-LY')}</p>
+                            <p>تم توليد هذا الكشف عبر تطبيق محفظتي الإلكترونية.</p>
+                            <p className="text-slate-900 font-black pt-2 text-[10px]">By GreenBox 2025</p>
+                        </div>
+                        <div className="text-center">
+                            <div className="w-32 h-1 bg-slate-900 mb-3 mx-auto"></div>
+                            <p className="text-[10px] font-black text-slate-900 uppercase">الختم أو توقيع المصادقة</p>
+                        </div>
                     </div>
                 </div>
             </div>
