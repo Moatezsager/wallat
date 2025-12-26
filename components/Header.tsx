@@ -23,6 +23,9 @@ const getPageTitle = (page: Page) => {
         case 'categories': return 'الفئات';
         case 'reports': return 'التقارير';
         case 'notes': return 'الملاحظات';
+        case 'tools': return 'الأدوات الذكية';
+        case 'goals': return 'أهداف الادخار';
+        case 'investments': return 'الاستثمارات';
         default: return 'محفظتي الإلكترونية';
     }
 }

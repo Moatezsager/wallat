@@ -1,6 +1,6 @@
 
 // Fix: Define the Page type as a union of string literals to avoid circular dependency.
-export type Page = 'home' | 'accounts' | 'transactions' | 'debts' | 'contacts' | 'categories' | 'reports' | 'notes' | 'investments' | 'goals';
+export type Page = 'home' | 'accounts' | 'transactions' | 'debts' | 'contacts' | 'categories' | 'reports' | 'notes' | 'investments' | 'goals' | 'tools';
 
 // From user prompt:
 // accounts: id(uuid), name(text), type(text), balance(numeric), currency(text)
@@ -58,7 +58,8 @@ export interface Debt {
   created_at: string;
   account_id: string | null;
   // For display
-  contacts?: { name: string } | null;
+  // Fix: Added optional phone property to contacts join to support features like WhatsApp reminders
+  contacts?: { name: string; phone?: string | null } | null;
   accounts?: { name: string } | null;
 }
 

@@ -4,7 +4,8 @@ import { Page } from '../types';
 import { 
     HomeIcon, AccountsIcon, TransactionsIcon, CurrencyDollarIcon, 
     ContactsIcon, CategoriesIcon, ReportsIcon, ClipboardDocumentIcon, 
-    ChartPieIcon, WalletIcon, SparklesIcon, HeartPulseIcon, XMarkIcon 
+    ChartPieIcon, WalletIcon, SparklesIcon, HeartPulseIcon, XMarkIcon,
+    SquaresPlusIcon
 } from './icons';
 
 interface SidebarProps {
@@ -60,6 +61,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActiv
     ];
     
     const secondaryNavItems = [
+        { page: 'tools', label: 'الأدوات الذكية', icon: <SquaresPlusIcon className="w-5 h-5" /> },
         { page: 'categories', label: 'الفئات', icon: <CategoriesIcon className="w-5 h-5" /> },
         { page: 'reports', label: 'التقارير', icon: <ChartPieIcon className="w-5 h-5" /> },
         { page: 'notes', label: 'الملاحظات', icon: <ClipboardDocumentIcon className="w-5 h-5" /> },

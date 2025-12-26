@@ -6,7 +6,8 @@ import { useToast } from './Toast';
 import ConfirmDialog from './ConfirmDialog';
 import { 
     PlusIcon, PencilSquareIcon, TrashIcon, CheckCircleIcon, ExclamationTriangleIcon, XMarkIcon, 
-    FunnelIcon, MagnifyingGlassIcon, ContactsIcon, CalendarDaysIcon, DocumentTextIcon 
+    FunnelIcon, MagnifyingGlassIcon, ContactsIcon, CalendarDaysIcon, DocumentTextIcon,
+    WhatsappIcon, SquaresPlusIcon, ArrowRightIcon
 } from './icons';
 import { logActivity } from '../lib/logger';
 
@@ -44,7 +45,6 @@ const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ar-LY', options).format(amount).replace('LYD', 'د.ل'); 
 };
 
-// Components
 const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; }> = ({ children, title, onClose }) => ( 
     <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"> 
         <div className="glass-card bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-white/10 shadow-2xl animate-slide-up"> 
@@ -56,6 +56,40 @@ const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () =>
         </div> 
     </div> 
 );
+
+const SplitDebtModal: React.FC<{ debt: Debt; onConfirm: (months: number, startDate: string) => void; onCancel: () => void; }> = ({ debt, onConfirm, onCancel }) => {
+    const [months, setMonths] = useState(3);
+    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+    const installmentAmount = debt.amount / months;
+
+    return (
+        <div className="space-y-6">
+            <p className="text-slate-400 text-sm">سيتم تقسيم مبلغ <span className="text-white font-bold">{formatCurrency(debt.amount)}</span> إلى أقساط شهرية متساوية.</p>
+            <div className="space-y-4">
+                <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">عدد الأقساط</label>
+                    <div className="grid grid-cols-5 gap-2 mt-1">
+                        {[2, 3, 4, 6, 12].map(m => (
+                            <button key={m} onClick={() => setMonths(m)} className={`py-2 rounded-xl text-xs font-bold border transition-all ${months === m ? 'bg-cyan-600 border-cyan-500 text-white' : 'bg-slate-800 border-white/5 text-slate-500'}`}>{m}</button>
+                        ))}
+                    </div>
+                </div>
+                <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">تاريخ أول قسط</label>
+                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 mt-1" />
+                </div>
+            </div>
+            <div className="bg-slate-800/50 p-4 rounded-2xl border border-white/5 text-center">
+                <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">قيمة القسط الشهري</p>
+                <p className="text-2xl font-black text-white">{formatCurrency(installmentAmount)}</p>
+            </div>
+            <div className="flex gap-3">
+                <button onClick={onCancel} className="flex-1 py-3 text-slate-400 font-bold hover:text-white transition">إلغاء</button>
+                <button onClick={() => onConfirm(months, startDate)} className="flex-[2] py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold shadow-lg shadow-cyan-900/20">تأكيد التقسيم</button>
+            </div>
+        </div>
+    );
+};
 
 const DebtForm: React.FC<{ debt?: Debt; onSave: () => void; onCancel: () => void; contacts: Contact[]; }> = ({ debt, onSave, onCancel, contacts }) => {
     const toast = useToast();
@@ -252,6 +286,7 @@ const DebtsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (descr
     const [editingDebt, setEditingDebt] = useState<Debt | undefined>(undefined);
     const [deletingDebt, setDeletingDebt] = useState<Debt | null>(null);
     const [settlingDebt, setSettlingDebt] = useState<Debt | null>(null);
+    const [splittingDebt, setSplittingDebt] = useState<Debt | null>(null);
     const [detailsDebt, setDetailsDebt] = useState<Debt | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filters, setFilters] = useState<DebtFilterValues>({
@@ -264,7 +299,7 @@ const DebtsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (descr
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
-            const debtsPromise = supabase.from('debts').select('*, contacts(name), accounts(name)').order('due_date');
+            const debtsPromise = supabase.from('debts').select('*, contacts(*), accounts(name)').order('due_date');
             const contactsPromise = supabase.from('contacts').select('*').order('name');
             const accountsPromise = supabase.from('accounts').select('*');
             const categoriesPromise = supabase.from('categories').select('*');
@@ -315,6 +350,54 @@ const DebtsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (descr
             setDeletingDebt(null);
             handleDatabaseChange(description);
             toast.success(description);
+        }
+    };
+
+    const handleWhatsAppReminder = (debt: Debt) => {
+        if (!debt.contacts) return;
+        const name = debt.contacts.name;
+        const amount = formatCurrency(debt.amount);
+        const date = debt.due_date ? new Date(debt.due_date).toLocaleDateString('ar-LY') : 'غير محدد';
+        const phone = debt.contacts.phone || '';
+        
+        const message = `مرحباً ${name}، أتمنى أن تكون بخير. أردت فقط إرسال تذكير ودي بخصوص المبلغ المستحق (${amount}) والمقيد بتاريخ ${date}. شكراً لك سلفاً.`;
+        const encodedMessage = encodeURIComponent(message);
+        
+        window.open(`https://wa.me/${phone.replace(/\+/g, '')}?text=${encodedMessage}`, '_blank');
+    };
+
+    const handleSplitDebt = async (months: number, startDate: string) => {
+        if (!splittingDebt) return;
+        const amountPerMonth = splittingDebt.amount / months;
+        const installments = [];
+        
+        let currentDate = new Date(startDate);
+        for (let i = 0; i < months; i++) {
+            const dueDate = new Date(currentDate);
+            dueDate.setMonth(dueDate.getMonth() + i);
+            
+            installments.push({
+                contact_id: splittingDebt.contact_id,
+                amount: amountPerMonth,
+                type: splittingDebt.type,
+                due_date: dueDate.toISOString().split('T')[0],
+                description: `${splittingDebt.description || 'دين'} - قسط ${i + 1}/${months}`,
+                paid: false
+            });
+        }
+
+        try {
+            // Delete original
+            await supabase.from('debts').delete().eq('id', splittingDebt.id);
+            // Insert new ones
+            await supabase.from('debts').insert(installments);
+            
+            logActivity(`تقسيم دين ${splittingDebt.contacts?.name} إلى ${months} أقساط`);
+            handleDatabaseChange('تم تقسيم الدين بنجاح');
+            toast.success('تم إنشاء الأقساط المجدولة');
+            setSplittingDebt(null);
+        } catch (err) {
+            toast.error('خطأ في تقسيم الدين');
         }
     };
     
@@ -493,11 +576,18 @@ const DebtsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (descr
                                             <p className="text-xs text-slate-400 truncate max-w-[150px]">{debt.description || 'بدون وصف'}</p>
                                         </div>
                                     </div>
-                                    <div className="text-right">
+                                    <div className="flex flex-col items-end">
                                         <p className={`font-extrabold text-lg ${isPayable ? 'text-rose-400' : 'text-emerald-400'} ${debt.paid ? 'line-through text-slate-500' : ''}`}>
                                             {formatCurrency(debt.amount)}
                                         </p>
-                                        {debt.paid && <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded ml-auto w-fit block">مدفوع</span>}
+                                        {!debt.paid && !isPayable && (
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); handleWhatsAppReminder(debt); }}
+                                                className="mt-1 flex items-center gap-1 px-2 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg text-[9px] font-black hover:bg-emerald-500 hover:text-white transition-all"
+                                            >
+                                                <WhatsappIcon className="w-3 h-3" /> تذكير
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                                 
@@ -508,7 +598,16 @@ const DebtsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (descr
                                         {debt.due_date && <span className="text-[10px] text-slate-500 font-mono">{new Date(debt.due_date).toLocaleDateString('ar-LY')}</span>}
                                     </div>
                                     
-                                    <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                                    <div className="flex gap-1 items-center" onClick={e => e.stopPropagation()}>
+                                        {!debt.paid && (
+                                            <button 
+                                                onClick={() => setSplittingDebt(debt)} 
+                                                title="تقسيم لأقساط"
+                                                className="p-2 text-slate-500 hover:text-cyan-400 hover:bg-white/5 rounded-lg transition"
+                                            >
+                                                <SquaresPlusIcon className="w-4 h-4"/>
+                                            </button>
+                                        )}
                                         <button onClick={() => { setEditingDebt(debt); setIsFormModalOpen(true); }} className="p-2 text-slate-500 hover:text-cyan-400 hover:bg-white/5 rounded-lg transition"><PencilSquareIcon className="w-4 h-4"/></button>
                                         <button onClick={() => setDeletingDebt(debt)} className="p-2 text-slate-500 hover:text-rose-400 hover:bg-white/5 rounded-lg transition"><TrashIcon className="w-4 h-4"/></button>
                                         {!debt.paid && (
@@ -545,6 +644,16 @@ const DebtsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (descr
                         onSave={handleSaveForm} 
                         onCancel={() => { setIsFormModalOpen(false); setEditingDebt(undefined); }}
                         contacts={contacts}
+                    />
+                </Modal>
+            )}
+
+            {splittingDebt && (
+                <Modal title="جدولة الأقساط" onClose={() => setSplittingDebt(null)}>
+                    <SplitDebtModal 
+                        debt={splittingDebt} 
+                        onCancel={() => setSplittingDebt(null)} 
+                        onConfirm={handleSplitDebt} 
                     />
                 </Modal>
             )}

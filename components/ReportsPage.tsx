@@ -7,7 +7,7 @@ import {
     SparklesIcon, ExclamationTriangleIcon, CheckCircleIcon, XMarkIcon, 
     ArrowTrendingUp, ArrowTrendingDown, ChartBarSquareIcon,
     ChevronLeftIcon, ChevronRightIcon, CalendarDaysIcon, TagIcon,
-    ArrowDownIcon, ArrowUpIcon, iconMap, ScaleIcon
+    ArrowDownIcon, ArrowUpIcon, iconMap, ScaleIcon, ClockIcon
 } from './icons';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -23,6 +23,115 @@ const formatCurrency = (amount: number, options?: Intl.NumberFormatOptions) => {
         ...options,
     };
     return new Intl.NumberFormat('ar-LY', defaultOptions).format(amount).replace('LYD', 'د.ل');
+};
+
+// --- New Component: Spending Heatmap ---
+const SpendingHeatmap: React.FC<{ transactions: Transaction[], startDate: Date, endDate: Date }> = ({ transactions, startDate, endDate }) => {
+    const dayNames = ['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'];
+    const fullDayNames = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    
+    const dailyData = useMemo(() => {
+        const expenses = transactions.filter(t => t.type === 'expense');
+        const map = new Map<number, number>();
+        
+        // Group by day of month
+        expenses.forEach(t => {
+            const date = new Date(t.date);
+            const day = date.getDate();
+            map.set(day, (map.get(day) || 0) + t.amount);
+        });
+
+        // Group by day of week for behavioral analysis
+        const weekDayMap = new Array(7).fill(0);
+        expenses.forEach(t => {
+            const date = new Date(t.date);
+            weekDayMap[date.getDay()] += t.amount;
+        });
+
+        const maxSpent = Math.max(...Array.from(map.values()), 1);
+        const dangerousDayIndex = weekDayMap.indexOf(Math.max(...weekDayMap));
+        
+        return { map, maxSpent, dangerousDayIndex, weekDayTotal: weekDayMap[dangerousDayIndex] };
+    }, [transactions]);
+
+    // Generate calendar grid
+    const calendarGrid = useMemo(() => {
+        const grid = [];
+        const firstDay = new Date(startDate.getFullYear(), startDate.getMonth(), 1).getDay();
+        const daysInMonth = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0).getDate();
+        
+        // Empty slots
+        for (let i = 0; i < firstDay; i++) grid.push(null);
+        // Month days
+        for (let d = 1; d <= daysInMonth; d++) grid.push(d);
+        
+        return grid;
+    }, [startDate]);
+
+    const getIntensityClass = (amount: number) => {
+        if (!amount) return 'bg-slate-800/20 border-white/5';
+        const ratio = amount / dailyData.maxSpent;
+        if (ratio < 0.2) return 'bg-rose-500/10 border-rose-500/10 text-rose-200/50';
+        if (ratio < 0.4) return 'bg-rose-500/30 border-rose-500/20 text-rose-100/70';
+        if (ratio < 0.7) return 'bg-rose-500/60 border-rose-500/40 text-white';
+        return 'bg-rose-600 border-rose-400 text-white shadow-[0_0_15px_rgba(225,29,72,0.4)] animate-pulse';
+    };
+
+    return (
+        <div className="glass-card p-6 rounded-[2.5rem] border border-white/5 bg-slate-900/40">
+            <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-black text-white flex items-center gap-3">
+                    <ClockIcon className="w-6 h-6 text-rose-500" /> رادار أيام الخطر
+                </h3>
+                <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-bold text-slate-500">منخفض</span>
+                    <div className="flex gap-0.5">
+                        <div className="w-2 h-2 rounded-sm bg-rose-500/20"></div>
+                        <div className="w-2 h-2 rounded-sm bg-rose-500/50"></div>
+                        <div className="w-2 h-2 rounded-sm bg-rose-500/80"></div>
+                    </div>
+                    <span className="text-[9px] font-bold text-slate-500">مرتفع</span>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-7 gap-2 mb-6">
+                {dayNames.map(d => (
+                    <div key={d} className="text-center text-[10px] font-black text-slate-600 pb-2">{d}</div>
+                ))}
+                {calendarGrid.map((day, idx) => {
+                    const amount = day ? dailyData.map.get(day) || 0 : 0;
+                    return (
+                        <div 
+                            key={idx} 
+                            className={`aspect-square rounded-xl border flex items-center justify-center text-[10px] font-bold transition-all relative group ${day ? getIntensityClass(amount) : 'opacity-0'}`}
+                        >
+                            {day}
+                            {amount > 0 && (
+                                <div className="absolute bottom-full mb-2 hidden group-hover:block z-20 bg-slate-800 text-white text-[9px] p-2 rounded-lg whitespace-nowrap shadow-2xl border border-white/10">
+                                    {formatCurrency(amount)}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Behavioral Insight Card */}
+            {dailyData.weekDayTotal > 0 && (
+                <div className="bg-rose-500/5 border border-rose-500/10 p-4 rounded-2xl flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-rose-500/20 flex items-center justify-center shrink-0">
+                        <ExclamationTriangleIcon className="w-6 h-6 text-rose-500" />
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-black text-rose-400 mb-0.5">اكتشاف نمط: "خطر {fullDayNames[dailyData.dangerousDayIndex]}"</h4>
+                        <p className="text-[11px] text-slate-400 font-bold leading-relaxed">
+                            تتركز معظم مصاريفك في يوم <span className="text-white">{fullDayNames[dailyData.dangerousDayIndex]}</span> بإجمالي <span className="text-white">{formatCurrency(dailyData.weekDayTotal)}</span>. حاول تجنب التسوق أو المشتريات الكبيرة في هذا اليوم.
+                        </p>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 };
 
 const getDatesForPeriod = (period: Period) => {
@@ -70,7 +179,7 @@ const DoughnutChart: React.FC<{ data: number[], colors: string[], labels: string
                 datasets: [{
                     data: data,
                     backgroundColor: colors,
-                    borderColor: 'rgba(30, 41, 59, 1)', 
+                    borderColor: 'rgba(15, 23, 42, 1)', 
                     borderWidth: 2,
                     hoverOffset: 10,
                 }]
@@ -384,10 +493,12 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
     const [analysisLoading, setAnalysisLoading] = useState(false);
     const [analysisResult, setAnalysisResult] = useState<any | string>('');
 
+    const periodDates = useMemo(() => getDatesForPeriod(period), [period]);
+
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
-            const { startDate, endDate, prevStartDate, prevEndDate } = getDatesForPeriod(period);
+            const { startDate, endDate, prevStartDate, prevEndDate } = periodDates;
             const txPromise = supabase.from('transactions').select('*, categories(*)').gte('date', startDate.toISOString()).lte('date', endDate.toISOString());
             const prevTxPromise = supabase.from('transactions').select('amount, type, categories(name), date').gte('date', prevStartDate.toISOString()).lte('date', prevEndDate.toISOString()).in('type', ['income', 'expense']);
             const debtPromise = supabase.from('debts').select('*');
@@ -398,7 +509,7 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
             setLoading(false);
         };
         fetchData();
-    }, [refreshTrigger, period]);
+    }, [refreshTrigger, periodDates]);
 
     const reportData = useMemo(() => {
         const expenseData = new Map<string, { amount: number, color: string | null }>();
@@ -449,6 +560,16 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
                 <div className="glass-card p-1 rounded-xl flex shadow-lg">{(['this_month', 'last_month', 'this_year'] as Period[]).map(p => (<button key={p} onClick={() => setPeriod(p)} className={`px-4 py-2.5 rounded-lg text-sm font-bold transition-all duration-300 ${period === p ? 'bg-slate-800 text-cyan-400 shadow-inner' : 'text-slate-400 hover:text-white'}`}>{{ 'this_month': 'هذا الشهر', 'last_month': 'الشهر الماضي', 'this_year': 'هذه السنة' }[p]}</button>)) }</div>
                 <button onClick={() => setIsMonthlyReportOpen(true)} className="p-3 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-xl transition shadow-lg border border-slate-700"><CalendarDaysIcon className="w-5 h-5" /></button>
             </div>
+
+            {/* Spending Heatmap - Behavioral Analysis */}
+            {(period === 'this_month' || period === 'last_month') && (
+                <SpendingHeatmap 
+                    transactions={transactions} 
+                    startDate={periodDates.startDate} 
+                    endDate={periodDates.endDate} 
+                />
+            )}
+
             <div className="grid grid-cols-3 gap-4 text-center">
                 <div className="glass-card p-4 rounded-2xl border border-white/5"><p className="text-xs text-emerald-400 font-bold mb-1">الدخل</p><p className="font-extrabold text-lg text-white tracking-tight">{formatCurrency(reportData.totalIncome)}</p></div>
                 <div className="glass-card p-4 rounded-2xl border border-white/5"><p className="text-xs text-rose-400 font-bold mb-1">المصروف</p><p className="font-extrabold text-lg text-white tracking-tight">{formatCurrency(reportData.totalExpense)}</p></div>

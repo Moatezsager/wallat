@@ -18,7 +18,8 @@ import {
     ClockIcon,
     SmartphoneIcon,
     FunnelIcon,
-    PrinterIcon
+    PrinterIcon,
+    WhatsappIcon
 } from './icons';
 
 interface ContactProfilePageProps {
@@ -103,6 +104,19 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
         const onYou = debtsToPrint.filter(d => d.type === 'on_you').reduce((sum, d) => sum + d.amount, 0);
         return { forYou, onYou, net: forYou - onYou };
     }, [debtsToPrint]);
+
+    const handleWhatsAppReminder = (debt: Debt) => {
+        if (!contact) return;
+        const name = contact.name;
+        const amount = formatCurrency(debt.amount);
+        const date = debt.due_date ? new Date(debt.due_date).toLocaleDateString('ar-LY') : 'غير محدد';
+        const phone = contact.phone || '';
+        
+        const message = `مرحباً ${name}، أتمنى أن تكون بخير. أردت فقط إرسال تذكير ودي بخصوص المبلغ المستحق (${amount}) والمقيد بتاريخ ${date}. شكراً لك سلفاً.`;
+        const encodedMessage = encodeURIComponent(message);
+        
+        window.open(`https://wa.me/${phone.replace(/\+/g, '')}?text=${encodedMessage}`, '_blank');
+    };
 
     const handleExportPDF = async () => {
         setShowExportModal(false);
@@ -212,10 +226,18 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="text-left">
+                                    <div className="flex flex-col items-end">
                                         <p className={`text-lg font-black tabular-nums ${debt.paid ? 'text-slate-500 line-through' : isForYou ? 'text-emerald-400' : 'text-rose-400'}`}>
                                             {isForYou ? '+' : '-'}{formatCurrency(debt.amount)}
                                         </p>
+                                        {!debt.paid && isForYou && contact.phone && (
+                                            <button 
+                                                onClick={() => handleWhatsAppReminder(debt)}
+                                                className="mt-1 flex items-center gap-1 px-2 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg text-[9px] font-black hover:bg-emerald-500 hover:text-white transition-all"
+                                            >
+                                                <WhatsappIcon className="w-3 h-3" /> تذكير
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -316,9 +338,9 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
                     </div>
                     <div className="bg-slate-900 p-6 rounded-2xl text-white shadow-xl flex flex-col justify-center">
                         <h4 className="text-[10px] text-white/40 font-black uppercase mb-2">صافي الرصيد المستحق للكشف</h4>
-                        <p className="text-4xl font-black tabular-nums">{formatCurrency(Math.abs(printStats.net))}</p>
-                        <p className={`text-xs font-bold mt-2 ${printStats.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {printStats.net >= 0 ? 'رصيد دائن (مستحق لك)' : 'رصيد مدين (مستحق عليك)'}
+                        <p className="text-4xl font-black tabular-nums">{formatCurrency(Math.abs(stats.net))}</p>
+                        <p className={`text-xs font-bold mt-2 ${stats.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {stats.net >= 0 ? 'رصيد دائن (مستحق لك)' : 'رصيد مدين (مستحق عليك)'}
                         </p>
                     </div>
                 </div>

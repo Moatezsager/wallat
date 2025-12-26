@@ -14,6 +14,7 @@ import ReportsPage from './components/ReportsPage';
 import NotesPage from './components/NotesPage';
 import InvestmentsPage from './components/InvestmentsPage';
 import SavingsGoalsPage from './components/SavingsGoalsPage';
+import ToolsPage from './components/ToolsPage';
 import BottomNav from './components/BottomNav';
 import { ToastProvider } from './components/Toast';
 import { supabase } from './lib/supabase';
@@ -38,6 +39,7 @@ function AppContent() {
   
   const [activePage, setActivePage] = useState<Page>('home');
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [isStealthMode, setIsStealthMode] = useState(false);
   
   // Refresh trigger state to force re-fetches when manual DB changes happen
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -49,7 +51,16 @@ function AppContent() {
     if (localStorage.getItem('app_authenticated') === 'true') {
       setIsAuthenticated(true);
     }
+    if (localStorage.getItem('stealth_mode') === 'true') {
+      setIsStealthMode(true);
+    }
   }, []);
+
+  const toggleStealthMode = () => {
+    const newVal = !isStealthMode;
+    setIsStealthMode(newVal);
+    localStorage.setItem('stealth_mode', newVal.toString());
+  };
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,7 +156,8 @@ function AppContent() {
       case 'notes': return <NotesPage refreshTrigger={refreshTrigger} handleDatabaseChange={handleDatabaseChange} />;
       case 'investments': return <InvestmentsPage refreshTrigger={refreshTrigger} handleDatabaseChange={handleDatabaseChange} />;
       case 'goals': return <SavingsGoalsPage refreshTrigger={refreshTrigger} handleDatabaseChange={handleDatabaseChange} />;
-      default: return <HomePage refreshTrigger={refreshTrigger} handleDatabaseChange={handleDatabaseChange} setActivePage={setActivePage}/>;
+      case 'tools': return <ToolsPage isStealthMode={isStealthMode} toggleStealthMode={toggleStealthMode} handleDatabaseChange={handleDatabaseChange} />;
+      default: return <HomePage refreshTrigger={refreshTrigger} handleDatabaseChange={handleDatabaseChange} setActivePage={setActivePage} />;
     }
   };
   
@@ -187,7 +199,19 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen font-sans pb-24 md:pb-0 lg:flex lg:flex-row-reverse" dir="rtl">
+    <div className={`min-h-screen font-sans pb-24 md:pb-0 lg:flex lg:flex-row-reverse ${isStealthMode ? 'stealth-active' : ''}`} dir="rtl">
+        <style>{`
+          .stealth-active .tabular-nums, 
+          .stealth-active h2.text-4xl, 
+          .stealth-active .text-3xl.font-black,
+          .stealth-active .text-5xl.font-black,
+          .stealth-active .font-extrabold.text-lg {
+             filter: blur(8px);
+             pointer-events: none;
+             user-select: none;
+          }
+        `}</style>
+
         {/* Persistent Sidebar on Desktop */}
         <Sidebar 
             isOpen={isSidebarOpen} 
