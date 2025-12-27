@@ -5,7 +5,7 @@ import {
     HomeIcon, AccountsIcon, TransactionsIcon, CurrencyDollarIcon, 
     ContactsIcon, CategoriesIcon, ReportsIcon, ClipboardDocumentIcon, 
     ChartPieIcon, WalletIcon, SparklesIcon, HeartPulseIcon, XMarkIcon,
-    SquaresPlusIcon
+    SquaresPlusIcon, ShoppingBagIcon, ScaleIcon, ClockIcon
 } from './icons';
 
 interface SidebarProps {
@@ -54,17 +54,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActiv
         { page: 'home', label: 'الرئيسية', icon: <HomeIcon className="w-5 h-5" /> },
         { page: 'accounts', label: 'الحسابات', icon: <WalletIcon className="w-5 h-5" /> },
         { page: 'transactions', label: 'المعاملات', icon: <TransactionsIcon className="w-5 h-5" /> },
-        { page: 'debts', label: 'الديون', icon: <CurrencyDollarIcon className="w-5 h-5" /> },
-        { page: 'investments', label: 'الاستثمارات', icon: <SparklesIcon className="w-5 h-5" /> },
-        { page: 'goals', label: 'أهداف الادخار', icon: <HeartPulseIcon className="w-5 h-5" /> },
-        { page: 'contacts', label: 'جهات الاتصال', icon: <ContactsIcon className="w-5 h-5" /> },
+        { page: 'debts', label: 'الديون والذمم', icon: <CurrencyDollarIcon className="w-5 h-5" /> },
+        { page: 'budgets', label: 'الميزانيات', icon: <ChartPieIcon className="w-5 h-5" /> },
+        { page: 'assets', label: 'الأصول والممتلكات', icon: <ScaleIcon className="w-5 h-5" /> },
     ];
     
     const secondaryNavItems = [
-        { page: 'tools', label: 'الأدوات الذكية', icon: <SquaresPlusIcon className="w-5 h-5" /> },
-        { page: 'categories', label: 'الفئات', icon: <CategoriesIcon className="w-5 h-5" /> },
-        { page: 'reports', label: 'التقارير', icon: <ChartPieIcon className="w-5 h-5" /> },
+        { page: 'recurring', label: 'المعاملات المتكررة', icon: <ClockIcon className="w-5 h-5" /> },
+        { page: 'shopping', label: 'قائمة التسوق', icon: <ShoppingBagIcon className="w-5 h-5" /> },
+        { page: 'investments', label: 'الاستثمارات', icon: <SparklesIcon className="w-5 h-5" /> },
+        { page: 'goals', label: 'أهداف الادخار', icon: <HeartPulseIcon className="w-5 h-5" /> },
+        { page: 'contacts', label: 'جهات الاتصال', icon: <ContactsIcon className="w-5 h-5" /> },
         { page: 'notes', label: 'الملاحظات', icon: <ClipboardDocumentIcon className="w-5 h-5" /> },
+        { page: 'tools', label: 'أدوات متقدمة', icon: <SquaresPlusIcon className="w-5 h-5" /> },
     ];
 
     return (
@@ -87,16 +89,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActiv
                 </button>
 
                 <div className="p-6 flex flex-col h-full relative">
-                    {/* Background Decorative Glow */}
-                    <div className="absolute top-0 right-0 w-full h-64 bg-gradient-to-b from-cyan-500/5 to-transparent pointer-events-none -z-10"></div>
-
                     {/* Branding Header */}
                     <div className="flex items-center gap-4 mt-4 mb-10 px-2">
                         <div className="w-12 h-12 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-xl shadow-cyan-500/20 ring-1 ring-white/10">
                              <WalletIcon className="w-6 h-6 text-white" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-black text-white tracking-tight leading-none">محفظتي الإلكترونية</h2>
+                            <h2 className="text-xl font-black text-white tracking-tight leading-none">محفظتي</h2>
                         </div>
                     </div>
 
@@ -137,12 +136,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActiv
                     {/* Footer Branding */}
                     <div className="mt-auto pt-6 border-t border-white/5 pb-safe">
                          <div className="bg-slate-950/40 rounded-2xl p-4 border border-white/5 text-center">
-                            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-1">تطوير وابتكار</p>
                             <div className="flex items-center justify-center gap-2">
                                 <div className="w-5 h-5 bg-emerald-500 rounded-md flex items-center justify-center text-[10px] font-black text-slate-900 shadow-lg shadow-emerald-500/20">G</div>
                                 <span className="text-xs font-black text-white tracking-tighter">GreenBox <span className="text-emerald-400">Tech</span></span>
                             </div>
-                            <p className="text-[8px] text-slate-600 mt-2 font-medium">جميع الحقوق محفوظة 2025 ©</p>
                         </div>
                     </div>
                 </div>

@@ -1,42 +1,36 @@
 
 // Fix: Define the Page type as a union of string literals to avoid circular dependency.
-export type Page = 'home' | 'accounts' | 'transactions' | 'debts' | 'contacts' | 'categories' | 'reports' | 'notes' | 'investments' | 'goals' | 'tools';
+export type Page = 'home' | 'accounts' | 'transactions' | 'debts' | 'contacts' | 'categories' | 'reports' | 'notes' | 'investments' | 'goals' | 'tools' | 'budgets' | 'assets' | 'shopping' | 'recurring';
 
-// From user prompt:
-// accounts: id(uuid), name(text), type(text), balance(numeric), currency(text)
 export interface Account {
   id: string;
   name: string;
-  type: string; // "نقدي", "بنكي", "مخصص"
+  type: string; 
   balance: number;
   currency: string;
   theme?: string; 
   card_pattern?: string;
   custom_icon?: string;
-  // Added properties to match the new professional UI styles
   style_preset?: string;
   pattern_type?: string;
+  is_archived: boolean;
 }
 
-// transactions: id(uuid), account_id(uuid), amount(numeric), date(timestamptz), category_id(uuid), type(text), notes(text), to_account_id(uuid)
 export interface Transaction {
   id: string;
   account_id: string | null;
   amount: number;
-  date: string; // ISO string
+  date: string; 
   category_id: string | null;
   type: 'income' | 'expense' | 'transfer';
   notes: string | null;
   to_account_id: string | null;
   created_at?: string;
-  // For display purposes after joining
   accounts?: { name: string; currency: string } | null;
-  // Fix: Add optional color and icon to categories to match more detailed queries.
   categories?: { name: string; color?: string | null; icon?: string | null; } | null;
   to_accounts?: { name: string } | null;
 }
 
-// contacts: id(uuid), name(text), phone(text), address(text)
 export interface Contact {
   id: string;
   name: string;
@@ -44,12 +38,11 @@ export interface Contact {
   address: string | null;
 }
 
-// debts: id(uuid), contact_id(uuid), amount(numeric), due_date(date), paid(boolean), type('for_you' | 'on_you'), description(text), linked_transaction_id(uuid), created_at(timestamptz), paid_at(timestamptz)
 export interface Debt {
   id: string;
   contact_id: string | null;
   amount: number;
-  due_date: string | null; // Date string
+  due_date: string | null; 
   paid: boolean;
   paid_at: string | null;
   type: 'for_you' | 'on_you';
@@ -57,13 +50,20 @@ export interface Debt {
   linked_transaction_id: string | null;
   created_at: string;
   account_id: string | null;
-  // For display
-  // Fix: Added optional phone property to contacts join to support features like WhatsApp reminders
   contacts?: { name: string; phone?: string | null } | null;
   accounts?: { name: string } | null;
+  payments?: DebtPayment[];
 }
 
-// categories: id(uuid), name(text), color(text), icon(text), type('income' | 'expense')
+export interface DebtPayment {
+    id: string;
+    debt_id: string;
+    amount: number;
+    payment_date: string;
+    account_id: string;
+    accounts?: { name: string };
+}
+
 export interface Category {
   id: string;
   name: string;
@@ -72,7 +72,48 @@ export interface Category {
   type: 'income' | 'expense';
 }
 
-// notes: id(uuid), note_text(text), color(varchar), is_pinned(bool), is_code(bool), language(varchar), created_at(timestamptz), updated_at(timestamptz)
+export interface Budget {
+    id: string;
+    category_id: string;
+    amount_limit: number;
+    period: 'monthly' | 'weekly';
+    start_date: string;
+    categories?: { name: string; color: string; icon: string };
+}
+
+export interface Asset {
+    id: string;
+    name: string;
+    purchase_price: number;
+    current_value: number;
+    category: string;
+    purchase_date: string | null;
+    created_at: string;
+}
+
+export interface ShoppingItem {
+    id: string;
+    item_name: string;
+    estimated_price: number | null;
+    priority: 'high' | 'medium' | 'low';
+    is_bought: boolean;
+    created_at: string;
+}
+
+export interface RecurringTransaction {
+    id: string;
+    amount: number;
+    type: 'income' | 'expense';
+    category_id: string;
+    account_id: string;
+    frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+    next_date: string;
+    is_active: boolean;
+    notes: string | null;
+    categories?: { name: string };
+    accounts?: { name: string };
+}
+
 export interface Note {
   id: string;
   note_text: string;
@@ -84,17 +125,15 @@ export interface Note {
   updated_at: string;
 }
 
-// investments: id(uuid), name(text), amount(numeric), type(text), current_value(numeric), created_at(timestamptz)
 export interface Investment {
   id: string;
   name: string;
-  type: string; // "ذهب", "أسهم", "عملات", "مدخرات"
-  amount: number; // Purchase price
+  type: string; 
+  amount: number; 
   current_value: number;
   created_at: string;
 }
 
-// goals: id(uuid), name(text), target_amount(numeric), current_amount(numeric), deadline(date), color(text), icon(text)
 export interface Goal {
   id: string;
   name: string;

@@ -1,699 +1,374 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { Debt, Contact, Account, Category } from '../types';
+import { Debt, Contact, Account, DebtPayment } from '../types';
 import { useToast } from './Toast';
 import ConfirmDialog from './ConfirmDialog';
 import { 
     PlusIcon, PencilSquareIcon, TrashIcon, CheckCircleIcon, ExclamationTriangleIcon, XMarkIcon, 
-    FunnelIcon, MagnifyingGlassIcon, ContactsIcon, CalendarDaysIcon, DocumentTextIcon,
-    WhatsappIcon, SquaresPlusIcon, ArrowRightIcon
+    ContactsIcon, CalendarDaysIcon, WhatsappIcon, WalletIcon, ArrowRightIcon, ClockIcon,
+    ChevronDownIcon, ChevronUpIcon, ArrowDownIcon, ArrowUpIcon, ScaleIcon, SparklesIcon
 } from './icons';
 import { logActivity } from '../lib/logger';
 
-// Helpers
-const getDebtStatus = (dueDate: string | null): 'ok' | 'due_soon' | 'overdue' => { 
-    if (!dueDate) return 'ok'; 
-    const today = new Date(); 
-    today.setHours(0, 0, 0, 0); 
-    const due = new Date(dueDate); 
-    const diffTime = due.getTime() - today.getTime(); 
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-    if (diffDays < 0) return 'overdue'; 
-    if (diffDays <= 7) return 'due_soon'; 
-    return 'ok'; 
-};
-
-const getDueDateInfo = (dueDate: string | null): { text: string; colorClass: string; isUrgent: boolean } => { 
-    if (!dueDate) return { text: 'غير محدد', colorClass: 'text-slate-500', isUrgent: false }; 
-    const today = new Date(); 
-    today.setHours(0, 0, 0, 0); 
-    const due = new Date(dueDate); 
-    due.setHours(0, 0, 0, 0); 
-    const diffTime = due.getTime() - today.getTime(); 
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-    if (diffDays < 0) { const days = Math.abs(diffDays); return { text: `متأخر منذ ${days} ${days === 1 ? 'يوم' : 'أيام'}`, colorClass: 'text-rose-400', isUrgent: true }; } 
-    if (diffDays === 0) { return { text: 'مستحق اليوم', colorClass: 'text-amber-400 font-bold', isUrgent: true }; } 
-    if (diffDays <= 7) { return { text: `بعد ${diffDays} ${diffDays === 1 ? 'يوم' : 'أيام'}`, colorClass: 'text-amber-400', isUrgent: true }; } 
-    return { text: `في ${new Date(dueDate).toLocaleDateString('ar-LY', {day: '2-digit', month: 'short'})}`, colorClass: 'text-slate-400', isUrgent: false }; 
-};
-
 const formatCurrency = (amount: number) => { 
-    const options: Intl.NumberFormatOptions = { style: 'currency', currency: 'LYD', }; 
-    if (amount % 1 === 0) { options.minimumFractionDigits = 0; options.maximumFractionDigits = 0; } 
-    else { options.minimumFractionDigits = 2; options.maximumFractionDigits = 2; } 
-    return new Intl.NumberFormat('ar-LY', options).format(amount).replace('LYD', 'د.ل'); 
+    return new Intl.NumberFormat('ar-LY', { style: 'currency', currency: 'LYD', minimumFractionDigits: 0 }).format(amount).replace('LYD', 'د.ل'); 
 };
 
 const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; }> = ({ children, title, onClose }) => ( 
-    <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"> 
-        <div className="glass-card bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-white/10 shadow-2xl animate-slide-up"> 
-            <div className="flex justify-between items-center mb-6"> 
+    <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in pt-safe pb-safe"> 
+        <div className="glass-card bg-slate-900 rounded-[2.5rem] p-6 w-full max-w-md border border-white/10 shadow-2xl animate-slide-up overflow-hidden relative"> 
+            <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-[60px] pointer-events-none"></div>
+            <div className="flex justify-between items-center mb-6 relative z-10"> 
                 <h3 className="text-xl font-bold text-white">{title}</h3> 
                 <button onClick={onClose} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 transition-colors"><XMarkIcon className="w-5 h-5 text-slate-400" /></button> 
             </div> 
-            {children} 
+            <div className="relative z-10">{children}</div>
         </div> 
     </div> 
 );
 
-const SplitDebtModal: React.FC<{ debt: Debt; onConfirm: (months: number, startDate: string) => void; onCancel: () => void; }> = ({ debt, onConfirm, onCancel }) => {
-    const [months, setMonths] = useState(3);
-    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-    const installmentAmount = debt.amount / months;
-
-    return (
-        <div className="space-y-6">
-            <p className="text-slate-400 text-sm">سيتم تقسيم مبلغ <span className="text-white font-bold">{formatCurrency(debt.amount)}</span> إلى أقساط شهرية متساوية.</p>
-            <div className="space-y-4">
-                <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">عدد الأقساط</label>
-                    <div className="grid grid-cols-5 gap-2 mt-1">
-                        {[2, 3, 4, 6, 12].map(m => (
-                            <button key={m} onClick={() => setMonths(m)} className={`py-2 rounded-xl text-xs font-bold border transition-all ${months === m ? 'bg-cyan-600 border-cyan-500 text-white' : 'bg-slate-800 border-white/5 text-slate-500'}`}>{m}</button>
-                        ))}
-                    </div>
-                </div>
-                <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">تاريخ أول قسط</label>
-                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 mt-1" />
-                </div>
-            </div>
-            <div className="bg-slate-800/50 p-4 rounded-2xl border border-white/5 text-center">
-                <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">قيمة القسط الشهري</p>
-                <p className="text-2xl font-black text-white">{formatCurrency(installmentAmount)}</p>
-            </div>
-            <div className="flex gap-3">
-                <button onClick={onCancel} className="flex-1 py-3 text-slate-400 font-bold hover:text-white transition">إلغاء</button>
-                <button onClick={() => onConfirm(months, startDate)} className="flex-[2] py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold shadow-lg shadow-cyan-900/20">تأكيد التقسيم</button>
-            </div>
-        </div>
-    );
-};
-
-const DebtForm: React.FC<{ debt?: Debt; onSave: () => void; onCancel: () => void; contacts: Contact[]; }> = ({ debt, onSave, onCancel, contacts }) => {
-    const toast = useToast();
-    const [type, setType] = useState<'for_you' | 'on_you'>(debt?.type || 'on_you');
-    const [amount, setAmount] = useState(debt?.amount || '');
-    const [contactId, setContactId] = useState(debt?.contact_id || '');
-    const [dueDate, setDueDate] = useState(debt?.due_date ? new Date(debt.due_date).toISOString().split('T')[0] : '');
-    const [description, setDescription] = useState(debt?.description || '');
+const InstallmentModal: React.FC<{ 
+    debt: Debt, 
+    accounts: Account[], 
+    onSuccess: () => void, 
+    onCancel: () => void 
+}> = ({ debt, accounts, onSuccess, onCancel }) => {
+    const [mode, setMode] = useState<'months' | 'amount'>('months');
+    const [months, setMonths] = useState('3');
+    const [customAmount, setCustomAmount] = useState('');
+    const [accId, setAccId] = useState(accounts[0]?.id || '');
     const [isSaving, setIsSaving] = useState(false);
+    const toast = useToast();
+
+    const calculatedAmount = useMemo(() => {
+        if (mode === 'amount') return Number(customAmount);
+        const m = parseInt(months) || 1;
+        return debt.amount / m;
+    }, [debt.amount, months, customAmount, mode]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (calculatedAmount <= 0 || calculatedAmount > debt.amount + 0.1) return toast.error('مبلغ غير صحيح');
+        
         setIsSaving(true);
-        const debtData = {
-            type,
-            amount: Number(amount),
-            contact_id: contactId || null,
-            due_date: dueDate || null,
-            description,
-            paid: debt?.paid || false,
-        };
+        try {
+            await supabase.from('debt_payments').insert({
+                debt_id: debt.id, amount: calculatedAmount, account_id: accId, payment_date: new Date().toISOString()
+            });
 
-        const { error } = debt?.id
-            ? await supabase.from('debts').update(debtData).eq('id', debt.id)
-            : await supabase.from('debts').insert(debtData);
+            const { data: acc } = await supabase.from('accounts').select('balance').eq('id', accId).single();
+            if (acc) {
+                const sign = debt.type === 'on_you' ? -1 : 1;
+                await supabase.from('accounts').update({ balance: acc.balance + (calculatedAmount * sign) }).eq('id', accId);
+            }
 
-        if (error) {
-            console.error('Error saving debt:', error.message);
-            toast.error('حدث خطأ أثناء حفظ الدين.');
-        } else {
-            const contactName = contacts.find(c => c.id === contactId)?.name || 'مجهول';
-            const logMsg = debt?.id 
-                ? `تعديل دين لـ ${contactName}: ${formatCurrency(Number(amount))}`
-                : `إضافة دين جديد لـ ${contactName}: ${formatCurrency(Number(amount))}`;
-            logActivity(logMsg);
-            onSave();
+            const newRemaining = debt.amount - calculatedAmount;
+            const isFullyPaid = newRemaining <= 0.1;
+            await supabase.from('debts').update({ 
+                amount: Math.max(0, newRemaining), 
+                paid: isFullyPaid, 
+                paid_at: isFullyPaid ? new Date().toISOString() : null 
+            }).eq('id', debt.id);
+
+            await supabase.from('transactions').insert({
+                account_id: accId,
+                amount: calculatedAmount,
+                type: debt.type === 'on_you' ? 'expense' : 'income',
+                notes: `دفع قسط لدين: ${debt.description || 'بدون وصف'} (${debt.contacts?.name})`,
+                date: new Date().toISOString()
+            });
+
+            logActivity(`تسجيل قسط بقيمة ${formatCurrency(calculatedAmount)} لـ ${debt.contacts?.name}`);
+            onSuccess();
+        } catch (err) {
+            toast.error('حدث خطأ أثناء المعالجة');
+        } finally {
+            setIsSaving(false);
         }
-        setIsSaving(false);
     };
-
-    const isPayable = type === 'on_you';
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="flex bg-slate-950/50 p-1 rounded-2xl border border-white/5 relative">
-                <button type="button" onClick={() => setType('on_you')} className={`flex-1 py-3 rounded-xl font-bold transition-all duration-300 relative z-10 ${type === 'on_you' ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/20' : 'text-slate-400 hover:text-white'}`}>عليك (سداد)</button>
-                <button type="button" onClick={() => setType('for_you')} className={`flex-1 py-3 rounded-xl font-bold transition-all duration-300 relative z-10 ${type === 'for_you' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-400 hover:text-white'}`}>لك (تحصيل)</button>
+            <div className="flex bg-slate-800 p-1 rounded-2xl mb-2 shadow-inner">
+                <button type="button" onClick={() => setMode('months')} className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${mode === 'months' ? 'bg-cyan-600 text-white shadow-lg' : 'text-slate-500'}`}>خطة أشهر</button>
+                <button type="button" onClick={() => setMode('amount')} className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${mode === 'amount' ? 'bg-cyan-600 text-white shadow-lg' : 'text-slate-500'}`}>مبلغ يدوي</button>
             </div>
-            <div className="text-center space-y-2 relative py-4">
-                <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 blur-[60px] opacity-40 rounded-full transition-colors duration-500 ${isPayable ? 'bg-rose-600' : 'bg-emerald-600'}`}></div>
-                <label className="text-slate-400 text-sm font-medium relative z-10">المبلغ</label>
-                <div className="relative inline-block w-full z-10">
-                    <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0" required className={`w-full bg-transparent text-center text-7xl font-black placeholder-slate-800 focus:outline-none py-2 tracking-tighter transition-colors duration-300 ${isPayable ? 'text-rose-400 drop-shadow-[0_2px_10px_rgba(244,63,94,0.3)]' : 'text-emerald-400 drop-shadow-[0_2px_10px_rgba(16,185,129,0.3)]'}`} autoFocus />
+
+            <div className="text-center bg-slate-800/40 p-6 rounded-3xl border border-white/5 relative overflow-hidden">
+                <p className="text-[10px] text-slate-500 font-black mb-2 uppercase tracking-widest">المبلغ المستحق للدفع</p>
+                <div className="flex items-center justify-center gap-2">
+                    {mode === 'months' ? (
+                        <span className="text-4xl font-black text-cyan-400 tabular-nums">{formatCurrency(calculatedAmount)}</span>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                             <input type="number" step="0.01" value={customAmount} onChange={e => setCustomAmount(e.target.value)} required placeholder="0.00" className="w-full bg-transparent text-center text-5xl font-black text-cyan-400 focus:outline-none" />
+                             <span className="text-xl font-bold text-cyan-600">د.ل</span>
+                        </div>
+                    )}
                 </div>
-            </div>
-            <div className="space-y-4 bg-slate-800/30 p-1 rounded-3xl border border-white/5">
-                <div className="space-y-1 px-1">
-                    <label className="text-xs font-bold text-slate-500 px-2 flex items-center gap-2"><ContactsIcon className="w-3 h-3"/> جهة الاتصال</label>
-                    <div className="relative">
-                        <select value={contactId} onChange={e => setContactId(e.target.value)} className="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 pl-10 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none appearance-none">
-                            <option value="">اختر اسم...</option>
-                            {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                        <ContactsIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none"/>
-                    </div>
-                </div>
-                <div className="grid grid-cols-1 gap-4 pt-1 px-1">
-                    <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-500 px-2 flex items-center gap-2"><CalendarDaysIcon className="w-3 h-3"/> تاريخ الاستحقاق</label>
-                        <div className="relative">
-                            <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 pl-10 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none" />
-                            <CalendarDaysIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none"/>
+                {mode === 'months' && (
+                    <div className="mt-6 space-y-3">
+                        <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest">مدة التقسيط (أشهر)</label>
+                        <div className="flex items-center justify-center gap-6">
+                            <button type="button" onClick={() => setMonths(Math.max(1, parseInt(months)-1).toString())} className="w-12 h-12 rounded-2xl bg-slate-700 text-white text-2xl font-black transition-transform active:scale-90">-</button>
+                            <span className="text-3xl font-black text-white w-12">{months}</span>
+                            <button type="button" onClick={() => setMonths((parseInt(months)+1).toString())} className="w-12 h-12 rounded-2xl bg-slate-700 text-white text-2xl font-black transition-transform active:scale-90">+</button>
                         </div>
                     </div>
-                </div>
-                <div className="space-y-1 pb-1 px-1">
-                    <label className="text-xs font-bold text-slate-500 px-2 flex items-center gap-2"><DocumentTextIcon className="w-3 h-3"/> التفاصيل</label>
-                    <div className="relative">
-                        <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="وصف الدين (اختياري)..." rows={2} className="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 pl-10 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none resize-none"></textarea>
-                        <PencilSquareIcon className="absolute left-3 top-4 w-5 h-5 text-slate-500 pointer-events-none"/>
-                    </div>
-                </div>
+                )}
             </div>
-            <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
-                <button type="button" onClick={onCancel} className="py-3 px-6 text-slate-400 hover:text-white font-bold transition rounded-xl hover:bg-white/5">إلغاء</button>
-                <button type="submit" disabled={isSaving} className={`flex-1 py-3 px-6 rounded-xl transition font-bold text-white shadow-lg text-lg flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed ${isPayable ? 'bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-rose-900/30' : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-900/30'}`}>
-                    {isSaving ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : 'حفظ الدين'}
-                </button>
+
+            <div>
+                <label className="text-xs font-bold text-slate-500 block mb-2 px-1">الحساب المالي للعملية</label>
+                <select value={accId} onChange={e => setAccId(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:outline-none">
+                    {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({formatCurrency(a.balance)})</option>)}
+                </select>
             </div>
+
+            <button type="submit" disabled={isSaving} className="w-full py-4 bg-cyan-600 text-white rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3">
+                {isSaving ? <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin"></div> : <><CheckCircleIcon className="w-6 h-6" /> تأكيد الدفعة</>}
+            </button>
         </form>
     );
 };
 
-const SettleDebtModal: React.FC<{ debt: Debt; accounts: Account[]; onConfirm: (accountId: string) => void; onCancel: () => void; }> = ({ debt, accounts, onConfirm, onCancel }) => { 
-    const toast = useToast(); 
-    const [selectedAccountId, setSelectedAccountId] = useState(''); 
-    const [isSaving, setIsSaving] = useState(false); 
-    const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (!selectedAccountId) { toast.warning("يرجى اختيار حساب لإتمام العملية."); return; } setIsSaving(true); onConfirm(selectedAccountId); }; 
-    const actionText = debt.type === 'on_you' ? 'خصم من' : 'إيداع في'; 
-    return ( 
-        <form onSubmit={handleSubmit} className="space-y-6"> 
-            <p className="text-center text-slate-300 text-lg"> تسوية دين لـ <span className="font-bold text-white block mt-1 text-xl">{debt.contacts?.name || 'شخص ما'}</span> </p> 
-            <div className="bg-slate-800/50 p-4 rounded-2xl text-center border border-white/5"> 
-                <p className="text-sm text-slate-400 font-medium mb-1">المبلغ</p> 
-                <p className={`text-4xl font-extrabold ${debt.type === 'on_you' ? 'text-rose-400' : 'text-emerald-400'}`}> {formatCurrency(debt.amount)} </p> 
-            </div> 
-            <div> 
-                <label htmlFor="account" className="block text-sm font-medium text-slate-300 mb-1">{actionText} حساب</label> 
-                <select id="account" value={selectedAccountId} onChange={e => setSelectedAccountId(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" > 
-                    <option value="" disabled>اختر حساب</option> 
-                    {accounts.map(acc => <option key={acc.id} value={acc.id}>{`${acc.name} (${formatCurrency(acc.balance)})`}</option>)} 
-                </select> 
-            </div> 
-            <div className="flex justify-end gap-3 pt-4"> 
-                <button type="button" onClick={onCancel} className="py-3 px-6 text-slate-400 hover:text-white font-bold transition">إلغاء</button> 
-                <button type="submit" disabled={isSaving} className="flex-1 py-3 px-6 bg-cyan-600 hover:bg-cyan-500 rounded-xl transition font-bold text-white shadow-lg shadow-cyan-900/20 disabled:bg-slate-500"> {isSaving ? 'جاري التأكيد...' : 'تأكيد التسوية'} </button> 
-            </div> 
-        </form> 
-    ); 
+const DebtItem: React.FC<{ 
+    debt: Debt, 
+    onInstall: (d: Debt) => void, 
+    onSettle: (d: Debt) => void,
+    onSelectContact: (id: string) => void 
+}> = ({ debt, onInstall, onSettle, onSelectContact }) => {
+    const [showHistory, setShowHistory] = useState(false);
+    const isForYou = debt.type === 'for_you';
+    
+    const paymentsSum = debt.payments?.reduce((s, p) => s + p.amount, 0) || 0;
+    const totalOriginal = paymentsSum + debt.amount;
+    const progress = totalOriginal > 0 ? (paymentsSum / totalOriginal) * 100 : 0;
+
+    const handleWhatsApp = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        
+        const name = debt.contacts?.name || '';
+        const remaining = formatCurrency(debt.amount);
+        const registrationDate = new Date(debt.created_at).toLocaleDateString('ar-LY');
+        const dueDateText = debt.due_date ? `الموعد المتفق عليه للسداد: ${new Date(debt.due_date).toLocaleDateString('ar-LY')}` : '';
+        
+        let message = `مرحباً ${name}، أتمنى أن تكون بخير.\n\n`;
+        message += `تذكير ودي بخصوص المتبقي من الذمة المالية المسجلة بتاريخ ${registrationDate}.\n`;
+        message += `المبلغ المتبقي حالياً: *${remaining}*.\n`;
+        if (dueDateText) message += `${dueDateText}.\n`;
+        message += `\nشكراً لك وتمنياتي بيوم سعيد.`;
+
+        const encodedMsg = encodeURIComponent(message);
+        const phone = debt.contacts?.phone ? debt.contacts.phone.replace(/\D/g,'') : '';
+        
+        // إذا لم يوجد رقم، يفتح واتساب ليختار المستخدم جهة الاتصال يدوياً
+        const url = phone ? `https://wa.me/${phone}?text=${encodedMsg}` : `https://wa.me/?text=${encodedMsg}`;
+        window.open(url, '_blank');
+    };
+
+    return (
+        <div className={`glass-card p-5 rounded-[2.5rem] border border-white/5 transition-all relative overflow-hidden group ${debt.paid ? 'opacity-40 grayscale' : 'hover:border-white/10 shadow-lg'}`}>
+            <div className="flex justify-between items-start mb-4 relative z-10">
+                <div className="flex items-center gap-4">
+                    <button onClick={() => debt.contact_id && onSelectContact(debt.contact_id)} className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white border border-white/10 active:scale-90 transition-transform ${isForYou ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                        <span className="text-xl font-black">{debt.contacts?.name?.charAt(0) || '?'}</span>
+                    </button>
+                    <div>
+                        <h4 className="font-black text-white text-lg leading-tight">{debt.contacts?.name || 'غير معروف'}</h4>
+                        <div className="flex items-center gap-2 mt-1">
+                             <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${isForYou ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                                {isForYou ? 'تحصيل لك' : 'سداد عليك'}
+                            </span>
+                            {debt.due_date && <span className="text-[9px] text-slate-500 font-bold flex items-center gap-1"><ClockIcon className="w-3 h-3"/> {new Date(debt.due_date).toLocaleDateString('ar-LY')}</span>}
+                        </div>
+                    </div>
+                </div>
+                <div className="text-left">
+                    <p className={`text-2xl font-black tabular-nums ${isForYou ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {formatCurrency(debt.amount)}
+                    </p>
+                    <p className="text-[10px] text-slate-500 font-bold max-w-[120px] truncate">{debt.description || 'بدون وصف'}</p>
+                </div>
+            </div>
+
+            {/* Progress Bar */}
+            {!debt.paid && (
+                <div className="mb-5 space-y-1.5">
+                    <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">
+                        <span>النسبة المسددة: {progress.toFixed(0)}%</span>
+                        <span>إجمالي الدين: {formatCurrency(totalOriginal)}</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden border border-white/5 shadow-inner">
+                        <div className={`h-full rounded-full transition-all duration-1000 ${isForYou ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{ width: `${progress}%` }}></div>
+                    </div>
+                </div>
+            )}
+
+            <div className="flex gap-2 pt-2 border-t border-white/5 relative z-10">
+                {!debt.paid ? (
+                    <>
+                        <button onClick={handleWhatsApp} className="p-3 bg-emerald-600 text-white rounded-2xl shadow-xl shadow-emerald-900/30 active:scale-95 transition-all flex items-center justify-center group/wa" title="إرسال تذكير ذكي">
+                            <WhatsappIcon className="w-6 h-6 group-hover/wa:scale-110 transition-transform" />
+                        </button>
+                        <button onClick={() => onInstall(debt)} className="flex-1 py-3 bg-cyan-600/10 hover:bg-cyan-600/20 text-cyan-400 rounded-2xl text-[11px] font-black transition-all border border-cyan-500/20">تقسيط</button>
+                        <button onClick={() => onSettle(debt)} className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white rounded-2xl text-[11px] font-black transition-all border border-white/5">دفع كامل</button>
+                    </>
+                ) : (
+                    <div className="w-full py-2.5 bg-emerald-500/10 rounded-2xl text-center text-xs font-black text-emerald-500 flex items-center justify-center gap-2">
+                        <CheckCircleIcon className="w-5 h-5" /> تمت التسوية بنجاح
+                    </div>
+                )}
+                
+                <button onClick={() => setShowHistory(!showHistory)} className={`p-3 rounded-2xl transition-all ${showHistory ? 'bg-white/10 text-white' : 'bg-white/5 text-slate-500 hover:text-white'}`}>
+                    {showHistory ? <ChevronUpIcon className="w-5 h-5" /> : <ChevronDownIcon className="w-5 h-5" />}
+                </button>
+            </div>
+
+            {/* Payments History */}
+            {showHistory && (
+                <div className="mt-4 space-y-2 animate-fade-in border-t border-white/5 pt-4">
+                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest px-2 mb-2">سجل الأقساط المسددة</p>
+                    {debt.payments && debt.payments.length > 0 ? debt.payments.map(p => (
+                        <div key={p.id} className="bg-black/20 p-3 rounded-2xl flex justify-between items-center border border-white/5">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-500">
+                                    <CalendarDaysIcon className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold text-slate-300">{new Date(p.payment_date).toLocaleDateString('ar-LY')}</p>
+                                    <p className="text-[9px] text-slate-500">{p.accounts?.name || 'حساب غير معروف'}</p>
+                                </div>
+                            </div>
+                            <span className="text-sm font-black text-cyan-400 tabular-nums">{formatCurrency(p.amount)}</span>
+                        </div>
+                    )) : (
+                        <p className="text-[10px] text-center text-slate-700 py-6 italic border-2 border-dashed border-white/5 rounded-2xl">لا يوجد أقساط مسجلة بعد</p>
+                    )}
+                </div>
+            )}
+        </div>
+    );
 };
 
-const DebtDetailContent: React.FC<{ debt: Debt, onSelectContact: (contactId: string) => void, onClose: () => void; }> = ({ debt, onSelectContact, onClose }) => { 
-    const dueDateInfo = getDueDateInfo(debt.due_date); 
-    const handleContactClick = () => { if (debt.contact_id) { onSelectContact(debt.contact_id); onClose(); } }; 
-    return ( 
-        <div className="space-y-6"> 
-            <div className="text-center border-b border-white/10 pb-6"> 
-                <p className="text-sm text-slate-400 font-medium mb-1">{debt.description || (debt.type === 'on_you' ? 'مبلغ مستحق عليك' : 'مبلغ مستحق لك')}</p> 
-                <p className={`text-5xl font-extrabold tracking-tight ${debt.type === 'on_you' ? 'text-rose-400' : 'text-emerald-400'}`}> {formatCurrency(debt.amount)} </p> 
-                <div className="text-xl font-bold mt-3"> {debt.contacts?.name && debt.contact_id ? ( <> <span className="text-slate-300">لـ </span> <button onClick={handleContactClick} className="text-cyan-400 hover:text-cyan-300 underline decoration-cyan-500/30 hover:decoration-cyan-500 transition-all focus:outline-none"> {debt.contacts.name} </button> </> ) : ( <span className="text-slate-500">غير مرتبط بجهة اتصال</span> )} </div> 
-            </div> 
-            <div className="space-y-3 text-sm"> 
-                <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-white/5"> 
-                    <span className="text-slate-400 font-medium">الحالة</span> 
-                    <span className={`font-bold px-3 py-1 rounded-lg text-xs ${debt.paid ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-300'}`}> {debt.paid ? 'مدفوع' : dueDateInfo.text} </span> 
-                </div> 
-                <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-white/5"> 
-                    <span className="text-slate-400 font-medium">تاريخ الاستحقاق</span> 
-                    <span className="font-bold text-white"> {debt.due_date ? new Date(debt.due_date).toLocaleDateString('ar-LY', { day: 'numeric', month: 'long', year: 'numeric' }) : 'غير محدد'} </span> 
-                </div> 
-                {debt.account_id && debt.accounts && ( <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-white/5"> <span className="text-slate-400 font-medium">تم الإقراض من حساب</span> <span className="font-bold text-white"> {debt.accounts.name} </span> </div> )} 
-                <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-white/5"> 
-                    <span className="text-slate-400 font-medium">تاريخ الإنشاء</span> 
-                    <span className="font-bold text-white"> {new Date(debt.created_at).toLocaleDateString('ar-LY', { day: 'numeric', month: 'long', year: 'numeric' })} </span> 
-                </div> 
-            </div> 
-        </div> 
-    ); 
-};
-
-type DebtFilterValues = { status: 'all' | 'unpaid' | 'paid'; dueDateStatus: 'all' | 'overdue' | 'due_soon'; };
-
-const DebtFilterModal: React.FC<{ initialFilters: DebtFilterValues; onApply: (filters: DebtFilterValues) => void; onClose: () => void; }> = ({ initialFilters, onApply, onClose }) => { 
-    const [tempFilters, setTempFilters] = useState(initialFilters); 
-    const handleReset = () => { const defaultFilters = { status: 'unpaid' as const, dueDateStatus: 'all' as const }; setTempFilters(defaultFilters); onApply(defaultFilters); onClose(); }; 
-    const handleApply = () => { onApply(tempFilters); }; 
-    const statusOptions: { key: DebtFilterValues['status'], label: string }[] = [ { key: 'unpaid', label: 'الحالية' }, { key: 'paid', label: 'المدفوعة' }, { key: 'all', label: 'الكل' }, ]; 
-    const dueDateStatusOptions: { key: DebtFilterValues['dueDateStatus'], label: string }[] = [ { key: 'all', label: 'الكل' }, { key: 'due_soon', label: 'مستحقة قريباً' }, { key: 'overdue', label: 'متأخرة' }, ]; 
-    return ( 
-        <Modal title="تصفية الديون" onClose={onClose}> 
-            <div className="space-y-6"> 
-                <div> 
-                    <label className="text-sm font-medium text-slate-400 mb-2 block">حالة السداد</label> 
-                    <div className="flex gap-2"> 
-                        {statusOptions.map(({ key, label }) => ( <button key={key} onClick={() => setTempFilters(f => ({ ...f, status: key }))} className={`flex-1 py-2 px-2 rounded-xl text-sm transition-colors font-bold border ${tempFilters.status === key ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}> {label} </button> ))} 
-                    </div> 
-                </div> 
-                <div> 
-                    <label className="text-sm font-medium text-slate-400 mb-2 block">حالة الاستحقاق</label> 
-                    <div className="flex gap-2"> 
-                        {dueDateStatusOptions.map(({ key, label }) => ( <button key={key} onClick={() => setTempFilters(f => ({ ...f, dueDateStatus: key }))} className={`flex-1 py-2 px-2 rounded-xl text-sm transition-colors font-bold border ${tempFilters.dueDateStatus === key ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}> {label} </button> ))} 
-                    </div> 
-                </div> 
-            </div> 
-            <div className="flex justify-between items-center pt-6 mt-4 border-t border-white/10"> 
-                <button onClick={handleReset} className="py-2 px-4 text-slate-400 hover:text-white font-bold text-sm">إعادة تعيين</button> 
-                <button onClick={handleApply} className="py-2.5 px-6 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl transition font-bold shadow-lg">تطبيق</button> 
-            </div> 
-        </Modal> 
-    ); 
-};
-
-// Main Page Component
 const DebtsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (description?: string) => void, onSelectContact: (contactId: string) => void }> = ({ refreshTrigger, handleDatabaseChange, onSelectContact }) => {
-    const toast = useToast();
     const [debts, setDebts] = useState<Debt[]>([]);
-    const [contacts, setContacts] = useState<Contact[]>([]);
     const [accounts, setAccounts] = useState<Account[]>([]);
-    const [categories, setCategories] = useState<Category[]>([]);
-
     const [loading, setLoading] = useState(true);
-    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-    const [editingDebt, setEditingDebt] = useState<Debt | undefined>(undefined);
-    const [deletingDebt, setDeletingDebt] = useState<Debt | null>(null);
-    const [settlingDebt, setSettlingDebt] = useState<Debt | null>(null);
-    const [splittingDebt, setSplittingDebt] = useState<Debt | null>(null);
-    const [detailsDebt, setDetailsDebt] = useState<Debt | null>(null);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [filters, setFilters] = useState<DebtFilterValues>({
-        status: 'unpaid',
-        dueDateStatus: 'all',
-    });
-
     const [activeTab, setActiveTab] = useState<'on_you' | 'for_you'>('for_you');
+    const [installmentDebt, setInstallmentDebt] = useState<Debt | null>(null);
+    const [settleDebt, setSettleDebt] = useState<Debt | null>(null);
+    const toast = useToast();
 
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            const debtsPromise = supabase.from('debts').select('*, contacts(*), accounts(name)').order('due_date');
-            const contactsPromise = supabase.from('contacts').select('*').order('name');
-            const accountsPromise = supabase.from('accounts').select('*');
-            const categoriesPromise = supabase.from('categories').select('*');
-            
-            const [
-                {data: debtsData, error: debtsError}, 
-                {data: contactsData, error: contactsError},
-                {data: accountsData, error: accountsError},
-                {data: categoriesData, error: categoriesError},
-            ] = await Promise.all([debtsPromise, contactsPromise, accountsPromise, categoriesPromise]);
-    
-            if (debtsError) console.error('Error fetching debts:', debtsError.message);
-            else if (debtsData) setDebts(debtsData as unknown as Debt[]);
-    
-            if (contactsError) console.error('Error fetching contacts:', contactsError.message);
-            else if (contactsData) setContacts(contactsData as unknown as Contact[]);
-
-            if (accountsError) console.error('Error fetching accounts:', accountsError.message);
-            else setAccounts(accountsData || []);
-            
-            if (categoriesError) console.error('Error fetching categories:', categoriesError.message);
-            else setCategories(categoriesData || []);
-    
-            setLoading(false);
-        };
-        fetchData();
-    }, [refreshTrigger]);
-
-    const handleSaveForm = () => {
-        const description = editingDebt ? `تم تعديل بيانات الدين بنجاح` : 'تم تسجيل الدين الجديد بنجاح';
-        setIsFormModalOpen(false);
-        setEditingDebt(undefined);
-        handleDatabaseChange(description);
-        toast.success(description);
+    const fetchData = async () => {
+        setLoading(true);
+        const [dRes, aRes] = await Promise.all([
+            supabase.from('debts').select('*, contacts(*), accounts(name), payments:debt_payments(*, accounts(name))').order('due_date'),
+            supabase.from('accounts').select('*')
+        ]);
+        setDebts(dRes.data as unknown as Debt[] || []);
+        setAccounts(aRes.data || []);
+        setLoading(false);
     };
 
-    const handleDelete = async () => {
-        if (!deletingDebt) return;
-        const description = `تم حذف الدين بنجاح`;
-        const { error } = await supabase.from('debts').delete().eq('id', deletingDebt.id);
-        if (error) {
-            console.error('Error deleting debt', error.message);
-            toast.error('حدث خطأ أثناء الحذف.');
-        } else {
-            const contactName = deletingDebt.contacts?.name || 'مجهول';
-            logActivity(`حذف دين: ${formatCurrency(deletingDebt.amount)} لـ ${contactName}`);
-            
-            setDeletingDebt(null);
-            handleDatabaseChange(description);
-            toast.success(description);
-        }
-    };
-
-    const handleWhatsAppReminder = (debt: Debt) => {
-        if (!debt.contacts) return;
-        const name = debt.contacts.name;
-        const amount = formatCurrency(debt.amount);
-        const date = debt.due_date ? new Date(debt.due_date).toLocaleDateString('ar-LY') : 'غير محدد';
-        const phone = debt.contacts.phone || '';
-        
-        const message = `مرحباً ${name}، أتمنى أن تكون بخير. أردت فقط إرسال تذكير ودي بخصوص المبلغ المستحق (${amount}) والمقيد بتاريخ ${date}. شكراً لك سلفاً.`;
-        const encodedMessage = encodeURIComponent(message);
-        
-        window.open(`https://wa.me/${phone.replace(/\+/g, '')}?text=${encodedMessage}`, '_blank');
-    };
-
-    const handleSplitDebt = async (months: number, startDate: string) => {
-        if (!splittingDebt) return;
-        const amountPerMonth = splittingDebt.amount / months;
-        const installments = [];
-        
-        let currentDate = new Date(startDate);
-        for (let i = 0; i < months; i++) {
-            const dueDate = new Date(currentDate);
-            dueDate.setMonth(dueDate.getMonth() + i);
-            
-            installments.push({
-                contact_id: splittingDebt.contact_id,
-                amount: amountPerMonth,
-                type: splittingDebt.type,
-                due_date: dueDate.toISOString().split('T')[0],
-                description: `${splittingDebt.description || 'دين'} - قسط ${i + 1}/${months}`,
-                paid: false
-            });
-        }
-
-        try {
-            // Delete original
-            await supabase.from('debts').delete().eq('id', splittingDebt.id);
-            // Insert new ones
-            await supabase.from('debts').insert(installments);
-            
-            logActivity(`تقسيم دين ${splittingDebt.contacts?.name} إلى ${months} أقساط`);
-            handleDatabaseChange('تم تقسيم الدين بنجاح');
-            toast.success('تم إنشاء الأقساط المجدولة');
-            setSplittingDebt(null);
-        } catch (err) {
-            toast.error('خطأ في تقسيم الدين');
-        }
-    };
-    
-    const togglePaidStatus = async (debt: Debt) => {
-        const { error } = await supabase.from('debts').update({ paid: !debt.paid, paid_at: null }).eq('id', debt.id);
-         if (error) {
-            console.error('Error updating debt status', error.message);
-            toast.error('حدث خطأ أثناء تحديث حالة الدين.');
-        } else {
-            const description = `تم تغيير حالة الدين إلى ${!debt.paid ? 'مدفوع' : 'غير مدفوع'}`;
-            const contactName = debt.contacts?.name || 'مجهول';
-            logActivity(`تغيير حالة دين ${contactName} إلى ${!debt.paid ? 'مدفوع' : 'غير مدفوع'}`);
-            
-            handleDatabaseChange(description);
-            toast.success(description);
-        }
-    };
-
-    const handleDebtAction = (debt: Debt) => {
-        if (debt.paid) {
-            togglePaidStatus(debt);
-        } else {
-            setSettlingDebt(debt);
-        }
-    };
-    
-    const handleConfirmSettlement = async (accountId: string) => {
-        if (!settlingDebt) return;
-
-        try {
-            const transactionType = settlingDebt.type === 'on_you' ? 'expense' : 'income';
-            const amount = settlingDebt.amount;
-            const sign = transactionType === 'expense' ? -1 : 1;
-
-            const categoryType = transactionType;
-            const categoryName = categoryType === 'income' ? 'تحصيل ديون' : 'ديون وقروض';
-            let debtCategory = categories.find(c => c.name === categoryName && c.type === categoryType);
-
-            if (!debtCategory) {
-                 const { data: newCategory, error: catError } = await supabase.from('categories').insert({
-                     name: categoryName,
-                     type: categoryType,
-                     icon: 'CurrencyDollarIcon',
-                     color: '#64748b'
-                 }).select().single();
-                 
-                 if (catError) throw catError;
-                 debtCategory = newCategory;
-            }
-
-            // Update Account Balance
-            const { data: account, error: accFetchError } = await supabase.from('accounts').select('balance, name').eq('id', accountId).single();
-            if(accFetchError || !account) throw new Error("Account not found");
-            
-            const { error: accUpdateError } = await supabase.from('accounts').update({ balance: account.balance + (amount * sign) }).eq('id', accountId);
-            if(accUpdateError) throw accUpdateError;
-
-            // Create Transaction
-            const { error: txError } = await supabase.from('transactions').insert({
-                amount: amount,
-                type: transactionType,
-                account_id: accountId,
-                category_id: debtCategory?.id,
-                date: new Date().toISOString(),
-                notes: `تسوية دين: ${settlingDebt.description || 'بدون وصف'}`
-            });
-            
-            if (txError) throw txError;
-
-            // Mark debt as paid
-            const { error: debtUpdateError } = await supabase.from('debts').update({ paid: true, paid_at: new Date().toISOString() }).eq('id', settlingDebt.id);
-            if (debtUpdateError) throw debtUpdateError;
-
-            const description = 'تم تسوية الدين بنجاح';
-            const contactName = settlingDebt.contacts?.name || 'مجهول';
-            logActivity(`تسوية دين (${contactName}): ${formatCurrency(amount)} عبر حساب ${account.name}`);
-
-            handleDatabaseChange(description);
-            toast.success(description);
-            setSettlingDebt(null);
-
-        } catch (error: any) {
-            console.error('Error settling debt:', error.message);
-            toast.error('حدث خطأ أثناء تسوية الدين.');
-        }
-    };
-
-    const filteredDebts = useMemo(() => {
-        return debts.filter(debt => {
-            const matchesTab = debt.type === activeTab;
-            const matchesSearch = !searchTerm || 
-                debt.description?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                debt.contacts?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-            
-            let matchesStatus = true;
-            if (filters.status === 'paid') matchesStatus = debt.paid;
-            if (filters.status === 'unpaid') matchesStatus = !debt.paid;
-
-            let matchesDueDate = true;
-            const status = getDebtStatus(debt.due_date);
-            if (filters.dueDateStatus === 'overdue') matchesDueDate = status === 'overdue' && !debt.paid;
-            if (filters.dueDateStatus === 'due_soon') matchesDueDate = status === 'due_soon' && !debt.paid;
-
-            return matchesTab && matchesSearch && matchesStatus && matchesDueDate;
-        });
-    }, [debts, activeTab, searchTerm, filters]);
-
-    const activeFilterCount = useMemo(() => {
-        let count = 0;
-        if(filters.status !== 'unpaid') count++;
-        if(filters.dueDateStatus !== 'all') count++;
-        return count;
-    }, [filters]);
+    useEffect(() => { fetchData(); }, [refreshTrigger]);
 
     const stats = useMemo(() => {
-        const currentDebts = debts.filter(d => !d.paid);
+        const active = debts.filter(d => !d.paid);
         return {
-            onYou: currentDebts.filter(d => d.type === 'on_you').reduce((sum, d) => sum + d.amount, 0),
-            forYou: currentDebts.filter(d => d.type === 'for_you').reduce((sum, d) => sum + d.amount, 0)
+            forYou: active.filter(d => d.type === 'for_you').reduce((s, d) => s + d.amount, 0),
+            onYou: active.filter(d => d.type === 'on_you').reduce((s, d) => s + d.amount, 0)
         };
     }, [debts]);
 
+    const handleSettleFull = async () => {
+        if (!settleDebt) return;
+        const accId = accounts[0]?.id;
+        if (!accId) return toast.error('يرجى إضافة حساب مالي أولاً لإتمام التسوية');
+
+        try {
+            await supabase.from('debts').update({ amount: 0, paid: true, paid_at: new Date().toISOString() }).eq('id', settleDebt.id);
+            const { data: acc } = await supabase.from('accounts').select('balance').eq('id', accId).single();
+            if (acc) {
+                const sign = settleDebt.type === 'on_you' ? -1 : 1;
+                await supabase.from('accounts').update({ balance: acc.balance + (settleDebt.amount * sign) }).eq('id', accId);
+            }
+            await supabase.from('transactions').insert({
+                account_id: accId, amount: settleDebt.amount, type: settleDebt.type === 'on_you' ? 'expense' : 'income',
+                notes: `إغلاق كامل لذمة مالية: ${settleDebt.description || 'بدون وصف'}`,
+                date: new Date().toISOString()
+            });
+            logActivity(`إغلاق ذمة مالية بالكامل لـ ${settleDebt.contacts?.name}`);
+            setSettleDebt(null);
+            handleDatabaseChange();
+            fetchData();
+            toast.success('تم تسوية الذمة المالية بالكامل');
+        } catch (err) {
+            toast.error('خطأ غير متوقع أثناء التسوية');
+        }
+    };
+
     return (
-        <div className="space-y-6 pb-24">
-            {/* Header Cards */}
+        <div className="space-y-8 pb-32 max-w-4xl mx-auto px-1">
             <div className="grid grid-cols-2 gap-4">
-                <button onClick={() => setActiveTab('for_you')} className={`glass-card p-4 rounded-2xl border transition-all duration-300 relative overflow-hidden group ${activeTab === 'for_you' ? 'bg-emerald-500/10 border-emerald-500/50 shadow-lg shadow-emerald-500/10' : 'bg-slate-900/50 border-white/5 hover:bg-slate-800'}`}>
-                    <div className="relative z-10">
-                        <p className={`text-xs font-bold mb-1 ${activeTab === 'for_you' ? 'text-emerald-400' : 'text-slate-400'}`}>لك (تحصيل)</p>
-                        <p className="text-2xl font-black text-white">{formatCurrency(stats.forYou)}</p>
-                    </div>
-                    {activeTab === 'for_you' && <div className="absolute -bottom-4 -right-4 w-20 h-20 bg-emerald-500/20 rounded-full blur-xl"></div>}
+                <button onClick={() => setActiveTab('for_you')} className={`p-6 rounded-[2.5rem] border transition-all relative overflow-hidden group ${activeTab === 'for_you' ? 'bg-emerald-500/10 border-emerald-500/50 shadow-xl' : 'bg-slate-900/50 border-white/5 opacity-60'}`}>
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 blur-3xl rounded-full"></div>
+                    <p className="text-[11px] font-black text-slate-500 uppercase mb-2 flex items-center gap-2"><ArrowDownIcon className="w-4 h-4 text-emerald-500" /> ديون لك</p>
+                    <p className="text-3xl font-black text-white tabular-nums tracking-tighter">{formatCurrency(stats.forYou)}</p>
                 </button>
-                <button onClick={() => setActiveTab('on_you')} className={`glass-card p-4 rounded-2xl border transition-all duration-300 relative overflow-hidden group ${activeTab === 'on_you' ? 'bg-rose-500/10 border-rose-500/50 shadow-lg shadow-rose-500/10' : 'bg-slate-900/50 border-white/5 hover:bg-slate-800'}`}>
-                    <div className="relative z-10">
-                        <p className={`text-xs font-bold mb-1 ${activeTab === 'on_you' ? 'text-rose-400' : 'text-slate-400'}`}>عليك (سداد)</p>
-                        <p className="text-2xl font-black text-white">{formatCurrency(stats.onYou)}</p>
-                    </div>
-                     {activeTab === 'on_you' && <div className="absolute -bottom-4 -right-4 w-20 h-20 bg-rose-500/20 rounded-full blur-xl"></div>}
+                <button onClick={() => setActiveTab('on_you')} className={`p-6 rounded-[2.5rem] border transition-all relative overflow-hidden group ${activeTab === 'on_you' ? 'bg-rose-500/10 border-rose-500/50 shadow-xl' : 'bg-slate-900/50 border-white/5 opacity-60'}`}>
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 blur-3xl rounded-full"></div>
+                    <p className="text-[11px] font-black text-slate-500 uppercase mb-2 flex items-center gap-2"><ArrowUpIcon className="w-4 h-4 text-rose-500" /> ديون عليك</p>
+                    <p className="text-3xl font-black text-white tabular-nums tracking-tighter">{formatCurrency(stats.onYou)}</p>
                 </button>
             </div>
 
-            {/* Controls */}
-            <div className="flex gap-3 items-center">
-                 <div className="relative flex-grow group">
-                    <MagnifyingGlassIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-cyan-400 transition-colors pointer-events-none" />
-                    <input type="text" placeholder="ابحث في الديون..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                        className="w-full bg-slate-900/50 p-3 pr-12 rounded-2xl text-white border border-slate-700 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none transition shadow-inner" />
+            {loading ? (
+                <div className="space-y-4">
+                    {[1, 2, 3].map(i => <div key={i} className="h-44 bg-white/5 rounded-[2.5rem] animate-pulse border border-white/5"></div>)}
                 </div>
-                <button onClick={() => setIsFilterModalOpen(true)} className={`relative flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-2xl transition-all ${activeFilterCount > 0 ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50' : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700'}`}>
-                    <FunnelIcon className="w-5 h-5"/>
-                    {activeFilterCount > 0 && <span className="absolute -top-1 -right-1 h-4 w-4 bg-cyan-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">{activeFilterCount}</span>}
-                </button>
-            </div>
-
-            {/* Debts List */}
-            {loading ? <div className="space-y-3">{[...Array(3)].map((_,i) => <div key={i} className="h-24 bg-slate-800/50 rounded-2xl animate-pulse"></div>)}</div>
-            : filteredDebts.length === 0 ? <div className="text-center py-16 bg-slate-900/20 rounded-3xl border-dashed border-2 border-slate-800 text-slate-500">لا توجد ديون تطابق بحثك.</div>
-            : (
-                <div className="space-y-3">
-                    {filteredDebts.map(debt => {
-                        const status = getDebtStatus(debt.due_date);
-                        const isPayable = debt.type === 'on_you';
-                        
-                        return (
-                            <div key={debt.id} onClick={() => setDetailsDebt(debt)} 
-                                className={`relative group p-4 rounded-2xl border transition-all cursor-pointer hover:shadow-lg hover:-translate-y-1 ${debt.paid ? 'bg-slate-900/30 border-slate-800 opacity-60' : 'bg-slate-900/80 border-white/5 hover:border-white/10'}`}
-                            >
-                                <div className="flex justify-between items-start mb-2">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shadow-md ${isPayable ? 'bg-rose-500' : 'bg-emerald-500'}`}>
-                                            {debt.contacts?.name?.charAt(0) || '?'}
-                                        </div>
-                                        <div>
-                                            <p className="font-bold text-white text-base">{debt.contacts?.name || 'غير معروف'}</p>
-                                            <p className="text-xs text-slate-400 truncate max-w-[150px]">{debt.description || 'بدون وصف'}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-col items-end">
-                                        <p className={`font-extrabold text-lg ${isPayable ? 'text-rose-400' : 'text-emerald-400'} ${debt.paid ? 'line-through text-slate-500' : ''}`}>
-                                            {formatCurrency(debt.amount)}
-                                        </p>
-                                        {!debt.paid && !isPayable && (
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); handleWhatsAppReminder(debt); }}
-                                                className="mt-1 flex items-center gap-1 px-2 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg text-[9px] font-black hover:bg-emerald-500 hover:text-white transition-all"
-                                            >
-                                                <WhatsappIcon className="w-3 h-3" /> تذكير
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                                
-                                <div className="flex justify-between items-center mt-3 pt-3 border-t border-white/5">
-                                    <div className="flex items-center gap-2">
-                                        {status === 'overdue' && !debt.paid && <span className="text-[10px] font-bold text-rose-400 flex items-center gap-1 bg-rose-500/10 px-2 py-1 rounded-md"><ExclamationTriangleIcon className="w-3 h-3"/> متأخر</span>}
-                                        {status === 'due_soon' && !debt.paid && <span className="text-[10px] font-bold text-amber-400 flex items-center gap-1 bg-amber-500/10 px-2 py-1 rounded-md"><ExclamationTriangleIcon className="w-3 h-3"/> قريباً</span>}
-                                        {debt.due_date && <span className="text-[10px] text-slate-500 font-mono">{new Date(debt.due_date).toLocaleDateString('ar-LY')}</span>}
-                                    </div>
-                                    
-                                    <div className="flex gap-1 items-center" onClick={e => e.stopPropagation()}>
-                                        {!debt.paid && (
-                                            <button 
-                                                onClick={() => setSplittingDebt(debt)} 
-                                                title="تقسيم لأقساط"
-                                                className="p-2 text-slate-500 hover:text-cyan-400 hover:bg-white/5 rounded-lg transition"
-                                            >
-                                                <SquaresPlusIcon className="w-4 h-4"/>
-                                            </button>
-                                        )}
-                                        <button onClick={() => { setEditingDebt(debt); setIsFormModalOpen(true); }} className="p-2 text-slate-500 hover:text-cyan-400 hover:bg-white/5 rounded-lg transition"><PencilSquareIcon className="w-4 h-4"/></button>
-                                        <button onClick={() => setDeletingDebt(debt)} className="p-2 text-slate-500 hover:text-rose-400 hover:bg-white/5 rounded-lg transition"><TrashIcon className="w-4 h-4"/></button>
-                                        {!debt.paid && (
-                                            <button 
-                                                onClick={() => handleDebtAction(debt)} 
-                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ml-1 ${isPayable ? 'bg-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white' : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white'}`}
-                                            >
-                                                {isPayable ? 'سداد' : 'تحصيل'}
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
+            ) : (
+                <div className="space-y-5">
+                    {debts.filter(d => d.type === activeTab).length === 0 ? (
+                        <div className="py-24 text-center glass-card rounded-[3rem] border-2 border-dashed border-slate-800 bg-slate-900/20">
+                             <div className="w-20 h-20 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <CheckCircleIcon className="w-10 h-10 text-slate-700 opacity-20" />
                             </div>
-                        )
-                    })}
+                            <p className="text-slate-600 font-bold text-lg">لا توجد سجلات نشطة حالياً</p>
+                        </div>
+                    ) : (
+                        debts.filter(d => d.type === activeTab).map(debt => (
+                            <DebtItem 
+                                key={debt.id} 
+                                debt={debt} 
+                                onInstall={setInstallmentDebt} 
+                                onSettle={setSettleDebt}
+                                onSelectContact={onSelectContact} 
+                            />
+                        ))
+                    )}
                 </div>
             )}
-            
-            {/* Centered FAB */}
-            <button 
-                onClick={() => setIsFormModalOpen(true)} 
-                className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 h-16 w-16 bg-slate-900 rounded-full shadow-[0_0_20px_rgba(8,145,178,0.4)] flex items-center justify-center transition-all duration-300 border-4 border-slate-900 overflow-visible hover:scale-105 active:scale-95 group"
-            >
-                <div className="absolute inset-1 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full flex items-center justify-center">
-                    <PlusIcon className="w-8 h-8 text-white transition-transform duration-300 group-hover:rotate-90"/>
-                </div>
-            </button>
 
-            {/* Modals */}
-            {isFormModalOpen && (
-                <Modal title={editingDebt ? "تعديل الدين" : "تسجيل دين جديد"} onClose={() => { setIsFormModalOpen(false); setEditingDebt(undefined); }}>
-                    <DebtForm 
-                        debt={editingDebt} 
-                        onSave={handleSaveForm} 
-                        onCancel={() => { setIsFormModalOpen(false); setEditingDebt(undefined); }}
-                        contacts={contacts}
-                    />
-                </Modal>
-            )}
-
-            {splittingDebt && (
-                <Modal title="جدولة الأقساط" onClose={() => setSplittingDebt(null)}>
-                    <SplitDebtModal 
-                        debt={splittingDebt} 
-                        onCancel={() => setSplittingDebt(null)} 
-                        onConfirm={handleSplitDebt} 
-                    />
-                </Modal>
-            )}
-
-            {settlingDebt && (
-                <Modal title="تسوية الدين" onClose={() => setSettlingDebt(null)}>
-                    <SettleDebtModal 
-                        debt={settlingDebt} 
+            {installmentDebt && (
+                <Modal title="مساعد التقسيط المتقدم" onClose={() => setInstallmentDebt(null)}>
+                    <InstallmentModal 
+                        debt={installmentDebt} 
                         accounts={accounts} 
-                        onConfirm={handleConfirmSettlement} 
-                        onCancel={() => setSettlingDebt(null)}
+                        onSuccess={() => { setInstallmentDebt(null); handleDatabaseChange(); fetchData(); }} 
+                        onCancel={() => setInstallmentDebt(null)} 
                     />
                 </Modal>
-            )}
-
-            {detailsDebt && (
-                <Modal title="تفاصيل الدين" onClose={() => setDetailsDebt(null)}>
-                    <DebtDetailContent 
-                        debt={detailsDebt} 
-                        onSelectContact={(id) => { setDetailsDebt(null); onSelectContact(id); }}
-                        onClose={() => setDetailsDebt(null)}
-                    />
-                </Modal>
-            )}
-
-            {isFilterModalOpen && (
-                <DebtFilterModal 
-                    initialFilters={filters}
-                    onApply={(newFilters) => { setFilters(newFilters); setIsFilterModalOpen(false); }}
-                    onClose={() => setIsFilterModalOpen(false)}
-                />
             )}
 
             <ConfirmDialog 
-                isOpen={!!deletingDebt}
-                title="حذف الدين"
-                message="هل أنت متأكد من حذف هذا الدين؟ لا يمكن التراجع عن هذا الإجراء."
-                confirmText="حذف"
-                onConfirm={handleDelete}
-                onCancel={() => setDeletingDebt(null)}
+                isOpen={!!settleDebt}
+                title="تسوية كاملة للمبلغ"
+                message={`هل أنت متأكد من رغبتك في إغلاق كامل الذمة لـ "${settleDebt?.contacts?.name}"؟ سيتم تسجيل مبلغ (${formatCurrency(settleDebt?.amount || 0)}) في حسابك المالي.`}
+                confirmText="نعم، إغلاق الآن"
+                onConfirm={handleSettleFull}
+                onCancel={() => setSettleDebt(null)}
             />
         </div>
     );
