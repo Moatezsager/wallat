@@ -12,7 +12,8 @@ const formatCurrency = (amount: number) => {
 const BudgetsPage: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigger }) => {
     const [budgets, setBudgets] = useState<Budget[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
-    const [expenses, setExpenses] = useState<Transaction[]>([]);
+    // تم تصحيح النوع هنا ليتوافق مع البيانات المستلمة من الاستعلام المخصص
+    const [expenses, setExpenses] = useState<{ amount: number; category_id: string | null }[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
     const toast = useToast();
@@ -34,7 +35,7 @@ const BudgetsPage: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigger }) 
 
         setBudgets(budRes.data || []);
         setCategories(catRes.data || []);
-        setExpenses(expRes.data || []);
+        setExpenses((expRes.data as any) || []);
         setLoading(false);
     };
 

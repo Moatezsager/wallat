@@ -149,21 +149,24 @@ const DebtItem: React.FC<{
     const handleWhatsApp = (e: React.MouseEvent) => {
         e.stopPropagation();
         
-        const name = debt.contacts?.name || '';
+        const name = debt.contacts?.name || 'الأخ الفاضل';
         const remaining = formatCurrency(debt.amount);
         const registrationDate = new Date(debt.created_at).toLocaleDateString('ar-LY');
-        const dueDateText = debt.due_date ? `الموعد المتفق عليه للسداد: ${new Date(debt.due_date).toLocaleDateString('ar-LY')}` : '';
+        const dueDate = debt.due_date ? new Date(debt.due_date).toLocaleDateString('ar-LY') : null;
         
-        let message = `مرحباً ${name}، أتمنى أن تكون بخير.\n\n`;
-        message += `تذكير ودي بخصوص المتبقي من الذمة المالية المسجلة بتاريخ ${registrationDate}.\n`;
-        message += `المبلغ المتبقي حالياً: *${remaining}*.\n`;
-        if (dueDateText) message += `${dueDateText}.\n`;
-        message += `\nشكراً لك وتمنياتي بيوم سعيد.`;
+        let message = `السلام عليكم ورحمة الله،\n\n`;
+        message += `مرحباً بك ${name}، أتمنى أن تكون في تمام الصحة والعافية.\n\n`;
+        message += `هذا تذكير ودي بخصوص الذمة المالية المتبقية والمسجلة بتاريخ ${registrationDate}.\n`;
+        message += `المبلغ المستحق حالياً هو: *${remaining}*.\n`;
+        if (dueDate) {
+            message += `تاريخ الاستحقاق المتفق عليه: ${dueDate}.\n`;
+        }
+        message += `\nشاكرين لك حسن تعاونك، مع خالص التحية والتقدير.`;
 
         const encodedMsg = encodeURIComponent(message);
         const phone = debt.contacts?.phone ? debt.contacts.phone.replace(/\D/g,'') : '';
         
-        // إذا لم يوجد رقم، يفتح واتساب ليختار المستخدم جهة الاتصال يدوياً
+        // إذا لم يوجد رقم، يفتح واتساب ليختار المستخدم جهة الاتصال يدوياً مع النص جاهز
         const url = phone ? `https://wa.me/${phone}?text=${encodedMsg}` : `https://wa.me/?text=${encodedMsg}`;
         window.open(url, '_blank');
     };
