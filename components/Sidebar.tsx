@@ -55,6 +55,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActiv
         { page: 'accounts', label: 'الحسابات', icon: <WalletIcon className="w-5 h-5" /> },
         { page: 'transactions', label: 'المعاملات', icon: <TransactionsIcon className="w-5 h-5" /> },
         { page: 'debts', label: 'الديون والذمم', icon: <CurrencyDollarIcon className="w-5 h-5" /> },
+        { page: 'reports', label: 'التقارير والتحليلات', icon: <ReportsIcon className="w-5 h-5" /> },
         { page: 'budgets', label: 'الميزانيات', icon: <ChartPieIcon className="w-5 h-5" /> },
         { page: 'assets', label: 'الأصول والممتلكات', icon: <ScaleIcon className="w-5 h-5" /> },
     ];
