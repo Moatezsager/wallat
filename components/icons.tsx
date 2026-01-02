@@ -18,7 +18,56 @@ const IconWrapper: React.FC<{ children: React.ReactNode; className?: string; fil
     </svg>
 );
 
-// --- New Tools Icons ---
+// --- Icons Definition ---
+
+export const ShoppingCartIcon: React.FC<IconProps> = ({ className }) => (
+    <IconWrapper className={className}>
+        <circle cx="8" cy="21" r="1" />
+        <circle cx="19" cy="21" r="1" />
+        <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.56-6.43H5.91" />
+    </IconWrapper>
+);
+
+export const CoffeeIcon: React.FC<IconProps> = ({ className }) => (
+    <IconWrapper className={className}>
+        <path d="M17 8h1a4 4 0 1 1 0 8h-1" />
+        <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z" />
+        <line x1="6" x2="6" y1="2" y2="4" />
+        <line x1="10" x2="10" y1="2" y2="4" />
+        <line x1="14" x2="14" y1="2" y2="4" />
+    </IconWrapper>
+);
+
+export const ReceiptIcon: React.FC<IconProps> = ({ className }) => (
+    <IconWrapper className={className}>
+        <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z" />
+        <path d="M16 8h-6" />
+        <path d="M16 12H8" />
+        <path d="M13 16H8" />
+    </IconWrapper>
+);
+
+export const BusIcon: React.FC<IconProps> = ({ className }) => (
+    <IconWrapper className={className}>
+        <rect width="16" height="16" x="4" y="2" rx="2" />
+        <path d="M4 14h16" />
+        <path d="m8 10.5 2 .5" />
+        <path d="m14 10.5 2 .5" />
+        <circle cx="7" cy="18" r="2" />
+        <circle cx="17" cy="18" r="2" />
+    </IconWrapper>
+);
+
+export const MovieIcon: React.FC<IconProps> = ({ className }) => (
+    <IconWrapper className={className}>
+        <rect width="20" height="15" x="2" y="3" rx="2" />
+        <line x1="2" x2="22" y1="9" y2="9" />
+        <line x1="2" x2="22" y1="15" y2="15" />
+        <line x1="7" x2="7" y1="3" y2="21" />
+        <line x1="17" x2="17" y1="3" y2="21" />
+    </IconWrapper>
+);
+
 export const WhatsappIcon: React.FC<IconProps> = ({ className }) => (
     <svg 
         xmlns="http://www.w3.org/2000/svg" 
@@ -69,8 +118,6 @@ export const ShieldCheckIcon: React.FC<IconProps> = ({ className }) => (
     <path d="m9 12 2 2 4-4" />
   </IconWrapper>
 );
-
-// --- Navigation & Core Icons ---
 
 export const HomeIcon: React.FC<IconProps> = ({ className }) => (
   <IconWrapper className={className}>
@@ -160,8 +207,6 @@ export const ClipboardDocumentIcon: React.FC<IconProps> = ({ className }) => (
         <path d="M8 16h.01" />
     </IconWrapper>
 );
-
-// --- Actions & UI Elements ---
 
 export const PlusIcon: React.FC<IconProps> = ({ className }) => (
     <IconWrapper className={className}>
@@ -285,7 +330,6 @@ export const ChevronDownIcon: React.FC<IconProps> = ({ className }) => (
   </IconWrapper>
 );
 
-// Added ChevronUpIcon
 export const ChevronUpIcon: React.FC<IconProps> = ({ className }) => (
   <IconWrapper className={className}>
     <path d="m18 15-6-6-6 6" />
@@ -400,8 +444,6 @@ export const LandmarkIcon: React.FC<IconProps> = ({ className }) => (
     <polygon points="12 2 20 7 4 7" />
   </IconWrapper>
 );
-
-// --- Finance Specific Icons ---
 
 export const UtensilsIcon: React.FC<IconProps> = ({ className }) => (
   <IconWrapper className={className}>
@@ -527,8 +569,6 @@ export const FuelIcon: React.FC<IconProps> = ({ className }) => (
     <path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42l-1.82-1.82a2 2 0 0 0-1.42-.59H14" />
   </IconWrapper>
 );
-
-// --- Note Editor Icons ---
 
 export const PinIcon: React.FC<IconProps> = ({ className }) => (
   <IconWrapper className={className}>
@@ -748,6 +788,38 @@ export const PrinterIcon: React.FC<IconProps> = ({ className }) => (
   </IconWrapper>
 );
 
+export const SaladIcon: React.FC<IconProps> = ({ className }) => (
+    <IconWrapper className={className}>
+        <path d="M7 21h10" />
+        <path d="M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z" />
+        <path d="M11.39 6.06a7 7 0 0 0-4.48 4.44" />
+        <path d="M12.59 5.3c1.72-.7 3.58-.2 4.41 1.1" />
+    </IconWrapper>
+);
+
+export const ShirtIcon2: React.FC<IconProps> = ({ className }) => (
+    <IconWrapper className={className}>
+        <path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z" />
+    </IconWrapper>
+);
+
+export const PlaneIcon2: React.FC<IconProps> = ({ className }) => (
+    <IconWrapper className={className}>
+        <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z" />
+    </IconWrapper>
+);
+
+export const TrophyIcon: React.FC<IconProps> = ({ className }) => (
+    <IconWrapper className={className}>
+        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+        <path d="M4 22h16" />
+        <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+        <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+        <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+    </IconWrapper>
+);
+
 export const iconMap: { [key: string]: React.FC<IconProps> } = {
     HomeIcon,
     BellIcon,
@@ -823,5 +895,14 @@ export const iconMap: { [key: string]: React.FC<IconProps> } = {
     EyeIcon,
     EyeOffIcon,
     UsersIcon,
-    ShieldCheckIcon
+    ShieldCheckIcon,
+    ShoppingCartIcon,
+    CoffeeIcon,
+    ReceiptIcon,
+    BusIcon,
+    MovieIcon,
+    SaladIcon,
+    ShirtIcon2,
+    PlaneIcon2,
+    TrophyIcon
 };

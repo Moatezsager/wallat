@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Account, Category, Contact, Debt, Investment } from '../types';
 import { useToast } from './Toast';
@@ -7,11 +7,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { 
     PlusIcon, XMarkIcon, ArrowUpIcon, ArrowDownIcon, HandRaisedIcon, UserPlusIcon, ArrowLeftIcon, AccountsIcon, ScaleIcon, ArrowsRightLeftIcon, CurrencyDollarIcon,
     WalletIcon, BanknoteIcon, LandmarkIcon, BriefcaseIcon, CalendarDaysIcon, TagIcon, PencilSquareIcon, iconMap, CheckCircleIcon, SparklesIcon,
-    ChevronRightIcon, MagnifyingGlassIcon, ContactsIcon, CheckSquareIcon
+    ChevronRightIcon, MagnifyingGlassIcon, ContactsIcon, CheckSquareIcon, CategoriesIcon,
+    ShoppingCartIcon, CoffeeIcon, ReceiptIcon, BusIcon, MovieIcon, SaladIcon, ShirtIcon2, PlaneIcon2, TrophyIcon
 } from './icons';
 import { logActivity } from '../lib/logger';
 
-type ModalType = 'expense' | 'income' | 'transfer' | 'add-debt' | 'settle-debt' | 'add-account' | 'add-investment';
+type ModalType = 'expense' | 'income' | 'transfer' | 'add-debt' | 'settle-debt' | 'add-account' | 'add-investment' | 'add-category';
 
 const getAccountTypeIcon = (type: string) => {
     switch (type) {
@@ -47,6 +48,131 @@ const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () =>
 );
 
 // --- Sub-Modals ---
+
+const FINANCE_ICONS = [ 
+    { name: 'UtensilsIcon', label: 'طعام' }, 
+    { name: 'SaladIcon', label: 'صحة' },
+    { name: 'CoffeeIcon', label: 'مقهى' },
+    { name: 'ShoppingCartIcon', label: 'تسوق' }, 
+    { name: 'ShoppingBagIcon', label: 'أكياس' }, 
+    { name: 'ReceiptIcon', label: 'فواتير' },
+    { name: 'CarIcon', label: 'سيارة' }, 
+    { name: 'BusIcon', label: 'حافلة' },
+    { name: 'PlaneIcon2', label: 'سفر' },
+    { name: 'FuelIcon', label: 'وقود' }, 
+    { name: 'HomeModernIcon', label: 'منزل' }, 
+    { name: 'ZapIcon', label: 'كهرباء' }, 
+    { name: 'WifiIcon', label: 'انترنت' }, 
+    { name: 'SmartphoneIcon', label: 'هاتف' }, 
+    { name: 'MovieIcon', label: 'سينما' },
+    { name: 'Gamepad2Icon', label: 'ترفيه' }, 
+    { name: 'ShirtIcon2', label: 'ملابس' }, 
+    { name: 'GraduationCapIcon', label: 'تعليم' },
+    { name: 'TrophyIcon', label: 'رياضة' },
+    { name: 'BriefcaseIcon', label: 'عمل' }, 
+    { name: 'CurrencyDollarIcon', label: 'مال' }, 
+    { name: 'BanknoteIcon', label: 'نقدي' }, 
+    { name: 'GiftIcon', label: 'هدايا' }, 
+    { name: 'TagIcon', label: 'عام' } 
+];
+
+const MODERN_COLORS = [ 
+    '#10b981', // Emerald
+    '#059669', // Green
+    '#3b82f6', // Blue
+    '#2563eb', // Royal Blue
+    '#06b6d4', // Cyan
+    '#0891b2', // Dark Cyan
+    '#8b5cf6', // Violet
+    '#7c3aed', // Purple
+    '#d946ef', // Fuchsia
+    '#f43f5e', // Rose
+    '#ef4444', // Red
+    '#f97316', // Orange
+    '#f59e0b', // Amber
+    '#eab308', // Yellow
+    '#64748b'  // Slate
+];
+
+const AddCategoryModal: React.FC<{ onSuccess: (newCategoryId?: string) => void; onCancel: () => void; initialType?: 'income' | 'expense'; isInline?: boolean }> = ({ onSuccess, onCancel, initialType = 'expense', isInline = false }) => {
+    const [name, setName] = useState('');
+    const [type, setType] = useState<'income' | 'expense'>(initialType);
+    const [color, setColor] = useState(MODERN_COLORS[0]);
+    const [icon, setIcon] = useState('TagIcon');
+    const [isSaving, setIsSaving] = useState(false);
+    const toast = useToast();
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSaving(true);
+        const { data, error } = await supabase.from('categories').insert({ name, type, color, icon }).select().single();
+        if (error) toast.error('خطأ في حفظ الفئة');
+        else {
+            logActivity(`إنشاء فئة جديدة: ${name} (${type === 'income' ? 'دخل' : 'مصروف'})`);
+            onSuccess(data.id);
+        }
+        setIsSaving(false);
+    };
+
+    const IconComp = iconMap[icon] || TagIcon;
+
+    return (
+        <form onSubmit={handleSubmit} className={`space-y-6 ${isInline ? 'animate-fade-in' : ''}`}>
+            {!isInline && (
+                <div className="flex bg-slate-800 p-1 rounded-2xl border border-white/5 shadow-inner">
+                    <button type="button" onClick={() => setType('expense')} className={`flex-1 py-3 rounded-xl font-black text-xs transition-all ${type === 'expense' ? 'bg-rose-600 text-white shadow-lg' : 'text-slate-500'}`}>فئة مصروفات</button>
+                    <button type="button" onClick={() => setType('income')} className={`flex-1 py-3 rounded-xl font-black text-xs transition-all ${type === 'income' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500'}`}>فئة دخل</button>
+                </div>
+            )}
+
+            <div className="flex items-center gap-4 bg-slate-800/50 p-4 rounded-3xl border border-white/5">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-2xl shrink-0 transition-transform hover:scale-105" style={{ backgroundColor: color }}>
+                    <IconComp className="w-8 h-8" />
+                </div>
+                <input 
+                    type="text" 
+                    value={name} 
+                    onChange={e => setName(e.target.value)} 
+                    placeholder="اسم الفئة..." 
+                    required 
+                    className="w-full bg-transparent border-b border-slate-700 p-2 text-white font-bold text-xl focus:outline-none focus:border-white transition-colors" 
+                />
+            </div>
+
+            <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">اختر أيقونة</label>
+                <div className="grid grid-cols-6 gap-2 max-h-40 overflow-y-auto no-scrollbar pr-1">
+                    {FINANCE_ICONS.map(i => {
+                        const Icon = iconMap[i.name] || TagIcon;
+                        return (
+                            <button key={i.name} type="button" onClick={() => setIcon(i.name)} className={`p-2.5 rounded-xl border transition-all flex items-center justify-center ${icon === i.name ? 'bg-white/10 border-white/20' : 'bg-slate-800/30 border-white/5'}`}>
+                                <Icon className={`w-5 h-5 ${icon === i.name ? 'text-white' : 'text-slate-500'}`} />
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">لون التمييز</label>
+                <div className="flex flex-wrap gap-2 justify-center">
+                    {MODERN_COLORS.map(c => (
+                        <button key={c} type="button" onClick={() => setColor(c)} className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 ${color === c ? 'border-white scale-110 ring-2 ring-white/20' : 'border-transparent'}`} style={{ backgroundColor: c }} />
+                    ))}
+                </div>
+            </div>
+
+            <div className="flex gap-3">
+                {isInline && (
+                    <button type="button" onClick={onCancel} className="flex-1 py-4 bg-slate-800 text-slate-400 rounded-2xl font-black text-lg active:scale-95 transition-all">إلغاء</button>
+                )}
+                <button type="submit" disabled={isSaving} className="flex-[2] py-4 bg-cyan-600 text-white rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all">
+                    {isSaving ? 'جاري الحفظ...' : 'حفظ الفئة'}
+                </button>
+            </div>
+        </form>
+    );
+};
 
 const AddInvestmentModal: React.FC<{ onSuccess: () => void; onCancel: () => void; }> = ({ onSuccess, onCancel }) => {
     const [name, setName] = useState('');
@@ -121,12 +247,14 @@ const TransactionModal: React.FC<{
     categories: Category[];
     onSuccess: () => void;
     onCancel: () => void;
-}> = ({ type, accounts, categories, onSuccess, onCancel }) => {
+    onRefreshCategories: () => void;
+}> = ({ type, accounts, categories, onSuccess, onCancel, onRefreshCategories }) => {
     const [amount, setAmount] = useState('');
     const [selectedAccountId, setSelectedAccountId] = useState(accounts.length > 0 ? accounts[0].id : '');
     const [selectedCategoryId, setSelectedCategoryId] = useState('');
     const [notes, setNotes] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [isAddingCategory, setIsAddingCategory] = useState(false);
     const toast = useToast();
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -155,6 +283,21 @@ const TransactionModal: React.FC<{
         setIsSaving(false);
     };
 
+    if (isAddingCategory) {
+        return (
+            <AddCategoryModal 
+                initialType={type} 
+                isInline={true}
+                onSuccess={(newId) => {
+                    setIsAddingCategory(false);
+                    onRefreshCategories();
+                    if (newId) setSelectedCategoryId(newId);
+                }}
+                onCancel={() => setIsAddingCategory(false)}
+            />
+        );
+    }
+
     return (
         <form onSubmit={handleSubmit} className="space-y-8">
             <div className="relative group text-center py-6">
@@ -178,7 +321,7 @@ const TransactionModal: React.FC<{
             </div>
 
             <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">الخصم من حساب</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">الحساب</label>
                 <div className="flex overflow-x-auto gap-3 pb-2 no-scrollbar snap-x pr-1">
                     {accounts.map(acc => {
                         const Icon = getAccountTypeIcon(acc.type);
@@ -202,7 +345,16 @@ const TransactionModal: React.FC<{
             </div>
 
             <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">الفئة</label>
+                <div className="flex justify-between items-center px-1">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">الفئة</label>
+                    <button 
+                        type="button" 
+                        onClick={() => setIsAddingCategory(true)}
+                        className="text-cyan-400 p-1.5 bg-cyan-500/10 rounded-full hover:bg-cyan-500/20 transition-all active:scale-90"
+                    >
+                        <PlusIcon className="w-4 h-4" />
+                    </button>
+                </div>
                 <div className="grid grid-cols-3 gap-3">
                     {categories.filter(c => c.type === type).map(cat => {
                         const Icon = (cat.icon && iconMap[cat.icon]) ? iconMap[cat.icon] : TagIcon;
@@ -265,7 +417,6 @@ const TransferModal: React.FC<{ accounts: Account[]; onSuccess: () => void; onCa
         setIsSaving(true);
         const val = Number(amount);
         
-        // FIX: Added 'name' to select to fix build error TS2339
         const { data: fromAcc } = await supabase.from('accounts').select('balance, name').eq('id', fromId).single();
         const { data: toAcc } = await supabase.from('accounts').select('balance, name').eq('id', toId).single();
         
@@ -578,7 +729,6 @@ const SettleDebtWizard: React.FC<{
     const [searchTerm, setSearchTerm] = useState('');
     const toast = useToast();
 
-    // Aggregated Contacts with debt sums
     const contactsWithDebts = useMemo(() => {
         return contacts.map(c => {
             const debts = unpaidDebts.filter(d => d.contact_id === c.id);
@@ -619,15 +769,12 @@ const SettleDebtWizard: React.FC<{
             const { data: acc } = await supabase.from('accounts').select('balance, name').eq('id', accountId).single();
             if (!acc) throw new Error("Account not found");
 
-            // Process each selected debt
             for (const debtId of Array.from(selectedDebtIds)) {
                 const debt = contactDebts.find(d => d.id === debtId);
                 if (!debt) continue;
 
-                // Mark debt as paid
                 await supabase.from('debts').update({ paid: true, paid_at: new Date().toISOString() }).eq('id', debtId);
 
-                // Log a transaction for this debt settlement
                 const txType = debt.type === 'for_you' ? 'income' : 'expense';
                 await supabase.from('transactions').insert({
                     account_id: accountId,
@@ -638,7 +785,6 @@ const SettleDebtWizard: React.FC<{
                 });
             }
 
-            // Update Account Net Balance
             await supabase.from('accounts').update({ balance: (acc as Account).balance + netImpact }).eq('id', accountId);
 
             logActivity(`تسوية ${selectedDebtIds.size} ديون لـ ${selectedContact?.name} بإجمالي صافي ${formatCurrency(Math.abs(netImpact))}`);
@@ -651,17 +797,16 @@ const SettleDebtWizard: React.FC<{
         }
     };
 
-    // --- Step 1: Select Contact ---
     if (step === 1) return (
         <div className="space-y-4">
             <div className="relative">
-                <MagnifyingGlassIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                <MagnifyingGlassIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input 
                     type="text" 
                     placeholder="ابحث عن اسم..." 
                     value={searchTerm} 
                     onChange={e => setSearchTerm(e.target.value)}
-                    className="w-full bg-slate-800/50 border border-white/5 rounded-2xl p-4 pr-12 text-white focus:outline-none" 
+                    className="w-full bg-slate-900/50 p-4 pr-12 rounded-2xl text-white border border-slate-700 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none transition shadow-inner" 
                 />
             </div>
             <div className="space-y-2 max-h-[50vh] overflow-y-auto no-scrollbar">
@@ -694,7 +839,6 @@ const SettleDebtWizard: React.FC<{
         </div>
     );
 
-    // --- Step 2: Select Debts ---
     if (step === 2) return (
         <div className="space-y-6">
             <div className="flex justify-between items-center px-1">
@@ -737,7 +881,6 @@ const SettleDebtWizard: React.FC<{
         </div>
     );
 
-    // --- Step 3: Select Account ---
     return (
         <div className="space-y-8">
             <div className="text-center py-4 bg-slate-800/50 rounded-[2rem] border border-white/5 relative overflow-hidden">
@@ -823,6 +966,7 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
         { label: 'دين', icon: <HandRaisedIcon className="w-5 h-5"/>, action: () => { setActiveModal('add-debt'); setIsFabOpen(false); }, gradient: 'from-amber-500 to-orange-600' },
         { label: 'تسوية', icon: <ScaleIcon className="w-5 h-5"/>, action: () => { setActiveModal('settle-debt'); setIsFabOpen(false); }, gradient: 'from-sky-500 to-blue-600' },
         { label: 'استثمار', icon: <SparklesIcon className="w-5 h-5"/>, action: () => { setActiveModal('add-investment'); setIsFabOpen(false); }, gradient: 'from-cyan-500 to-blue-600' },
+        { label: 'فئة', icon: <CategoriesIcon className="w-5 h-5"/>, action: () => { setActiveModal('add-category'); setIsFabOpen(false); }, gradient: 'from-indigo-400 to-blue-500' },
     ];
     
     const modalConfig: Record<ModalType, { title: string, color: string }> = {
@@ -832,7 +976,8 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
         'add-debt': { title: 'تسجيل ذمة مالية', color: 'from-amber-600' },
         'settle-debt': { title: 'تصفية وتسوية الديون', color: 'from-sky-600' },
         'add-account': { title: 'فتح حساب مالي', color: 'from-cyan-600' },
-        'add-investment': { title: 'إضافة فرصة استثمارية', color: 'from-cyan-600' }
+        'add-investment': { title: 'إضافة فرصة استثمارية', color: 'from-cyan-600' },
+        'add-category': { title: 'إنشاء فئة جديدة', color: 'from-indigo-500' }
     };
 
     return (
@@ -867,7 +1012,8 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
                             accounts={accounts} 
                             categories={categories} 
                             onSuccess={handleActionSuccess} 
-                            onCancel={() => setActiveModal(null)} 
+                            onCancel={() => setActiveModal(null)}
+                            onRefreshCategories={fetchDataForModals}
                         />
                     ) : activeModal === 'transfer' ? (
                         <TransferModal 
@@ -902,6 +1048,11 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
                         />
                     ) : activeModal === 'add-investment' ? (
                         <AddInvestmentModal 
+                            onSuccess={handleActionSuccess} 
+                            onCancel={() => setActiveModal(null)} 
+                        />
+                    ) : activeModal === 'add-category' ? (
+                        <AddCategoryModal 
                             onSuccess={handleActionSuccess} 
                             onCancel={() => setActiveModal(null)} 
                         />

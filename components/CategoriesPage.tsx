@@ -7,21 +7,126 @@ import {
     iconMap, CurrencyDollarIcon, MagnifyingGlassIcon,
     UtensilsIcon, CarIcon, ShoppingBagIcon, HomeModernIcon, HeartPulseIcon,
     SmartphoneIcon, WifiIcon, ZapIcon, BriefcaseIcon, PlaneIcon,
-    Gamepad2Icon, GraduationCapIcon, ShirtIcon, GiftIcon, FuelIcon
+    Gamepad2Icon, GraduationCapIcon, ShirtIcon, GiftIcon, FuelIcon,
+    ShoppingCartIcon, CoffeeIcon, ReceiptIcon, BusIcon, MovieIcon, SaladIcon, ShirtIcon2, PlaneIcon2, TrophyIcon
 } from './icons';
 import ConfirmDialog from './ConfirmDialog';
 import { useToast } from './Toast';
 
-// ... (Keep IconPicker, ColorPicker, CategoryFormModal, Modal, CategoryCard components unchanged)
-// Assuming they are defined above as in previous version. Re-declaring for completeness of file.
+const FINANCE_ICONS = [ 
+    { name: 'UtensilsIcon', label: 'طعام' }, 
+    { name: 'SaladIcon', label: 'صحة' },
+    { name: 'CoffeeIcon', label: 'مقهى' },
+    { name: 'ShoppingCartIcon', label: 'تسوق' }, 
+    { name: 'ShoppingBagIcon', label: 'أكياس' }, 
+    { name: 'ReceiptIcon', label: 'فواتير' },
+    { name: 'CarIcon', label: 'سيارة' }, 
+    { name: 'BusIcon', label: 'حافلة' },
+    { name: 'PlaneIcon2', label: 'سفر' },
+    { name: 'FuelIcon', label: 'وقود' }, 
+    { name: 'HomeModernIcon', label: 'منزل' }, 
+    { name: 'ZapIcon', label: 'كهرباء' }, 
+    { name: 'WifiIcon', label: 'انترنت' }, 
+    { name: 'SmartphoneIcon', label: 'هاتف' }, 
+    { name: 'MovieIcon', label: 'سينما' },
+    { name: 'Gamepad2Icon', label: 'ترفيه' }, 
+    { name: 'ShirtIcon2', label: 'ملابس' }, 
+    { name: 'GraduationCapIcon', label: 'تعليم' },
+    { name: 'TrophyIcon', label: 'رياضة' },
+    { name: 'BriefcaseIcon', label: 'عمل' }, 
+    { name: 'CurrencyDollarIcon', label: 'مال' }, 
+    { name: 'BanknoteIcon', label: 'نقدي' }, 
+    { name: 'GiftIcon', label: 'هدايا' }, 
+    { name: 'TagIcon', label: 'عام' } 
+];
 
-// --- Enhanced Icon Picker ---
-const FINANCE_ICONS = [ { name: 'UtensilsIcon', label: 'طعام' }, { name: 'ShoppingBagIcon', label: 'تسوق' }, { name: 'CarIcon', label: 'نقل' }, { name: 'FuelIcon', label: 'وقود' }, { name: 'HomeModernIcon', label: 'منزل' }, { name: 'ZapIcon', label: 'كهرباء' }, { name: 'WifiIcon', label: 'انترنت' }, { name: 'SmartphoneIcon', label: 'هاتف' }, { name: 'HeartPulseIcon', label: 'صحة' }, { name: 'ShirtIcon', label: 'ملابس' }, { name: 'BriefcaseIcon', label: 'عمل' }, { name: 'CurrencyDollarIcon', label: 'مال' }, { name: 'BanknoteIcon', label: 'نقدي' }, { name: 'GraduationCapIcon', label: 'تعليم' }, { name: 'PlaneIcon', label: 'سفر' }, { name: 'Gamepad2Icon', label: 'ترفيه' }, { name: 'GiftIcon', label: 'هدايا' }, { name: 'TagIcon', label: 'عام' } ];
-const IconPicker: React.FC<{ selectedIcon: string; onSelect: (iconName: string) => void; }> = ({ selectedIcon, onSelect }) => { return ( <div className="grid grid-cols-5 gap-3 bg-slate-800 p-4 rounded-2xl max-h-56 overflow-y-auto custom-scrollbar border border-white/5"> {FINANCE_ICONS.map(({ name, label }) => { const Icon = iconMap[name] || CurrencyDollarIcon; const isSelected = selectedIcon === name; return ( <button key={name} type="button" onClick={() => onSelect(name)} className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 group ${isSelected ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30 scale-105' : 'text-slate-400 hover:bg-slate-700 hover:text-white'}`} > <Icon className={`w-6 h-6 mb-1 ${isSelected ? 'animate-pulse-slow' : ''}`} /> <span className="text-[10px] font-medium opacity-80">{label}</span> </button> ); })} </div> ); };
-const MODERN_COLORS = [ '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#ec4899', '#f43f5e', '#64748b', '#78716c', ];
-const ColorPicker: React.FC<{ selectedColor: string; onSelect: (color: string) => void; }> = ({ selectedColor, onSelect }) => { return ( <div className="flex flex-wrap gap-3 justify-center p-2"> {MODERN_COLORS.map(color => ( <button key={color} type="button" onClick={() => onSelect(color)} style={{ backgroundColor: color }} className={`w-9 h-9 rounded-full transition-all duration-300 transform hover:scale-110 shadow-md ${selectedColor === color ? 'ring-2 ring-offset-2 ring-offset-slate-900 ring-white scale-110 shadow-lg' : 'opacity-80 hover:opacity-100'}`} /> ))} </div> ); };
-const CategoryFormModal: React.FC<{ category?: Category | null; type: 'income' | 'expense'; onSave: () => void; onCancel: () => void; }> = ({ category, type, onSave, onCancel }) => { const [name, setName] = useState(category?.name || ''); const [color, setColor] = useState(category?.color || '#3b82f6'); const [icon, setIcon] = useState(category?.icon || 'TagIcon'); const [isSaving, setIsSaving] = useState(false); const handleSubmit = async (e: React.FormEvent) => { e.preventDefault(); setIsSaving(true); const categoryData = { name, color, icon, type }; const { error } = category?.id ? await supabase.from('categories').update(categoryData).eq('id', category.id) : await supabase.from('categories').insert(categoryData); if (error) { console.error('Error saving category:', error.message); alert('حدث خطأ'); } else { onSave(); } setIsSaving(false); }; const IconComponent = iconMap[icon] || CurrencyDollarIcon; return ( <form onSubmit={handleSubmit} className="space-y-6"> <div className="flex items-center gap-4 bg-gradient-to-r from-slate-800 to-slate-800/50 p-5 rounded-2xl border border-white/5 relative overflow-hidden group"> <div className="absolute inset-0 opacity-20 transition-opacity duration-500" style={{ backgroundColor: color }}></div> <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-xl transition-transform duration-300 transform group-hover:scale-105" style={{ backgroundColor: color }}> <IconComponent className="w-8 h-8 text-white drop-shadow-md" /> </div> <div className="flex-grow z-10"> <label className="text-xs text-slate-400 font-bold mb-1 block">اسم الفئة</label> <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="مثلاً: مطاعم، راتب..." required className="w-full bg-transparent border-b-2 border-slate-600 focus:border-white p-1 text-white text-xl font-bold focus:outline-none transition-colors placeholder-slate-600/50" /> </div> </div> <div> <label className="block text-sm font-bold text-slate-400 mb-3 px-1">اختر الأيقونة المناسبة</label> <IconPicker selectedIcon={icon} onSelect={setIcon} /> </div> <div> <label className="block text-sm font-bold text-slate-400 mb-3 px-1">لون التمييز</label> <ColorPicker selectedColor={color} onSelect={setColor} /> </div> <div className="flex justify-end gap-3 pt-6 border-t border-white/10"> <button type="button" onClick={onCancel} className="py-3 px-6 text-slate-400 hover:text-white font-bold transition rounded-xl hover:bg-white/5">إلغاء</button> <button type="submit" disabled={isSaving} className="py-3 px-8 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl transition font-bold shadow-lg shadow-blue-900/20 disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"> {isSaving ? ( <>جاري الحفظ...</> ) : ( <>{category ? 'حفظ التعديلات' : 'إنشاء الفئة'}</> )} </button> </div> </form> ); };
+const MODERN_COLORS = [ 
+    '#10b981', '#059669', '#3b82f6', '#2563eb', '#06b6d4', '#0891b2', 
+    '#8b5cf6', '#7c3aed', '#d946ef', '#f43f5e', '#ef4444', '#f97316', 
+    '#f59e0b', '#eab308', '#64748b' 
+];
+
+const IconPicker: React.FC<{ selectedIcon: string; onSelect: (iconName: string) => void; }> = ({ selectedIcon, onSelect }) => { 
+    return ( 
+        <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 bg-slate-800 p-4 rounded-2xl max-h-56 overflow-y-auto custom-scrollbar border border-white/5 shadow-inner"> 
+            {FINANCE_ICONS.map(({ name, label }) => { 
+                const Icon = iconMap[name] || CurrencyDollarIcon; 
+                const isSelected = selectedIcon === name; 
+                return ( 
+                    <button key={name} type="button" onClick={() => onSelect(name)} className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 group ${isSelected ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30 scale-105' : 'text-slate-400 hover:bg-slate-700 hover:text-white'}`} > 
+                        <Icon className={`w-6 h-6 mb-1 ${isSelected ? 'animate-pulse-slow' : ''}`} /> 
+                        <span className="text-[10px] font-medium opacity-80">{label}</span> 
+                    </button> 
+                ); 
+            })} 
+        </div> 
+    ); 
+};
+
+const ColorPicker: React.FC<{ selectedColor: string; onSelect: (color: string) => void; }> = ({ selectedColor, onSelect }) => { 
+    return ( 
+        <div className="flex flex-wrap gap-3 justify-center p-2"> 
+            {MODERN_COLORS.map(color => ( 
+                <button key={color} type="button" onClick={() => onSelect(color)} style={{ backgroundColor: color }} className={`w-9 h-9 rounded-full transition-all duration-300 transform hover:scale-110 shadow-md ${selectedColor === color ? 'ring-2 ring-offset-2 ring-offset-slate-900 ring-white scale-110 shadow-lg' : 'opacity-80 hover:opacity-100'}`} /> 
+            ))} 
+        </div> 
+    ); 
+};
+
+const CategoryFormModal: React.FC<{ category?: Category | null; type: 'income' | 'expense'; onSave: () => void; onCancel: () => void; }> = ({ category, type, onSave, onCancel }) => { 
+    const [name, setName] = useState(category?.name || ''); 
+    const [color, setColor] = useState(category?.color || MODERN_COLORS[0]); 
+    const [icon, setIcon] = useState(category?.icon || 'TagIcon'); 
+    const [isSaving, setIsSaving] = useState(false); 
+    
+    const handleSubmit = async (e: React.FormEvent) => { 
+        e.preventDefault(); 
+        setIsSaving(true); 
+        const categoryData = { name, color, icon, type }; 
+        const { error } = category?.id ? await supabase.from('categories').update(categoryData).eq('id', category.id) : await supabase.from('categories').insert(categoryData); 
+        if (error) { 
+            console.error('Error saving category:', error.message); 
+            alert('حدث خطأ'); 
+        } else { 
+            onSave(); 
+        } 
+        setIsSaving(false); 
+    }; 
+    
+    const IconComponent = iconMap[icon] || CurrencyDollarIcon; 
+    
+    return ( 
+        <form onSubmit={handleSubmit} className="space-y-6"> 
+            <div className="flex items-center gap-4 bg-gradient-to-r from-slate-800 to-slate-800/50 p-5 rounded-2xl border border-white/5 relative overflow-hidden group"> 
+                <div className="absolute inset-0 opacity-20 transition-opacity duration-500" style={{ backgroundColor: color }}></div> 
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-xl transition-transform duration-300 transform group-hover:scale-105 shrink-0" style={{ backgroundColor: color }}> 
+                    <IconComponent className="w-8 h-8 text-white drop-shadow-md" /> 
+                </div> 
+                <div className="flex-grow z-10"> 
+                    <label className="text-xs text-slate-400 font-bold mb-1 block">اسم الفئة</label> 
+                    <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="مثلاً: مطاعم، راتب..." required className="w-full bg-transparent border-b-2 border-slate-600 focus:border-white p-1 text-white text-xl font-bold focus:outline-none transition-colors placeholder-slate-600/50" /> 
+                </div> 
+            </div> 
+            <div> 
+                <label className="block text-sm font-bold text-slate-400 mb-3 px-1">اختر الأيقونة</label> 
+                <IconPicker selectedIcon={icon} onSelect={setIcon} /> 
+            </div> 
+            <div> 
+                <label className="block text-sm font-bold text-slate-400 mb-3 px-1">لون التمييز</label> 
+                <ColorPicker selectedColor={color} onSelect={setColor} /> 
+            </div> 
+            <div className="flex justify-end gap-3 pt-6 border-t border-white/10"> 
+                <button type="button" onClick={onCancel} className="py-3 px-6 text-slate-400 hover:text-white font-bold transition rounded-xl hover:bg-white/5">إلغاء</button> 
+                <button type="submit" disabled={isSaving} className="py-3 px-8 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl transition font-bold shadow-lg shadow-blue-900/20 disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"> 
+                    {isSaving ? (<>جاري الحفظ...</>) : (<>{category ? 'حفظ التعديلات' : 'إنشاء الفئة'}</>)} 
+                </button> 
+            </div> 
+        </form> 
+    ); 
+};
+
 const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; }> = ({ children, title, onClose }) => ( <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"> <div className="glass-card bg-slate-900 rounded-[2rem] p-6 w-full max-w-md border border-white/10 shadow-2xl animate-slide-up overflow-hidden relative"> <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-[60px] pointer-events-none"></div> <div className="flex justify-between items-center mb-6 relative z-10"> <h3 className="text-xl font-bold text-white tracking-wide">{title}</h3> <button onClick={onClose} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 transition-colors text-slate-400 hover:text-white"><XMarkIcon className="w-5 h-5" /></button> </div> {children} </div> </div> );
+
 const CategoryCard: React.FC<{ category: Category; onEdit: () => void; onDelete: () => void; }> = ({ category, onEdit, onDelete }) => { const Icon = (category.icon && iconMap[category.icon]) ? iconMap[category.icon] : CurrencyDollarIcon; return ( <div className="relative group overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-lg bg-slate-900/40 border border-white/5 hover:border-white/10"> <div className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-300 bg-gradient-to-br from-transparent to-white" style={{ background: `linear-gradient(135deg, ${category.color}10 0%, transparent 100%)` }}></div> <div className="absolute top-0 right-0 w-16 h-16 rounded-bl-full opacity-10 transition-transform duration-500 group-hover:scale-150" style={{ backgroundColor: category.color }}></div> <div className="p-5 flex flex-col items-center text-center relative z-10 h-full"> <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-3 shadow-lg transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3" style={{ backgroundColor: category.color || '#334155' }} > <Icon className="w-7 h-7 text-white drop-shadow-sm" /> </div> <h3 className="font-bold text-white text-base mb-1 truncate w-full">{category.name}</h3> <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0"> <button onClick={(e) => { e.stopPropagation(); onEdit(); }} className="p-2 rounded-xl bg-slate-800/90 text-cyan-400 hover:bg-cyan-500 hover:text-white transition shadow-lg backdrop-blur-sm"><PencilSquareIcon className="w-4 h-4"/></button> <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="p-2 rounded-xl bg-slate-800/90 text-rose-400 hover:bg-rose-500 hover:text-white transition shadow-lg backdrop-blur-sm"><TrashIcon className="w-4 h-4"/></button> </div> </div> </div> ); };
 
 
@@ -140,7 +245,7 @@ const CategoriesPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (
                 </div>
             )}
             
-            {/* Centered FAB */}
+            {/* FAB */}
             <button 
                 onClick={() => setModal({ type: 'add', category: null })} 
                 className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 h-16 w-16 bg-slate-900 rounded-full shadow-[0_0_20px_rgba(8,145,178,0.4)] flex items-center justify-center transition-all duration-300 border-4 border-slate-900 overflow-visible hover:scale-105 active:scale-95 group"

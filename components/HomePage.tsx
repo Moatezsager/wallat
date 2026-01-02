@@ -8,7 +8,7 @@ import {
     ArrowDownIcon, ArrowUpIcon, ClockIcon, ChevronLeftIcon, ChevronRightIcon, XMarkIcon,
     PencilSquareIcon, TrashIcon, ArrowTrendingUp, iconMap, ExclamationTriangleIcon, CalendarDaysIcon, CheckCircleIcon, ChartBarSquareIcon, SparklesIcon,
     LandmarkIcon, BanknoteIcon, BriefcaseIcon, WalletIcon, TagIcon, ArrowTrendingDown, ScaleIcon, AccountsIcon, ClipboardDocumentIcon, ZapIcon,
-    ChevronDownIcon
+    ChevronDownIcon, ArrowLeftIcon, ArrowRightIcon
 } from './icons';
 import Chart from 'chart.js/auto';
 import type { ChartConfiguration } from 'chart.js/auto';
@@ -25,13 +25,18 @@ const DoughnutChart: React.FC<{ data: number[], colors: string[], labels: string
         if (chartRef.current) chartRef.current.destroy();
         const ctx = canvasRef.current.getContext('2d');
         if (!ctx) return;
+        
+        const hasData = data.some(v => v > 0);
+        const chartData = hasData ? data : [1];
+        const chartColors = hasData ? colors : ['#1e293b'];
+
         chartRef.current = new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels,
+                labels: hasData ? labels : ['لا توجد بيانات'],
                 datasets: [{ 
-                    data, 
-                    backgroundColor: colors, 
+                    data: chartData, 
+                    backgroundColor: chartColors, 
                     borderColor: 'rgba(15, 23, 42, 1)', 
                     borderWidth: 2,
                     hoverOffset: 4
@@ -49,37 +54,25 @@ const DoughnutChart: React.FC<{ data: number[], colors: string[], labels: string
     return <div className="h-full w-full"><canvas ref={canvasRef}></canvas></div>;
 };
 
-const MonthlyReportModal: React.FC<{ onClose: () => void; }> = ({ onClose }) => {
-    const [year, setYear] = useState(new Date().getFullYear());
-    const [month, setMonth] = useState(new Date().getMonth());
+const MonthDetailView: React.FC<{ 
+    year: number; 
+    month: number; 
+    monthName: string;
+    onBack: () => void;
+}> = ({ year, month, monthName, onBack }) => {
     const [activeTab, setActiveTab] = useState<'income' | 'expense'>('expense');
     const [loading, setLoading] = useState(false);
-    const [monthlyData, setMonthlyData] = useState<{ totalIncome: number; totalExpense: number; incomeCategories: any[]; expenseCategories: any[]; }>({
+    const [data, setData] = useState<{ totalIncome: number; totalExpense: number; incomeCategories: any[]; expenseCategories: any[]; }>({
         totalIncome: 0, totalExpense: 0, incomeCategories: [], expenseCategories: []
     });
-    
-    const scrollRef = useRef<HTMLDivElement>(null);
-    const monthNames = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
 
     useEffect(() => {
-        if (scrollRef.current) {
-            const activeBtn = scrollRef.current.children[month] as HTMLElement;
-            if (activeBtn) {
-                scrollRef.current.scrollTo({
-                    left: activeBtn.offsetLeft - (scrollRef.current.clientWidth / 2) + (activeBtn.clientWidth / 2),
-                    behavior: 'smooth'
-                });
-            }
-        }
-    }, [month]);
-
-    useEffect(() => {
-        const fetchMonthlyData = async () => {
+        const fetchDetails = async () => {
             setLoading(true);
             const startDate = new Date(year, month, 1);
             const endDate = new Date(year, month + 1, 0, 23, 59, 59);
             
-            const { data } = await supabase
+            const { data: txs } = await supabase
                 .from('transactions')
                 .select('amount, type, categories(name, color, icon)')
                 .gte('date', startDate.toISOString())
@@ -89,7 +82,7 @@ const MonthlyReportModal: React.FC<{ onClose: () => void; }> = ({ onClose }) => 
             let tIncome = 0, tExpense = 0;
             const incMap = new Map<string, any>(), expMap = new Map<string, any>();
             
-            data?.forEach((tx: any) => {
+            txs?.forEach((tx: any) => {
                 const catName = tx.categories?.name || 'غير مصنف';
                 const catColor = tx.categories?.color || '#64748b';
                 const catIcon = tx.categories?.icon;
@@ -114,7 +107,7 @@ const MonthlyReportModal: React.FC<{ onClose: () => void; }> = ({ onClose }) => 
                     .map(c => ({ ...c, percentage: total > 0 ? (c.amount / total) * 100 : 0 }))
                     .sort((a, b) => b.amount - a.amount);
 
-            setMonthlyData({ 
+            setData({ 
                 totalIncome: tIncome, 
                 totalExpense: tExpense, 
                 incomeCategories: process(incMap, tIncome), 
@@ -122,136 +115,223 @@ const MonthlyReportModal: React.FC<{ onClose: () => void; }> = ({ onClose }) => 
             });
             setLoading(false);
         };
-        fetchMonthlyData();
+        fetchDetails();
     }, [year, month]);
 
-    const activeCategories = activeTab === 'expense' ? monthlyData.expenseCategories : monthlyData.incomeCategories;
-    const activeTotal = activeTab === 'expense' ? monthlyData.totalExpense : monthlyData.totalIncome;
+    const activeCategories = activeTab === 'expense' ? data.expenseCategories : data.incomeCategories;
+    const netResult = data.totalIncome - data.totalExpense;
+
+    return (
+        <div className="space-y-6 animate-fade-in pb-10">
+            {/* Header & Back Button */}
+            <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-4">
+                    <button onClick={onBack} className="p-2.5 bg-slate-800 rounded-2xl text-slate-400 hover:text-white transition shadow-lg active:scale-90">
+                        <ArrowRightIcon className="w-5 h-5" />
+                    </button>
+                    <div>
+                        <h4 className="text-xl font-black text-white">شهر {monthName}</h4>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{year}</p>
+                    </div>
+                </div>
+                <div className={`px-4 py-2 rounded-2xl border font-black text-sm tabular-nums ${netResult >= 0 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
+                    {netResult >= 0 ? '+' : ''}{new Intl.NumberFormat('ar-LY').format(netResult)}
+                </div>
+            </div>
+
+            {/* Quick Summary Card */}
+            <div className="grid grid-cols-2 gap-3">
+                <div className="bg-emerald-500/5 border border-emerald-500/10 p-4 rounded-3xl">
+                    <p className="text-[10px] font-black text-emerald-500/50 uppercase mb-1">إجمالي الدخل</p>
+                    <p className="text-lg font-black text-white tabular-nums">{new Intl.NumberFormat('ar-LY').format(data.totalIncome)} <span className="text-[10px] opacity-40">د.ل</span></p>
+                </div>
+                <div className="bg-rose-500/5 border border-rose-500/10 p-4 rounded-3xl">
+                    <p className="text-[10px] font-black text-rose-500/50 uppercase mb-1">إجمالي الصرف</p>
+                    <p className="text-lg font-black text-white tabular-nums">{new Intl.NumberFormat('ar-LY').format(data.totalExpense)} <span className="text-[10px] opacity-40">د.ل</span></p>
+                </div>
+            </div>
+
+            {/* Tab Switcher */}
+            <div className="flex bg-slate-800/60 p-1.5 rounded-[1.5rem] border border-white/5 shadow-inner">
+                <button onClick={() => setActiveTab('expense')} className={`flex-1 py-3 rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-2 ${activeTab === 'expense' ? 'bg-rose-600 text-white shadow-xl shadow-rose-900/20' : 'text-slate-500'}`}>
+                    <ArrowUpIcon className="w-4 h-4"/> المصروفات
+                </button>
+                <button onClick={() => setActiveTab('income')} className={`flex-1 py-3 rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-2 ${activeTab === 'income' ? 'bg-emerald-600 text-white shadow-xl shadow-emerald-900/20' : 'text-slate-500'}`}>
+                    <ArrowDownIcon className="w-4 h-4"/> الإيرادات
+                </button>
+            </div>
+
+            {/* Category List */}
+            {loading ? (
+                <div className="space-y-3">
+                    {[1,2,3].map(i => <div key={i} className="h-24 bg-slate-800/30 rounded-[2rem] animate-pulse border border-white/5"></div>)}
+                </div>
+            ) : activeCategories.length > 0 ? (
+                <div className="space-y-3">
+                    {activeCategories.map((cat, i) => {
+                        const Icon = (cat.icon && iconMap[cat.icon]) ? iconMap[cat.icon] : TagIcon;
+                        return (
+                            <div key={i} className="bg-slate-900/60 p-5 rounded-[2rem] border border-white/5 transition-all hover:border-white/10 group">
+                                <div className="flex items-center gap-5 mb-4">
+                                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-2xl transition-transform group-hover:scale-105" style={{ backgroundColor: cat.color }}>
+                                        <Icon className="w-7 h-7 drop-shadow-md" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex justify-between items-end mb-1">
+                                            <span className="text-base font-black text-white truncate">{cat.name}</span>
+                                            <span className="text-base font-black text-white tabular-nums">{new Intl.NumberFormat('ar-LY').format(cat.amount)} <span className="text-[10px] text-slate-500">د.ل</span></span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                            <span>{cat.count} عمليات</span>
+                                            <span>{cat.percentage.toFixed(1)}%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="h-2 bg-slate-800 rounded-full overflow-hidden p-0.5 border border-white/5 shadow-inner">
+                                    <div className="h-full transition-all duration-1000 ease-out rounded-full shadow-[0_0_10px_rgba(255,255,255,0.1)]" style={{ width: `${cat.percentage}%`, backgroundColor: cat.color }}></div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            ) : (
+                <div className="text-center py-20 bg-slate-900/10 rounded-[2.5rem] border-2 border-dashed border-slate-800 text-slate-600 font-bold">
+                    لا توجد بيانات مسجلة لهذا القسم في {monthName}
+                </div>
+            )}
+        </div>
+    );
+};
+
+const MonthlyReportModal: React.FC<{ onClose: () => void; }> = ({ onClose }) => {
+    const [year, setYear] = useState(new Date().getFullYear());
+    const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+    const [yearData, setYearData] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    
+    const monthNames = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+
+    useEffect(() => {
+        const fetchYearlySummaries = async () => {
+            setLoading(true);
+            const startOfYear = new Date(year, 0, 1).toISOString();
+            const endOfYear = new Date(year, 11, 31, 23, 59, 59).toISOString();
+            
+            const { data } = await supabase
+                .from('transactions')
+                .select('amount, type, date')
+                .gte('date', startOfYear)
+                .lte('date', endOfYear)
+                .in('type', ['income', 'expense']);
+            
+            const months = Array(12).fill(null).map((_, i) => ({
+                month: i,
+                name: monthNames[i],
+                income: 0,
+                expense: 0
+            }));
+
+            data?.forEach(tx => {
+                const m = new Date(tx.date).getMonth();
+                if (tx.type === 'income') months[m].income += tx.amount;
+                else months[m].expense += tx.amount;
+            });
+
+            setYearData(months);
+            setLoading(false);
+        };
+        fetchYearlySummaries();
+    }, [year]);
 
     return (
         <div className="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-2xl flex items-center justify-center p-4 animate-fade-in pt-safe pb-safe">
-            <div className="relative w-full max-w-lg bg-slate-900 rounded-[2.5rem] shadow-2xl border border-white/10 flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
+            <div className="relative w-full max-w-lg bg-slate-900 rounded-[3rem] shadow-2xl border border-white/10 flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
                 
-                <div className="p-6 pb-2 shrink-0 z-10 flex justify-between items-center bg-slate-900/50">
+                {/* Modal Header */}
+                <div className="p-7 pb-4 shrink-0 z-10 flex justify-between items-start border-b border-white/5 bg-slate-900/50 backdrop-blur-md">
                     <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            <button onClick={() => setYear(y => y - 1)} className="p-1 text-slate-500 hover:text-cyan-400 transition"><ChevronRightIcon className="w-3 h-3"/></button>
-                            <span className="text-[10px] font-black text-cyan-500 uppercase tracking-widest">{year}</span>
-                            <button onClick={() => setYear(y => y + 1)} className="p-1 text-slate-500 hover:text-cyan-400 transition"><ChevronLeftIcon className="w-3 h-3"/></button>
+                        <h3 className="text-2xl font-black text-white flex items-center gap-3">
+                             الموجز المالي <ScaleIcon className="w-6 h-6 text-cyan-500 opacity-50" />
+                        </h3>
+                        <div className="flex items-center gap-3 mt-2 bg-slate-800/80 w-fit px-3 py-1 rounded-xl border border-white/5">
+                            <button onClick={() => setYear(y => y - 1)} className="p-1 text-slate-500 hover:text-cyan-400 transition active:scale-75"><ChevronRightIcon className="w-4 h-4"/></button>
+                            <span className="text-xs font-black text-cyan-400 tracking-[0.2em]">{year}</span>
+                            <button onClick={() => setYear(y => y + 1)} className="p-1 text-slate-500 hover:text-cyan-400 transition active:scale-75"><ChevronLeftIcon className="w-4 h-4"/></button>
                         </div>
-                        <h3 className="text-xl font-black text-white">الموجز المالي</h3>
                     </div>
-                    <button onClick={onClose} className="p-2.5 rounded-full bg-white/5 text-slate-400 border border-white/5 hover:text-white transition-colors">
-                        <XMarkIcon className="w-5 h-5" />
+                    <button onClick={onClose} className="p-3 rounded-2xl bg-white/5 text-slate-400 border border-white/5 hover:text-white transition-colors active:scale-90">
+                        <XMarkIcon className="w-6 h-6" />
                     </button>
                 </div>
 
-                <div className="px-6 shrink-0">
-                    <div ref={scrollRef} className="flex gap-2 overflow-x-auto no-scrollbar py-4 snap-x">
-                        {monthNames.map((name, i) => (
-                            <button 
-                                key={i} 
-                                onClick={() => setMonth(i)}
-                                className={`shrink-0 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all snap-center border ${month === i ? 'bg-cyan-500 text-white border-cyan-400 shadow-lg shadow-cyan-500/20 scale-105' : 'bg-slate-800 text-slate-500 border-white/5 hover:bg-slate-700'}`}
-                            >
-                                {name}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="p-6 pt-2 overflow-y-auto custom-scrollbar flex-1 space-y-8">
-                    {loading ? (
-                        <div className="py-20 flex flex-col items-center justify-center gap-4">
-                            <div className="w-12 h-12 border-4 border-slate-800 border-t-cyan-500 rounded-full animate-spin"></div>
-                            <p className="text-slate-500 font-bold animate-pulse text-sm">جاري تحليل البيانات...</p>
+                {/* Content Area */}
+                <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+                    {selectedMonth !== null ? (
+                        <MonthDetailView 
+                            year={year} 
+                            month={selectedMonth} 
+                            monthName={monthNames[selectedMonth]} 
+                            onBack={() => setSelectedMonth(null)} 
+                        />
+                    ) : loading ? (
+                        <div className="py-32 flex flex-col items-center justify-center gap-6">
+                            <div className="relative w-16 h-16">
+                                <div className="absolute inset-0 border-4 border-slate-800 border-t-cyan-500 rounded-full animate-spin"></div>
+                                <div className="absolute inset-2 border-4 border-slate-800 border-b-violet-500 rounded-full animate-spin [animation-duration:1.5s]"></div>
+                            </div>
+                            <p className="text-slate-500 font-black animate-pulse text-sm uppercase tracking-widest">تحليل السنة مالياً...</p>
                         </div>
                     ) : (
-                        <>
-                            <div className="bg-slate-800/40 p-5 rounded-[2rem] border border-white/5 relative overflow-hidden">
-                                <div className="flex items-center justify-between gap-6 relative z-10">
-                                    <div className="space-y-4 flex-1">
-                                        <div className="flex justify-between items-center group">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-                                                <span className="text-xs font-bold text-slate-400">إجمالي الدخل</span>
-                                            </div>
-                                            <span className="text-sm font-black text-emerald-400">{new Intl.NumberFormat('ar-LY').format(monthlyData.totalIncome)} د.ل</span>
-                                        </div>
-                                        <div className="flex justify-between items-center group">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]"></div>
-                                                <span className="text-xs font-bold text-slate-400">إجمالي المصروف</span>
-                                            </div>
-                                            <span className="text-sm font-black text-rose-400">{new Intl.NumberFormat('ar-LY').format(monthlyData.totalExpense)} د.ل</span>
-                                        </div>
-                                        <div className="pt-3 border-t border-white/5 flex justify-between items-center">
-                                            <span className="text-[10px] font-black text-slate-500 uppercase">الصافي</span>
-                                            <span className={`text-base font-black ${monthlyData.totalIncome - monthlyData.totalExpense >= 0 ? 'text-cyan-400' : 'text-rose-500'}`}>
-                                                {new Intl.NumberFormat('ar-LY').format(monthlyData.totalIncome - monthlyData.totalExpense)} د.ل
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div className="h-28 w-28 shrink-0 relative">
-                                        <DoughnutChart 
-                                            data={[monthlyData.totalIncome || 1, monthlyData.totalExpense || 0]} 
-                                            labels={['دخل', 'صرف']} 
-                                            colors={['#10b981', '#f43f5e']} 
-                                            cutout="75%"
-                                        />
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            <ScaleIcon className="w-5 h-5 text-slate-700" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="space-y-6">
-                                <div className="flex bg-slate-800/80 p-1.5 rounded-2xl border border-white/5 shadow-inner">
-                                    <button onClick={() => setActiveTab('expense')} className={`flex-1 py-3 rounded-xl text-sm font-black transition-all flex items-center justify-center gap-2 ${activeTab === 'expense' ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/30 scale-[1.02]' : 'text-slate-500 hover:text-slate-300'}`}>
-                                        <ArrowUpIcon className="w-4 h-4"/> المصروفات
-                                    </button>
-                                    <button onClick={() => setActiveTab('income')} className={`flex-1 py-3 rounded-xl text-sm font-black transition-all flex items-center justify-center gap-2 ${activeTab === 'income' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/30 scale-[1.02]' : 'text-slate-500 hover:text-slate-300'}`}>
-                                        <ArrowDownIcon className="w-4 h-4"/> الإيرادات
-                                    </button>
-                                </div>
-
-                                <div className="space-y-3">
-                                    {activeCategories.length > 0 ? activeCategories.map((cat, i) => {
-                                        const Icon = (cat.icon && iconMap[cat.icon]) ? iconMap[cat.icon] : TagIcon;
-                                        return (
-                                            <div key={i} className="flex items-center gap-4 bg-slate-900/40 p-4 rounded-3xl border border-white/5 hover:bg-slate-800/40 transition-colors group">
-                                                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg transition-transform group-hover:scale-110" style={{ backgroundColor: cat.color }}>
-                                                    <Icon className="w-6 h-6" />
+                        <div className="space-y-4 animate-fade-in">
+                            {yearData.map((m) => {
+                                const net = m.income - m.expense;
+                                const hasData = (m.income + m.expense) > 0;
+                                return (
+                                    <div 
+                                        key={m.month} 
+                                        onClick={() => setSelectedMonth(m.month)}
+                                        className="glass-card p-5 rounded-[2.5rem] border border-white/5 flex items-center justify-between group hover:bg-white/[0.03] hover:border-white/10 transition-all cursor-pointer active:scale-[0.98]"
+                                    >
+                                        <div className="flex items-center gap-6">
+                                            <div className="h-16 w-16 shrink-0 relative">
+                                                <DoughnutChart 
+                                                    data={[m.income || (hasData ? 0 : 1), m.expense || 0]} 
+                                                    labels={['دخل', 'صرف']} 
+                                                    colors={['#10b981', '#f43f5e']} 
+                                                    cutout="75%"
+                                                />
+                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                    <span className="text-[11px] font-black text-white/10">{m.month + 1}</span>
                                                 </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex justify-between items-center mb-1.5">
-                                                        <div className="flex items-center gap-2 overflow-hidden">
-                                                            <span className="text-sm font-bold text-white truncate">{cat.name}</span>
-                                                            <span className="shrink-0 text-[10px] font-black px-2 py-0.5 bg-white/5 rounded-full text-slate-500 border border-white/5">{cat.count} عملية</span>
-                                                        </div>
-                                                        <span className="text-sm font-black text-slate-200 shrink-0">{new Intl.NumberFormat('ar-LY').format(cat.amount)} د.ل</span>
+                                            </div>
+                                            <div>
+                                                <h4 className="font-black text-white text-xl group-hover:text-cyan-400 transition-colors">{m.name}</h4>
+                                                <div className="flex gap-4 mt-1.5">
+                                                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border tabular-nums text-[10px] font-black ${net >= 0 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
+                                                        {net >= 0 ? <ArrowTrendingUp className="w-3 h-3"/> : <ArrowTrendingDown className="w-3 h-3"/>}
+                                                        {new Intl.NumberFormat('ar-LY').format(Math.abs(net))}
                                                     </div>
-                                                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                                        <div className="h-full transition-all duration-1000 ease-out rounded-full" style={{ width: `${cat.percentage}%`, backgroundColor: cat.color }}></div>
+                                                    <div className="flex items-center gap-1.5 opacity-30">
+                                                        <span className="text-[10px] font-bold text-slate-400">{(m.income + m.expense) > 0 ? 'نشط' : 'فارغ'}</span>
                                                     </div>
                                                 </div>
                                             </div>
-                                        );
-                                    }) : (
-                                        <div className="text-center py-12 border-2 border-dashed border-slate-800 rounded-[2rem] flex flex-col items-center gap-3">
-                                            <div className="w-12 h-12 bg-slate-800/50 rounded-full flex items-center justify-center">
-                                                <ClipboardDocumentIcon className="w-6 h-6 text-slate-600" />
-                                            </div>
-                                            <p className="text-slate-600 text-xs font-bold">لا توجد سجلات لهذا القسم في {monthNames[month]}</p>
                                         </div>
-                                    )}
-                                </div>
-                            </div>
-                        </>
+                                        
+                                        <div className="bg-slate-800/50 p-2.5 rounded-2xl text-slate-500 group-hover:bg-cyan-600 group-hover:text-white transition-all">
+                                            <ChevronLeftIcon className="w-5 h-5" />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     )}
                 </div>
-                <div className="pb-safe shrink-0"></div>
+                
+                {/* Modal Footer Decorative */}
+                <div className="p-4 bg-slate-950/20 border-t border-white/5 text-center shrink-0">
+                    <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.4em]">GreenBox Financial Assistant</p>
+                </div>
             </div>
         </div>
     );
@@ -400,7 +480,7 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
                 <div className="relative z-10 flex items-center justify-between mt-6">
                     <button onClick={() => setIsMonthlyModalOpen(true)} className="bg-cyan-500/10 border border-cyan-500/20 px-4 py-2 rounded-xl flex items-center gap-2 transition active:scale-95">
                         <SparklesIcon className="w-4 h-4 text-cyan-400" />
-                        <span className="text-xs font-bold text-cyan-400">موجز الشهر</span>
+                        <span className="text-xs font-bold text-cyan-400">موجز السنة</span>
                     </button>
                     <button onClick={() => setActivePage('accounts')} className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 transition-all active:scale-95 shadow-xl">
                         <WalletIcon className="w-6 h-6 text-cyan-400" />
@@ -408,7 +488,7 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
                 </div>
             </div>
 
-            {/* 2. Stats Cards (Overview) - MOVED HERE */}
+            {/* 2. Stats Cards (Overview) */}
             <div className="grid grid-cols-2 gap-3 order-2 animate-fade-in">
                 <button onClick={() => setActivePage('debts')} className="glass-card p-5 rounded-[1.5rem] flex flex-col items-start hover:bg-white/5 transition-all group border border-white/5 bg-slate-900/40 shadow-lg">
                     <div className="p-2.5 bg-emerald-500/10 rounded-xl text-emerald-400 mb-3 group-hover:scale-110 transition-transform"><ArrowDownIcon className="w-5 h-5"/></div>
@@ -427,7 +507,7 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
                 <QuickActions onActionSuccess={handleDatabaseChange} />
             </div>
 
-            {/* 4. Activities Section - DEVELOPED (The "What just happened") */}
+            {/* 4. Activities Section */}
             <div className="space-y-4 animate-fade-in order-4">
                 <div className="flex justify-between items-center px-1">
                     <h2 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-widest">
@@ -476,7 +556,7 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
                 </div>
             </div>
 
-            {/* 5. Urgent Debts Section (Alerts) */}
+            {/* 5. Urgent Debts Section */}
             {urgentDebts.length > 0 && (
                 <div className="space-y-3 animate-fade-in order-5">
                     <div className="flex justify-between items-center px-1">
@@ -523,7 +603,7 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
                 </div>
             )}
 
-            {/* 6. Annual Performance Chart (Visual history) */}
+            {/* 6. Annual Performance Chart */}
             <div className="glass-card p-6 rounded-[2rem] border border-white/5 order-6 shadow-xl animate-fade-in">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="font-bold text-white flex items-center gap-2 text-sm"><ChartBarSquareIcon className="w-5 h-5 text-cyan-400"/> الأداء المالي {new Date().getFullYear()}</h3>
@@ -537,7 +617,7 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
                 </div>
             </div>
 
-            {/* 7. Recent Transactions (Details of flow) - MOVED TO END */}
+            {/* 7. Recent Transactions */}
             <div className="space-y-4 order-7 animate-fade-in">
                 <div className="flex justify-between items-end px-1">
                     <h2 className="text-lg font-bold text-white">آخر المعاملات</h2>
