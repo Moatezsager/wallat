@@ -2,6 +2,7 @@
 import React from 'react';
 import { Page } from '../types';
 import { HomeIcon, ClipboardDocumentIcon, CurrencyDollarIcon, WalletIcon } from './icons';
+import { useLanguage } from '../App';
 
 interface BottomNavProps {
     activePage: Page;
@@ -18,7 +19,7 @@ const NavButton: React.FC<{
 }> = ({ label, icon, isActive, onClick, notificationCount }) => (
     <button 
         onClick={onClick} 
-        className={`relative flex flex-col items-center justify-center w-full h-full transition-all duration-300 group ${isActive ? 'text-cyan-400' : 'text-slate-400'}`}
+        className={`relative flex flex-col items-center justify-center w-full h-full transition-all duration-300 group ${isActive ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400 dark:text-slate-500'}`}
     >
         <div className={`transition-all duration-300 p-2 rounded-xl relative ${isActive ? '-translate-y-1' : 'active:scale-90'}`}>
             {isActive && <div className="absolute inset-0 bg-cyan-400/10 blur-md rounded-full opacity-60"></div>}
@@ -36,20 +37,21 @@ const NavButton: React.FC<{
 );
 
 const BottomNav: React.FC<BottomNavProps> = ({ activePage, setActivePage, debtNotificationCount }) => {
+    const { t } = useLanguage();
+    
     const leftItems = [
-        { page: 'home', label: 'الرئيسية', icon: <HomeIcon className="w-6 h-6" /> },
-        { page: 'transactions', label: 'المعاملات', icon: <ClipboardDocumentIcon className="w-6 h-6" /> },
+        { page: 'home', label: t.home, icon: <HomeIcon className="w-6 h-6" /> },
+        { page: 'transactions', label: t.transactions, icon: <ClipboardDocumentIcon className="w-6 h-6" /> },
     ];
 
     const rightItems = [
-        { page: 'debts', label: 'الديون', icon: <CurrencyDollarIcon className="w-6 h-6" /> },
-        { page: 'accounts', label: 'الحسابات', icon: <WalletIcon className="w-6 h-6" /> },
+        { page: 'debts', label: t.debts, icon: <CurrencyDollarIcon className="w-6 h-6" /> },
+        { page: 'accounts', label: t.accounts, icon: <WalletIcon className="w-6 h-6" /> },
     ];
 
     return (
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 print-hidden">
-            {/* Safe Area Spacer Background */}
-            <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-2xl border-t border-white/5 shadow-[0_-10px_30px_rgba(0,0,0,0.4)]"></div>
+            <div className="absolute inset-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border-t border-black/5 dark:border-white/5 shadow-[0_-10px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_-10px_30px_rgba(0,0,0,0.4)] transition-colors"></div>
             
             <div className="relative flex items-center justify-between px-2 pb-safe h-[calc(4.5rem+env(safe-area-inset-bottom))]">
                 <div className="flex-1 flex justify-around items-center h-16">
@@ -64,7 +66,6 @@ const BottomNav: React.FC<BottomNavProps> = ({ activePage, setActivePage, debtNo
                     ))}
                 </div>
 
-                {/* FAB Placeholder */}
                 <div className="w-16 shrink-0 h-16"></div>
 
                 <div className="flex-1 flex justify-around items-center h-16">

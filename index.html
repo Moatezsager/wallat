@@ -1,10 +1,18 @@
 
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" class="dark">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>محفظتي الاكترونية</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#020617" id="meta-theme-color" />
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://vgosloxhrahixrduuzkt.supabase.co/storage/v1/object/public/assets/icon-192.png">
+    <link rel="manifest" href="/manifest.json">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,21 +25,40 @@
             --sal: env(safe-area-inset-left);
         }
 
+        /* متغيرات الألوان للوضع الليلي والنهاري */
+        :root.dark {
+            --bg-color: #020617;
+            --text-color: #e2e8f0;
+            --card-bg: linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.7) 100%);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --scrollbar-thumb: #334155;
+        }
+
+        :root.light {
+            --bg-color: #f8fafc;
+            --text-color: #0f172a;
+            --card-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(241, 245, 249, 0.9) 100%);
+            --border-color: rgba(0, 0, 0, 0.08);
+            --scrollbar-thumb: #cbd5e1;
+        }
+
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 10px; }
         
         body {
             -webkit-tap-highlight-color: transparent;
             overscroll-behavior-y: contain;
-            background-color: #020617;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
         .glass-card { 
-            background: linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.7) 100%); 
+            background: var(--card-bg); 
             backdrop-filter: blur(16px); 
             -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.08); 
+            border: 1px solid var(--border-color); 
         }
 
         .pb-safe { padding-bottom: var(--sab); }
@@ -46,15 +73,21 @@
         
         .print-only { display: none; }
 
-        /* تحسين ملمس العناصر التفاعلية */
         button:active { transform: scale(0.96); transition: transform 0.1s; }
     </style>
     <script>
         tailwind.config = {
+          darkMode: 'class',
           theme: {
             extend: {
               fontFamily: { sans: ['Cairo', 'sans-serif'] },
-              colors: { slate: { 850: '#172033', 900: '#0f172a', 950: '#020617' } },
+              colors: { 
+                slate: { 
+                    850: '#172033', 
+                    900: '#0f172a', 
+                    950: '#020617' 
+                } 
+              },
               animation: { 
                 'fade-in': 'fadeIn 0.3s ease-out forwards', 
                 'slide-up': 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards' 
@@ -83,7 +116,7 @@
 }
 </script>
 </head>
-<body class="bg-slate-950 text-slate-200 antialiased selection:bg-cyan-500/30">
+<body class="bg-slate-950 text-slate-200 antialiased selection:bg-cyan-500/30 transition-colors duration-300">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
 </body>

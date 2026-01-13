@@ -223,9 +223,13 @@ const TransactionsPage: React.FC = () => {
                 const { data: matchedAccounts } = await supabase.from('accounts').select('id').ilike('name', `%${searchTerm}%`);
                 const { data: matchedCategories } = await supabase.from('categories').select('id').ilike('name', `%${searchTerm}%`);
                 
-                // Fix: Replace unsafe cast with Array.isArray to avoid "Property 'map' does not exist on type 'unknown'"
-                const accIds = Array.isArray(matchedAccounts) ? matchedAccounts.map((a: any) => a.id) : [];
-                const catIds = Array.isArray(matchedCategories) ? matchedCategories.map((c: any) => c.id) : [];
+                // Fix: Cast matchedAccounts and matchedCategories explicitly to any[] or [] to satisfy TypeScript and allow .map()
+                const accIdsData = (Array.isArray(matchedAccounts) ? matchedAccounts : []) as any[];
+                const catIdsData = (Array.isArray(matchedCategories) ? matchedCategories : []) as any[];
+                
+                // Now map is called on explicitly cast array
+                const accIds = accIdsData.map((a: any) => a.id);
+                const catIds = catIdsData.map((c: any) => c.id);
                 
                 const orConditions = [`notes.ilike.%${searchTerm}%`];
                 if (accIds.length > 0) {
@@ -286,9 +290,13 @@ const TransactionsPage: React.FC = () => {
                 const { data: matchedAccounts } = await supabase.from('accounts').select('id').ilike('name', `%${searchTerm}%`);
                 const { data: matchedCategories } = await supabase.from('categories').select('id').ilike('name', `%${searchTerm}%`);
                 
-                // Fix: Replace unsafe cast with Array.isArray to avoid "Property 'map' does not exist on type 'unknown'"
-                const accIdsForStats = Array.isArray(matchedAccounts) ? matchedAccounts.map((a: any) => a.id) : [];
-                const catIdsForStats = Array.isArray(matchedCategories) ? matchedCategories.map((c: any) => c.id) : [];
+                // Fix: Cast matchedAccounts and matchedCategories explicitly to any[] or [] to satisfy TypeScript and allow .map()
+                const accIdsForStatsData = (Array.isArray(matchedAccounts) ? matchedAccounts : []) as any[];
+                const catIdsForStatsData = (Array.isArray(matchedCategories) ? matchedCategories : []) as any[];
+                
+                // Now map is called on explicitly cast array
+                const accIdsForStats = accIdsForStatsData.map((a: any) => a.id);
+                const catIdsForStats = catIdsForStatsData.map((c: any) => c.id);
                 
                 const orConditions = [`notes.ilike.%${searchTerm}%`];
                 if (accIdsForStats.length > 0) { 
@@ -300,8 +308,8 @@ const TransactionsPage: React.FC = () => {
              }
              const { data } = await query;
              
-             // Fix: Replace unsafe cast with Array.isArray to avoid "Property 'reduce' does not exist on type 'unknown'"
-             return (Array.isArray(data) ? data : []).reduce((acc: any, curr: any) => {
+             // Fix: Explicitly cast narrowing to any[] to satisfy TypeScript for reduce() call on Supabase response
+             return (Array.isArray(data) ? (data as any[]) : []).reduce((acc: any, curr: any) => {
                  if (curr.type === 'income') acc.income += curr.amount;
                  if (curr.type === 'expense') acc.expense += curr.amount;
                  return acc;
@@ -311,8 +319,9 @@ const TransactionsPage: React.FC = () => {
 
     const summary = stats || { income: 0, expense: 0 };
 
+    // Fix: Explicitly type the reduce generic and initial value to ensure groupedTransactions correctly infers the 'txs' values as 'Transaction[]'
     const groupedTransactions = useMemo(() => {
-        return allTransactions.reduce((acc: Record<string, Transaction[]>, tx) => {
+        return allTransactions.reduce<Record<string, Transaction[]>>((acc, tx) => {
             const dateKey = formatDateGroup(tx.date);
             if (!acc[dateKey]) acc[dateKey] = [];
             acc[dateKey].push(tx);

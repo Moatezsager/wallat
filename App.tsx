@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import { Page, Debt } from './types';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
@@ -24,8 +24,33 @@ import { ToastProvider } from './components/Toast';
 import { supabase } from './lib/supabase';
 import { WalletIcon } from './components/icons';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { translations, Language } from './lib/i18n';
 
-// Create a client
+// i18n Context
+const LanguageContext = createContext<{
+    language: Language;
+    setLanguage: (l: Language) => void;
+    t: any;
+} | undefined>(undefined);
+
+export const useLanguage = () => {
+    const context = useContext(LanguageContext);
+    if (!context) throw new Error("useLanguage must be used within LanguageProvider");
+    return context;
+};
+
+// Theme Context
+const ThemeContext = createContext<{
+    theme: 'light' | 'dark';
+    toggleTheme: () => void;
+} | undefined>(undefined);
+
+export const useTheme = () => {
+    const context = useContext(ThemeContext);
+    if (!context) throw new Error("useTheme must be used within ThemeProvider");
+    return context;
+};
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -37,6 +62,8 @@ const queryClient = new QueryClient({
 });
 
 function AppContent() {
+  const { t, language } = useLanguage();
+  const { theme } = useTheme();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
@@ -66,7 +93,7 @@ function AppContent() {
       setIsAuthenticated(true);
       setAuthError('');
     } else {
-      setAuthError('كلمة المرور غير صحيحة');
+      setAuthError(language === 'ar' ? 'كلمة المرور غير صحيحة' : 'Incorrect password');
       setPasswordInput('');
     }
   };
@@ -96,10 +123,10 @@ function AppContent() {
     setActiveContactId(contactId);
     try {
         const { data } = await supabase.from('contacts').select('name').eq('id', contactId).single();
-        setActiveContactName(data?.name || 'ملف شخصي');
+        setActiveContactName(data?.name || (language === 'ar' ? 'ملف شخصي' : 'Profile'));
         setActivePage('contacts');
     } catch(e) {
-        setActiveContactName('ملف شخصي');
+        setActiveContactName(language === 'ar' ? 'ملف شخصي' : 'Profile');
         setActivePage('contacts');
     }
   };
@@ -137,16 +164,16 @@ function AppContent() {
   
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen font-sans flex items-center justify-center p-4 relative overflow-hidden" dir="rtl">
+      <div className="min-h-screen font-sans flex items-center justify-center p-4 relative overflow-hidden" dir={language === 'ar' ? 'rtl' : 'ltr'}>
         <div className="glass-card w-full max-sm p-8 rounded-3xl shadow-2xl text-center animate-slide-up relative z-10">
           <div className="w-20 h-20 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-2xl mx-auto mb-8 flex items-center justify-center shadow-lg shadow-cyan-500/30 rotate-3">
              <WalletIcon className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">أهلاً بعودتك</h1>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">{t.welcome_back}</h1>
           <form onSubmit={handlePasswordSubmit} className="space-y-6">
-            <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-2xl p-4 text-white text-center text-2xl tracking-[0.5em] focus:outline-none" placeholder="••••" autoFocus />
+            <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full bg-white dark:bg-slate-950/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-4 text-slate-900 dark:text-white text-center text-2xl tracking-[0.5em] focus:outline-none" placeholder={t.password_placeholder} autoFocus />
             {authError && <p className="text-rose-400 text-sm">{authError}</p>}
-            <button type="submit" className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg">دخول</button>
+            <button type="submit" className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg">{t.login}</button>
           </form>
         </div>
       </div>
@@ -154,10 +181,10 @@ function AppContent() {
   }
 
   return (
-    <div className={`min-h-screen font-sans pb-24 md:pb-0 lg:flex lg:flex-row-reverse ${isStealthMode ? 'stealth-active' : ''}`} dir="rtl">
+    <div className={`min-h-screen font-sans pb-24 md:pb-0 lg:flex ${language === 'ar' ? 'lg:flex-row-reverse' : 'lg:flex-row'} ${isStealthMode ? 'stealth-active' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
         <style>{`.stealth-active .tabular-nums, .stealth-active .text-4xl, .stealth-active .text-3xl, .stealth-active .text-5xl, .stealth-active .font-extrabold { filter: blur(8px); pointer-events: none; user-select: none; }`}</style>
         <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} activePage={activePage} setActivePage={setActivePage} />
-        <div className="flex-1 lg:mr-80">
+        <div className={`flex-1 ${language === 'ar' ? 'lg:mr-80' : 'lg:ml-80'}`}>
             <Header activePage={activePage} onMenuClick={() => setSidebarOpen(true)} isProfilePage={!!activeContactId} profileName={activeContactName} onBack={handleBackToContacts} notifications={debtNotifications} onNavigate={(page) => setActivePage(page)} />
             <main className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 animate-fade-in">{renderPage()}</main>
         </div>
@@ -167,12 +194,38 @@ function AppContent() {
 }
 
 function App() {
+    const [language, setLanguage] = useState<Language>(() => (localStorage.getItem('app_lang') as Language) || 'ar');
+    const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('app_theme') as 'light' | 'dark') || 'dark');
+
+    useEffect(() => {
+        const root = document.documentElement;
+        root.classList.remove('light', 'dark');
+        root.classList.add(theme);
+        localStorage.setItem('app_theme', theme);
+        // تحديث لون شريط الحالة للموبايل
+        const metaTheme = document.getElementById('meta-theme-color');
+        if (metaTheme) metaTheme.setAttribute('content', theme === 'dark' ? '#020617' : '#f8fafc');
+    }, [theme]);
+
+    useEffect(() => {
+        const root = document.documentElement;
+        root.setAttribute('lang', language);
+        root.setAttribute('dir', language === 'ar' ? 'rtl' : 'ltr');
+        localStorage.setItem('app_lang', language);
+    }, [language]);
+
+    const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+
     return (
-        <QueryClientProvider client={queryClient}>
-            <ToastProvider>
-                <AppContent />
-            </ToastProvider>
-        </QueryClientProvider>
+        <LanguageContext.Provider value={{ language, setLanguage, t: translations[language] }}>
+            <ThemeContext.Provider value={{ theme, toggleTheme }}>
+                <QueryClientProvider client={queryClient}>
+                    <ToastProvider>
+                        <AppContent />
+                    </ToastProvider>
+                </QueryClientProvider>
+            </ThemeContext.Provider>
+        </LanguageContext.Provider>
     )
 }
 
