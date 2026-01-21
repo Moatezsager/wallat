@@ -223,13 +223,10 @@ const TransactionsPage: React.FC = () => {
                 const { data: matchedAccounts } = await supabase.from('accounts').select('id').ilike('name', `%${searchTerm}%`);
                 const { data: matchedCategories } = await supabase.from('categories').select('id').ilike('name', `%${searchTerm}%`);
                 
-                // Fix: Cast matchedAccounts and matchedCategories explicitly to any[] or [] to satisfy TypeScript and allow .map()
-                const accIdsData = (Array.isArray(matchedAccounts) ? matchedAccounts : []) as any[];
-                const catIdsData = (Array.isArray(matchedCategories) ? matchedCategories : []) as any[];
-                
-                // Now map is called on explicitly cast array
-                const accIds = accIdsData.map((a: any) => a.id);
-                const catIds = catIdsData.map((c: any) => c.id);
+                // Fix: Robust type assertion to ensure matched results are treated as arrays for .map()
+                // Directly cast and map in one step to ensure TypeScript recognizes the array type correctly.
+                const accIds: string[] = (matchedAccounts as any[])?.map((a: any) => a.id) || [];
+                const catIds: string[] = (matchedCategories as any[])?.map((c: any) => c.id) || [];
                 
                 const orConditions = [`notes.ilike.%${searchTerm}%`];
                 if (accIds.length > 0) {
@@ -290,13 +287,9 @@ const TransactionsPage: React.FC = () => {
                 const { data: matchedAccounts } = await supabase.from('accounts').select('id').ilike('name', `%${searchTerm}%`);
                 const { data: matchedCategories } = await supabase.from('categories').select('id').ilike('name', `%${searchTerm}%`);
                 
-                // Fix: Cast matchedAccounts and matchedCategories explicitly to any[] or [] to satisfy TypeScript and allow .map()
-                const accIdsForStatsData = (Array.isArray(matchedAccounts) ? matchedAccounts : []) as any[];
-                const catIdsForStatsData = (Array.isArray(matchedCategories) ? matchedCategories : []) as any[];
-                
-                // Now map is called on explicitly cast array
-                const accIdsForStats = accIdsForStatsData.map((a: any) => a.id);
-                const catIdsForStats = catIdsForStatsData.map((c: any) => c.id);
+                // Fix: Robust type assertion for stats query results
+                const accIdsForStats: string[] = (matchedAccounts as any[])?.map((a: any) => a.id) || [];
+                const catIdsForStats: string[] = (matchedCategories as any[])?.map((c: any) => c.id) || [];
                 
                 const orConditions = [`notes.ilike.%${searchTerm}%`];
                 if (accIdsForStats.length > 0) { 

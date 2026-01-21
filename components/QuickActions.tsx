@@ -8,7 +8,7 @@ import {
     PlusIcon, XMarkIcon, ArrowUpIcon, ArrowDownIcon, HandRaisedIcon, UserPlusIcon, ArrowLeftIcon, AccountsIcon, ScaleIcon, ArrowsRightLeftIcon, CurrencyDollarIcon,
     WalletIcon, BanknoteIcon, LandmarkIcon, BriefcaseIcon, CalendarDaysIcon, TagIcon, PencilSquareIcon, iconMap, CheckCircleIcon, SparklesIcon,
     ChevronRightIcon, MagnifyingGlassIcon, ContactsIcon, CheckSquareIcon, CategoriesIcon,
-    ShoppingCartIcon, CoffeeIcon, ReceiptIcon, BusIcon, MovieIcon, SaladIcon, ShirtIcon2, PlaneIcon2, TrophyIcon
+    ShoppingCartIcon, CoffeeIcon, ReceiptIcon, BusIcon, MovieIcon, SaladIcon, ShirtIcon2, PlaneIcon2, TrophyIcon, ClockIcon
 } from './icons';
 import { logActivity } from '../lib/logger';
 
@@ -253,6 +253,8 @@ const TransactionModal: React.FC<{
     const [selectedAccountId, setSelectedAccountId] = useState(accounts.length > 0 ? accounts[0].id : '');
     const [selectedCategoryId, setSelectedCategoryId] = useState('');
     const [notes, setNotes] = useState('');
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [time, setTime] = useState(new Date().toTimeString().slice(0, 5));
     const [isSaving, setIsSaving] = useState(false);
     const [isAddingCategory, setIsAddingCategory] = useState(false);
     const toast = useToast();
@@ -267,6 +269,7 @@ const TransactionModal: React.FC<{
         const { data: acc } = await supabase.from('accounts').select('balance').eq('id', selectedAccountId).single();
         
         if (acc) {
+            const finalDateTime = new Date(`${date}T${time}:00`);
             const newBal = type === 'income' ? acc.balance + val : acc.balance - val;
             await supabase.from('accounts').update({ balance: newBal }).eq('id', selectedAccountId);
             await supabase.from('transactions').insert({
@@ -275,7 +278,7 @@ const TransactionModal: React.FC<{
                 type,
                 category_id: selectedCategoryId || null,
                 notes,
-                date: new Date().toISOString()
+                date: finalDateTime.toISOString()
             });
             logActivity(`تسجيل ${type === 'income' ? 'إيراد' : 'مصروف'}: ${formatCurrency(val)}`);
             onSuccess();
@@ -299,8 +302,8 @@ const TransactionModal: React.FC<{
     }
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="relative group text-center py-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="relative group text-center py-4">
                 <div className={`absolute inset-0 blur-3xl opacity-10 rounded-full transition-colors duration-500 ${type === 'income' ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
                 <div className="relative z-10 flex flex-col items-center">
                     <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">أدخل المبلغ</span>
@@ -316,6 +319,34 @@ const TransactionModal: React.FC<{
                             className={`w-full bg-transparent text-center text-6xl font-black focus:outline-none transition-colors duration-300 placeholder-slate-800 ${type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`} 
                         />
                         <span className={`text-xl font-bold ${type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>د.ل</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Date and Time Fields */}
+            <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">التاريخ</label>
+                    <div className="relative group">
+                        <input 
+                            type="date" 
+                            value={date} 
+                            onChange={e => setDate(e.target.value)} 
+                            className="w-full bg-slate-800/50 border border-white/5 rounded-2xl p-4 text-xs text-white focus:outline-none focus:border-cyan-500/50 transition-all appearance-none" 
+                        />
+                        <CalendarDaysIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                    </div>
+                </div>
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">الوقت</label>
+                    <div className="relative group">
+                        <input 
+                            type="time" 
+                            value={time} 
+                            onChange={e => setTime(e.target.value)} 
+                            className="w-full bg-slate-800/50 border border-white/5 rounded-2xl p-4 text-xs text-white focus:outline-none focus:border-cyan-500/50 transition-all appearance-none" 
+                        />
+                        <ClockIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
                     </div>
                 </div>
             </div>
