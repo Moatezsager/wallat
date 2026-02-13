@@ -7,7 +7,8 @@ import ConfirmDialog from './ConfirmDialog';
 import { 
     PlusIcon, PencilSquareIcon, TrashIcon, CheckCircleIcon, ExclamationTriangleIcon, XMarkIcon, 
     ContactsIcon, CalendarDaysIcon, WhatsappIcon, WalletIcon, ArrowRightIcon, ClockIcon,
-    ChevronDownIcon, ChevronUpIcon, ArrowDownIcon, ArrowUpIcon, ScaleIcon, SparklesIcon
+    ChevronDownIcon, ChevronUpIcon, ArrowDownIcon, ArrowUpIcon, ScaleIcon, SparklesIcon,
+    EllipsisVerticalIcon
 } from './icons';
 import { logActivity } from '../lib/logger';
 
@@ -21,12 +22,113 @@ const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () =>
             <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-[60px] pointer-events-none"></div>
             <div className="flex justify-between items-center mb-6 relative z-10"> 
                 <h3 className="text-xl font-bold text-white">{title}</h3> 
-                <button onClick={onClose} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 transition-colors"><XMarkIcon className="w-5 h-5 text-slate-400" /></button> 
+                <button onClick={onClose} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 transition-colors text-slate-400"><XMarkIcon className="w-5 h-5" /></button> 
             </div> 
-            <div className="relative z-10">{children}</div>
+            <div className="relative z-10 max-h-[70vh] overflow-y-auto no-scrollbar">{children}</div>
         </div> 
     </div> 
 );
+
+const EditDebtModal: React.FC<{ 
+    debt: Debt, 
+    contacts: Contact[],
+    onSuccess: () => void, 
+    onCancel: () => void 
+}> = ({ debt, contacts, onSuccess, onCancel }) => {
+    const [amount, setAmount] = useState(debt.amount.toString());
+    const [description, setDescription] = useState(debt.description || '');
+    const [dueDate, setDueDate] = useState(debt.due_date || '');
+    const [contactId, setContactId] = useState(debt.contact_id || '');
+    const [type, setType] = useState<'for_you' | 'on_you'>(debt.type);
+    const [isSaving, setIsSaving] = useState(false);
+    const toast = useToast();
+
+    const handleUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSaving(true);
+        try {
+            const newAmount = Number(amount);
+            
+            if (debt.account_id) {
+                const { data: acc } = await supabase.from('accounts').select('balance').eq('id', debt.account_id).single();
+                if (acc) {
+                    const oldImpact = debt.type === 'on_you' ? debt.amount : -debt.amount;
+                    let tempBalance = acc.balance - oldImpact;
+                    const newImpact = type === 'on_you' ? newAmount : -newAmount;
+                    const finalBalance = tempBalance + newImpact;
+                    await supabase.from('accounts').update({ balance: finalBalance }).eq('id', debt.account_id);
+                }
+            }
+
+            const { error } = await supabase.from('debts').update({
+                amount: newAmount,
+                description,
+                due_date: dueDate || null,
+                contact_id: contactId,
+                type
+            }).eq('id', debt.id);
+
+            if (error) throw error;
+            
+            logActivity(`تعديل مالي لدين: ${contacts.find(c => c.id === contactId)?.name} بمبلغ ${formatCurrency(newAmount)}`);
+            toast.success('تم تحديث البيانات وتعديل الأرصدة المرتبطة');
+            onSuccess();
+        } catch (err) {
+            toast.error('فشل في حفظ التعديلات');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <form onSubmit={handleUpdate} className="space-y-5">
+            <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase px-1 block tracking-widest">نوع الذمة المالية</label>
+                <div className="flex bg-slate-800 p-1 rounded-2xl border border-white/5 shadow-inner">
+                    <button type="button" onClick={() => setType('on_you')} className={`flex-1 py-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 ${type === 'on_you' ? 'bg-rose-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
+                        <ArrowDownIcon className="w-4 h-4"/> دين عليك
+                    </button>
+                    <button type="button" onClick={() => setType('for_you')} className={`flex-1 py-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 ${type === 'for_you' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
+                        <ArrowUpIcon className="w-4 h-4"/> دين لك
+                    </button>
+                </div>
+            </div>
+
+            <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase px-1 mb-1 block">المبلغ الحالي</label>
+                <div className="relative group">
+                    <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 text-white font-black text-2xl focus:border-cyan-500 transition-all text-center" />
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-500">د.ل</span>
+                </div>
+            </div>
+            
+            <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase px-1 mb-1 block">البيان / الوصف</label>
+                <input type="text" value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 outline-none" placeholder="اكتب سبباً للدين..." />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase px-1 mb-1 block">التاريخ</label>
+                    <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 outline-none text-xs" />
+                </div>
+                <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase px-1 mb-1 block">الطرف الآخر</label>
+                    <select value={contactId} onChange={e => setContactId(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 outline-none text-xs">
+                        {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                </div>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+                <button type="button" onClick={onCancel} className="flex-1 py-3 text-slate-400 font-bold">إلغاء</button>
+                <button type="submit" disabled={isSaving} className="flex-[2] py-4 bg-cyan-600 text-white rounded-2xl font-black text-lg shadow-xl shadow-cyan-900/20 active:scale-95 transition-all">
+                    {isSaving ? 'جاري المعالجة...' : 'تحديث البيانات'}
+                </button>
+            </div>
+        </form>
+    );
+};
 
 const InstallmentModal: React.FC<{ 
     debt: Debt, 
@@ -137,9 +239,12 @@ const DebtItem: React.FC<{
     debt: Debt, 
     onInstall: (d: Debt) => void, 
     onSettle: (d: Debt) => void,
+    onEdit: (d: Debt) => void,
+    onDelete: (d: Debt) => void,
     onSelectContact: (id: string) => void 
-}> = ({ debt, onInstall, onSettle, onSelectContact }) => {
+}> = ({ debt, onInstall, onSettle, onEdit, onDelete, onSelectContact }) => {
     const [showHistory, setShowHistory] = useState(false);
+    const [showOptions, setShowOptions] = useState(false);
     const isForYou = debt.type === 'for_you';
     
     const paymentsSum = debt.payments?.reduce((s, p) => s + p.amount, 0) || 0;
@@ -148,7 +253,6 @@ const DebtItem: React.FC<{
 
     const handleWhatsApp = (e: React.MouseEvent) => {
         e.stopPropagation();
-        
         const name = debt.contacts?.name || 'الأخ الفاضل';
         const remaining = formatCurrency(debt.amount);
         const registrationDate = new Date(debt.created_at).toLocaleDateString('ar-LY');
@@ -158,96 +262,120 @@ const DebtItem: React.FC<{
         message += `مرحباً بك ${name}، أتمنى أن تكون في تمام الصحة والعافية.\n\n`;
         message += `هذا تذكير ودي بخصوص الذمة المالية المتبقية والمسجلة بتاريخ ${registrationDate}.\n`;
         message += `المبلغ المستحق حالياً هو: *${remaining}*.\n`;
-        if (dueDate) {
-            message += `تاريخ الاستحقاق المتفق عليه: ${dueDate}.\n`;
-        }
+        if (dueDate) message += `تاريخ الاستحقاق المتفق عليه: ${dueDate}.\n`;
         message += `\nشاكرين لك حسن تعاونك، مع خالص التحية والتقدير.`;
 
-        const encodedMsg = encodeURIComponent(message);
         const phone = debt.contacts?.phone ? debt.contacts.phone.replace(/\D/g,'') : '';
-        
-        // إذا لم يوجد رقم، يفتح واتساب ليختار المستخدم جهة الاتصال يدوياً مع النص جاهز
-        const url = phone ? `https://wa.me/${phone}?text=${encodedMsg}` : `https://wa.me/?text=${encodedMsg}`;
+        const url = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}` : `https://wa.me/?text=${encodeURIComponent(message)}`;
         window.open(url, '_blank');
     };
 
     return (
-        <div className={`glass-card p-5 rounded-[2.5rem] border border-white/5 transition-all relative overflow-hidden group ${debt.paid ? 'opacity-40 grayscale' : 'hover:border-white/10 shadow-lg'}`}>
-            <div className="flex justify-between items-start mb-4 relative z-10">
+        <div className={`glass-card p-6 rounded-[2.5rem] border border-white/5 transition-all relative overflow-hidden group ${debt.paid ? 'opacity-50 grayscale' : 'hover:border-white/10 shadow-xl bg-slate-900/60'}`}>
+            <div className={`absolute top-0 right-0 w-24 h-24 blur-[50px] opacity-10 ${isForYou ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
+            
+            <div className="flex justify-between items-start mb-5 relative z-10">
                 <div className="flex items-center gap-4">
-                    <button onClick={() => debt.contact_id && onSelectContact(debt.contact_id)} className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white border border-white/10 active:scale-90 transition-transform ${isForYou ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
-                        <span className="text-xl font-black">{debt.contacts?.name?.charAt(0) || '?'}</span>
+                    <button onClick={() => debt.contact_id && onSelectContact(debt.contact_id)} className={`w-16 h-16 rounded-[1.25rem] flex items-center justify-center text-white border border-white/10 active:scale-90 transition-transform ${isForYou ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                        <span className="text-2xl font-black">{debt.contacts?.name?.charAt(0) || '?'}</span>
                     </button>
                     <div>
                         <h4 className="font-black text-white text-lg leading-tight">{debt.contacts?.name || 'غير معروف'}</h4>
                         <div className="flex items-center gap-2 mt-1">
-                             <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${isForYou ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                             <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg uppercase tracking-tighter ${isForYou ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
                                 {isForYou ? 'تحصيل لك' : 'سداد عليك'}
                             </span>
-                            {debt.due_date && <span className="text-[9px] text-slate-500 font-bold flex items-center gap-1"><ClockIcon className="w-3 h-3"/> {new Date(debt.due_date).toLocaleDateString('ar-LY')}</span>}
+                            {debt.due_date && (
+                                <span className={`text-[10px] font-bold flex items-center gap-1 ${new Date(debt.due_date) < new Date() && !debt.paid ? 'text-rose-500' : 'text-slate-500'}`}>
+                                    <ClockIcon className="w-3.5 h-3.5"/> {new Date(debt.due_date).toLocaleDateString('ar-LY')}
+                                </span>
+                            )}
                         </div>
                     </div>
                 </div>
-                <div className="text-left">
-                    <p className={`text-2xl font-black tabular-nums ${isForYou ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {formatCurrency(debt.amount)}
-                    </p>
-                    <p className="text-[10px] text-slate-500 font-bold max-w-[120px] truncate">{debt.description || 'بدون وصف'}</p>
+                
+                <div className="relative">
+                    <button onClick={() => setShowOptions(!showOptions)} className="p-2 rounded-xl hover:bg-white/5 text-slate-500 transition-colors">
+                        <EllipsisVerticalIcon className="w-6 h-6" />
+                    </button>
+                    {showOptions && (
+                        <div className="absolute left-0 mt-2 w-40 bg-slate-800 border border-white/10 rounded-2xl shadow-2xl z-20 overflow-hidden animate-fade-in">
+                            <button onClick={() => { onEdit(debt); setShowOptions(false); }} className="w-full p-3 text-right text-xs font-bold text-slate-300 hover:bg-white/5 flex items-center gap-2">
+                                <PencilSquareIcon className="w-4 h-4 text-cyan-400" /> تعديل البيانات
+                            </button>
+                            <button onClick={() => { onDelete(debt); setShowOptions(false); }} className="w-full p-3 text-right text-xs font-bold text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 border-t border-white/5">
+                                <TrashIcon className="w-4 h-4" /> حذف السجل
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* Progress Bar */}
-            {!debt.paid && (
-                <div className="mb-5 space-y-1.5">
-                    <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">
-                        <span>النسبة المسددة: {progress.toFixed(0)}%</span>
-                        <span>إجمالي الدين: {formatCurrency(totalOriginal)}</span>
+            <div className="mb-6 bg-black/20 p-4 rounded-3xl border border-white/5">
+                <div className="flex justify-between items-end">
+                    <div>
+                        <p className="text-[10px] text-slate-500 font-black uppercase mb-1">المبلغ المتبقي</p>
+                        <p className={`text-3xl font-black tabular-nums ${isForYou ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {formatCurrency(debt.amount)}
+                        </p>
                     </div>
-                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden border border-white/5 shadow-inner">
-                        <div className={`h-full rounded-full transition-all duration-1000 ${isForYou ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{ width: `${progress}%` }}></div>
+                    <div className="text-left">
+                        <p className="text-[10px] text-slate-500 font-bold max-w-[150px] truncate">{debt.description || 'بدون وصف إضافي'}</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Progress Bar Section */}
+            {!debt.paid && (
+                <div className="mb-6 space-y-2 px-1">
+                    <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                        <span>سُدد: {progress.toFixed(0)}%</span>
+                        <span>أصل الدين: {formatCurrency(totalOriginal)}</span>
+                    </div>
+                    <div className="h-2 bg-slate-800 rounded-full overflow-hidden border border-white/5 shadow-inner">
+                        <div className={`h-full rounded-full transition-all duration-1000 ${isForYou ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.3)]'}`} style={{ width: `${progress}%` }}></div>
                     </div>
                 </div>
             )}
 
-            <div className="flex gap-2 pt-2 border-t border-white/5 relative z-10">
+            <div className="flex gap-2 pt-2 relative z-10">
                 {!debt.paid ? (
                     <>
-                        <button onClick={handleWhatsApp} className="p-3 bg-emerald-600 text-white rounded-2xl shadow-xl shadow-emerald-900/30 active:scale-95 transition-all flex items-center justify-center group/wa" title="إرسال تذكير ذكي">
+                        <button onClick={handleWhatsApp} className="p-3.5 bg-emerald-600 text-white rounded-2xl shadow-xl shadow-emerald-900/30 active:scale-95 transition-all flex items-center justify-center group/wa" title="إرسال تذكير">
                             <WhatsappIcon className="w-6 h-6 group-hover/wa:scale-110 transition-transform" />
                         </button>
-                        <button onClick={() => onInstall(debt)} className="flex-1 py-3 bg-cyan-600/10 hover:bg-cyan-600/20 text-cyan-400 rounded-2xl text-[11px] font-black transition-all border border-cyan-500/20">تقسيط</button>
-                        <button onClick={() => onSettle(debt)} className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white rounded-2xl text-[11px] font-black transition-all border border-white/5">دفع كامل</button>
+                        <button onClick={() => onInstall(debt)} className="flex-1 py-3.5 bg-cyan-600/10 hover:bg-cyan-600/20 text-cyan-400 rounded-2xl text-xs font-black transition-all border border-cyan-500/20 shadow-inner">تقسيط</button>
+                        <button onClick={() => onSettle(debt)} className="flex-1 py-3.5 bg-white/5 hover:bg-white/10 text-white rounded-2xl text-xs font-black transition-all border border-white/5">تسوية</button>
                     </>
                 ) : (
-                    <div className="w-full py-2.5 bg-emerald-500/10 rounded-2xl text-center text-xs font-black text-emerald-500 flex items-center justify-center gap-2">
-                        <CheckCircleIcon className="w-5 h-5" /> تمت التسوية بنجاح
+                    <div className="w-full py-3 bg-emerald-500/10 rounded-2xl text-center text-xs font-black text-emerald-500 flex items-center justify-center gap-2 border border-emerald-500/20 shadow-inner">
+                        <CheckCircleIcon className="w-5 h-5" /> تم إغلاق الذمة المالية
                     </div>
                 )}
                 
-                <button onClick={() => setShowHistory(!showHistory)} className={`p-3 rounded-2xl transition-all ${showHistory ? 'bg-white/10 text-white' : 'bg-white/5 text-slate-500 hover:text-white'}`}>
-                    {showHistory ? <ChevronUpIcon className="w-5 h-5" /> : <ChevronDownIcon className="w-5 h-5" />}
+                <button onClick={() => setShowHistory(!showHistory)} className={`p-3.5 rounded-2xl transition-all ${showHistory ? 'bg-white/10 text-white' : 'bg-white/5 text-slate-500 hover:text-white'}`}>
+                    <ChevronDownIcon className={`w-5 h-5 transition-transform duration-300 ${showHistory ? 'rotate-180' : ''}`} />
                 </button>
             </div>
 
-            {/* Payments History */}
             {showHistory && (
-                <div className="mt-4 space-y-2 animate-fade-in border-t border-white/5 pt-4">
-                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest px-2 mb-2">سجل الأقساط المسددة</p>
+                <div className="mt-5 space-y-3 animate-fade-in border-t border-white/5 pt-5">
+                    <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest px-1">سجل السداد الجزئي</p>
                     {debt.payments && debt.payments.length > 0 ? debt.payments.map(p => (
-                        <div key={p.id} className="bg-black/20 p-3 rounded-2xl flex justify-between items-center border border-white/5">
+                        <div key={p.id} className="bg-white/5 p-4 rounded-2xl flex justify-between items-center border border-white/5">
                             <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-500">
-                                    <CalendarDaysIcon className="w-4 h-4" />
+                                <div className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400">
+                                    <CalendarDaysIcon className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <p className="text-xs font-bold text-slate-300">{new Date(p.payment_date).toLocaleDateString('ar-LY')}</p>
-                                    <p className="text-[9px] text-slate-500">{p.accounts?.name || 'حساب غير معروف'}</p>
+                                    <p className="text-xs font-bold text-slate-200">{new Date(p.payment_date).toLocaleDateString('ar-LY')}</p>
+                                    <p className="text-[10px] text-slate-500">{p.accounts?.name || 'حساب غير معروف'}</p>
                                 </div>
                             </div>
                             <span className="text-sm font-black text-cyan-400 tabular-nums">{formatCurrency(p.amount)}</span>
                         </div>
                     )) : (
-                        <p className="text-[10px] text-center text-slate-700 py-6 italic border-2 border-dashed border-white/5 rounded-2xl">لا يوجد أقساط مسجلة بعد</p>
+                        <div className="text-center py-6 border-2 border-dashed border-white/5 rounded-2xl text-[10px] text-slate-600 font-bold">لا توجد أقساط مسجلة بعد لهذا الدين</div>
                     )}
                 </div>
             )}
@@ -258,20 +386,25 @@ const DebtItem: React.FC<{
 const DebtsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (description?: string) => void, onSelectContact: (contactId: string) => void }> = ({ refreshTrigger, handleDatabaseChange, onSelectContact }) => {
     const [debts, setDebts] = useState<Debt[]>([]);
     const [accounts, setAccounts] = useState<Account[]>([]);
+    const [contacts, setContacts] = useState<Contact[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'on_you' | 'for_you'>('for_you');
     const [installmentDebt, setInstallmentDebt] = useState<Debt | null>(null);
     const [settleDebt, setSettleDebt] = useState<Debt | null>(null);
+    const [editDebt, setEditDebt] = useState<Debt | null>(null);
+    const [deleteDebt, setDeleteDebt] = useState<Debt | null>(null);
     const toast = useToast();
 
     const fetchData = async () => {
         setLoading(true);
-        const [dRes, aRes] = await Promise.all([
-            supabase.from('debts').select('*, contacts(*), accounts(name), payments:debt_payments(*, accounts(name))').order('due_date'),
-            supabase.from('accounts').select('*')
+        const [dRes, aRes, cRes] = await Promise.all([
+            supabase.from('debts').select('*, contacts(*), accounts(name), payments:debt_payments(*, accounts(name))').order('created_at', { ascending: false }),
+            supabase.from('accounts').select('*'),
+            supabase.from('contacts').select('*')
         ]);
         setDebts(dRes.data as unknown as Debt[] || []);
         setAccounts(aRes.data || []);
+        setContacts(cRes.data || []);
         setLoading(false);
     };
 
@@ -291,30 +424,68 @@ const DebtsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (descr
         if (!accId) return toast.error('يرجى إضافة حساب مالي أولاً لإتمام التسوية');
 
         try {
-            await supabase.from('debts').update({ amount: 0, paid: true, paid_at: new Date().toISOString() }).eq('id', settleDebt.id);
+            const { error: debtError } = await supabase.from('debts').update({ 
+                amount: 0, 
+                paid: true, 
+                paid_at: new Date().toISOString() 
+            }).eq('id', settleDebt.id);
+
+            if (debtError) throw debtError;
+
             const { data: acc } = await supabase.from('accounts').select('balance').eq('id', accId).single();
             if (acc) {
                 const sign = settleDebt.type === 'on_you' ? -1 : 1;
                 await supabase.from('accounts').update({ balance: acc.balance + (settleDebt.amount * sign) }).eq('id', accId);
             }
+
             await supabase.from('transactions').insert({
-                account_id: accId, amount: settleDebt.amount, type: settleDebt.type === 'on_you' ? 'expense' : 'income',
+                account_id: accId, 
+                amount: settleDebt.amount, 
+                type: settleDebt.type === 'on_you' ? 'expense' : 'income',
                 notes: `إغلاق كامل لذمة مالية: ${settleDebt.description || 'بدون وصف'}`,
                 date: new Date().toISOString()
             });
+
             logActivity(`إغلاق ذمة مالية بالكامل لـ ${settleDebt.contacts?.name}`);
             setSettleDebt(null);
             handleDatabaseChange();
             fetchData();
             toast.success('تم تسوية الذمة المالية بالكامل');
         } catch (err) {
-            toast.error('خطأ غير متوقع أثناء التسوية');
+            toast.error('حدث خطأ أثناء تنفيذ التسوية');
+        }
+    };
+
+    const handleDeleteDebt = async () => {
+        if (!deleteDebt) return;
+        try {
+            // منطق استعادة الرصيد عند الحذف (إذا كان الدين مرتبطاً بحساب)
+            if (deleteDebt.account_id && !deleteDebt.paid) {
+                const { data: acc } = await supabase.from('accounts').select('balance').eq('id', deleteDebt.account_id).single();
+                if (acc) {
+                    // نعكس العملية الأصلية: 
+                    // إذا كان دين عليك (دخل للحساب)، نخصمه. إذا كان لك (صرف من الحساب)، نرجعه.
+                    const reverseSign = deleteDebt.type === 'on_you' ? -1 : 1;
+                    await supabase.from('accounts').update({ balance: acc.balance + (deleteDebt.amount * reverseSign) }).eq('id', deleteDebt.account_id);
+                }
+            }
+
+            const { error } = await supabase.from('debts').delete().eq('id', deleteDebt.id);
+            if (error) throw error;
+            
+            logActivity(`حذف سجل دين واستعادة أرصدة الحسابات المرتبطة: ${deleteDebt.description || 'بدون وصف'}`);
+            toast.success('تم حذف السجل وتحديث الأرصدة');
+            setDeleteDebt(null);
+            fetchData();
+            handleDatabaseChange();
+        } catch (err) {
+            toast.error('لا يمكن الحذف لوجود أقساط مسجلة مسبقاً');
         }
     };
 
     return (
         <div className="space-y-8 pb-32 max-w-4xl mx-auto px-1">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 animate-fade-in">
                 <button onClick={() => setActiveTab('for_you')} className={`p-6 rounded-[2.5rem] border transition-all relative overflow-hidden group ${activeTab === 'for_you' ? 'bg-emerald-500/10 border-emerald-500/50 shadow-xl' : 'bg-slate-900/50 border-white/5 opacity-60'}`}>
                     <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 blur-3xl rounded-full"></div>
                     <p className="text-[11px] font-black text-slate-500 uppercase mb-2 flex items-center gap-2"><ArrowDownIcon className="w-4 h-4 text-emerald-500" /> ديون لك</p>
@@ -329,16 +500,16 @@ const DebtsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (descr
 
             {loading ? (
                 <div className="space-y-4">
-                    {[1, 2, 3].map(i => <div key={i} className="h-44 bg-white/5 rounded-[2.5rem] animate-pulse border border-white/5"></div>)}
+                    {[1, 2, 3].map(i => <div key={i} className="h-56 bg-white/5 rounded-[2.5rem] animate-pulse border border-white/5"></div>)}
                 </div>
             ) : (
                 <div className="space-y-5">
                     {debts.filter(d => d.type === activeTab).length === 0 ? (
-                        <div className="py-24 text-center glass-card rounded-[3rem] border-2 border-dashed border-slate-800 bg-slate-900/20">
+                        <div className="py-24 text-center glass-card rounded-[3rem] border-2 border-dashed border-slate-800 bg-slate-900/20 animate-fade-in">
                              <div className="w-20 h-20 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <CheckCircleIcon className="w-10 h-10 text-slate-700 opacity-20" />
+                                <ScaleIcon className="w-10 h-10 text-slate-700 opacity-20" />
                             </div>
-                            <p className="text-slate-600 font-bold text-lg">لا توجد سجلات نشطة حالياً</p>
+                            <p className="text-slate-600 font-bold text-lg">لا توجد سجلات {activeTab === 'for_you' ? 'تحصيل' : 'سداد'} حالياً</p>
                         </div>
                     ) : (
                         debts.filter(d => d.type === activeTab).map(debt => (
@@ -347,6 +518,8 @@ const DebtsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (descr
                                 debt={debt} 
                                 onInstall={setInstallmentDebt} 
                                 onSettle={setSettleDebt}
+                                onEdit={setEditDebt}
+                                onDelete={setDeleteDebt}
                                 onSelectContact={onSelectContact} 
                             />
                         ))
@@ -355,7 +528,7 @@ const DebtsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (descr
             )}
 
             {installmentDebt && (
-                <Modal title="مساعد التقسيط المتقدم" onClose={() => setInstallmentDebt(null)}>
+                <Modal title="تسجيل دفعة جزئية" onClose={() => setInstallmentDebt(null)}>
                     <InstallmentModal 
                         debt={installmentDebt} 
                         accounts={accounts} 
@@ -365,13 +538,33 @@ const DebtsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (descr
                 </Modal>
             )}
 
+            {editDebt && (
+                <Modal title="تعديل بيانات الدين" onClose={() => setEditDebt(null)}>
+                    <EditDebtModal 
+                        debt={editDebt} 
+                        contacts={contacts}
+                        onSuccess={() => { setEditDebt(null); fetchData(); }} 
+                        onCancel={() => setEditDebt(null)} 
+                    />
+                </Modal>
+            )}
+
             <ConfirmDialog 
                 isOpen={!!settleDebt}
-                title="تسوية كاملة للمبلغ"
-                message={`هل أنت متأكد من رغبتك في إغلاق كامل الذمة لـ "${settleDebt?.contacts?.name}"؟ سيتم تسجيل مبلغ (${formatCurrency(settleDebt?.amount || 0)}) في حسابك المالي.`}
-                confirmText="نعم، إغلاق الآن"
+                title="تأكيد التسوية الكاملة"
+                message={`سيتم إغلاق الدين المسجل لـ "${settleDebt?.contacts?.name}" بالكامل بمبلغ (${formatCurrency(settleDebt?.amount || 0)}). هل تود المتابعة؟`}
+                confirmText="نعم، إتمام التسوية"
                 onConfirm={handleSettleFull}
                 onCancel={() => setSettleDebt(null)}
+            />
+
+            <ConfirmDialog 
+                isOpen={!!deleteDebt}
+                title="حذف سجل الدين"
+                message="هل أنت متأكد من حذف هذا السجل؟ سيتم إزالته واستعادة أرصدة الحسابات المرتبطة برمجياً."
+                confirmText="نعم، حذف نهائياً"
+                onConfirm={handleDeleteDebt}
+                onCancel={() => setDeleteDebt(null)}
             />
         </div>
     );

@@ -190,8 +190,25 @@ const TransactionsPage: React.FC = () => {
     // المرجع للكشف عن التمرير التلقائي
     const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-    const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: async () => (await supabase.from('accounts').select('*')).data as Account[] || [] });
-    const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: async () => (await supabase.from('categories').select('*')).data as Category[] || [] });
+    // Fix: Explicitly cast the query result for accounts to handle potential unknown data type from Supabase.
+    const { data: accountsData } = useQuery({ 
+        queryKey: ['accounts'], 
+        queryFn: async () => {
+            const result = await supabase.from('accounts').select('*');
+            return (result.data as Account[]) || [];
+        }
+    });
+    const accounts = accountsData || [];
+
+    // Fix: Explicitly cast the query result for categories to handle potential unknown data type from Supabase.
+    const { data: categoriesData } = useQuery({ 
+        queryKey: ['categories'], 
+        queryFn: async () => {
+            const result = await supabase.from('categories').select('*');
+            return (result.data as Category[]) || [];
+        }
+    });
+    const categories = categoriesData || [];
 
     const PAGE_SIZE = 20;
     
@@ -223,10 +240,9 @@ const TransactionsPage: React.FC = () => {
                 const { data: matchedAccounts } = await supabase.from('accounts').select('id').ilike('name', `%${searchTerm}%`);
                 const { data: matchedCategories } = await supabase.from('categories').select('id').ilike('name', `%${searchTerm}%`);
                 
-                // Fix: Robust type assertion to ensure matched results are treated as arrays for .map()
-                // Directly cast and map in one step to ensure TypeScript recognizes the array type correctly.
-                const accIds: string[] = (matchedAccounts as any[])?.map((a: any) => a.id) || [];
-                const catIds: string[] = (matchedCategories as any[])?.map((c: any) => c.id) || [];
+                // Fix: Properly handle potential unknown type before mapping by ensuring it is treated as an array and typed properly inside ternary.
+                const accIds: string[] = Array.isArray(matchedAccounts) ? (matchedAccounts as any[]).map((a: any) => a.id) : [];
+                const catIds: string[] = Array.isArray(matchedCategories) ? (matchedCategories as any[]).map((c: any) => c.id) : [];
                 
                 const orConditions = [`notes.ilike.%${searchTerm}%`];
                 if (accIds.length > 0) {
@@ -237,11 +253,11 @@ const TransactionsPage: React.FC = () => {
                 query = query.or(orConditions.join(','));
             }
 
-            const { data, error, count } = await query;
+            const { data: txData, error, count } = await query;
             if (error) throw error;
             
-            // Fix: Replace unsafe cast with Array.isArray to avoid "Property 'length' does not exist on type 'unknown'"
-            const resultData = Array.isArray(data) ? data : [];
+            // Fix: Cast txData to any[] to safely handle 'unknown' results from Supabase before return.
+            const resultData = (txData as any[]) || [];
             return {
                 transactions: resultData as Transaction[],
                 totalCount: count || 0,
@@ -273,9 +289,14 @@ const TransactionsPage: React.FC = () => {
         };
     }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-    const allTransactions = useMemo(() => data?.pages.flatMap(page => page.transactions) || [], [data]);
+    // Fix: Safely handle data derived from InfiniteQuery pages to prevent 'unknown' errors.
+    const allTransactions = useMemo(() => {
+        const pages = (data as any)?.pages;
+        return Array.isArray(pages) ? pages.flatMap((page: any) => page.transactions || []) : [];
+    }, [data]);
 
-    const { data: stats } = useQuery({
+    // Fix: Cast the results of stats query from Supabase correctly.
+    const { data: statsQueryResult } = useQuery({
         queryKey: ['transactions-stats', filters, searchTerm],
         queryFn: async () => {
              let query = supabase.from('transactions').select('amount, type, notes, account_id, to_account_id, category_id');
@@ -287,9 +308,9 @@ const TransactionsPage: React.FC = () => {
                 const { data: matchedAccounts } = await supabase.from('accounts').select('id').ilike('name', `%${searchTerm}%`);
                 const { data: matchedCategories } = await supabase.from('categories').select('id').ilike('name', `%${searchTerm}%`);
                 
-                // Fix: Robust type assertion for stats query results
-                const accIdsForStats: string[] = (matchedAccounts as any[])?.map((a: any) => a.id) || [];
-                const catIdsForStats: string[] = (matchedCategories as any[])?.map((c: any) => c.id) || [];
+                // Fix: Properly handle potential unknown type before mapping by calling .map() inside the ternary branch.
+                const accIdsForStats: string[] = Array.isArray(matchedAccounts) ? (matchedAccounts as any[]).map((a: any) => a.id) : [];
+                const catIdsForStats: string[] = Array.isArray(matchedCategories) ? (matchedCategories as any[]).map((c: any) => c.id) : [];
                 
                 const orConditions = [`notes.ilike.%${searchTerm}%`];
                 if (accIdsForStats.length > 0) { 
@@ -299,10 +320,10 @@ const TransactionsPage: React.FC = () => {
                 if (catIdsForStats.length > 0) orConditions.push(`category_id.in.(${catIdsForStats.join(',')})`);
                 query = query.or(orConditions.join(','));
              }
-             const { data } = await query;
+             const { data: rawStatsData } = await query;
              
-             // Fix: Explicitly cast narrowing to any[] to satisfy TypeScript for reduce() call on Supabase response
-             return (Array.isArray(data) ? (data as any[]) : []).reduce((acc: any, curr: any) => {
+             // Fix: Properly cast and iterate over results using safer conditional logic.
+             return (Array.isArray(rawStatsData) ? (rawStatsData as any[]) : []).reduce((acc: any, curr: any) => {
                  if (curr.type === 'income') acc.income += curr.amount;
                  if (curr.type === 'expense') acc.expense += curr.amount;
                  return acc;
@@ -310,9 +331,8 @@ const TransactionsPage: React.FC = () => {
         }
     });
 
-    const summary = stats || { income: 0, expense: 0 };
+    const summary = (statsQueryResult as { income: number; expense: number }) || { income: 0, expense: 0 };
 
-    // Fix: Explicitly type the reduce generic and initial value to ensure groupedTransactions correctly infers the 'txs' values as 'Transaction[]'
     const groupedTransactions = useMemo(() => {
         return allTransactions.reduce<Record<string, Transaction[]>>((acc, tx) => {
             const dateKey = formatDateGroup(tx.date);

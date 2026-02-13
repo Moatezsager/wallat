@@ -123,7 +123,6 @@ const MonthDetailView: React.FC<{
 
     return (
         <div className="space-y-6 animate-fade-in pb-10">
-            {/* Header & Back Button */}
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-4">
                     <button onClick={onBack} className="p-2.5 bg-slate-800 rounded-2xl text-slate-400 hover:text-white transition shadow-lg active:scale-90">
@@ -139,7 +138,6 @@ const MonthDetailView: React.FC<{
                 </div>
             </div>
 
-            {/* Quick Summary Card */}
             <div className="grid grid-cols-2 gap-3">
                 <div className="bg-emerald-500/5 border border-emerald-500/10 p-4 rounded-3xl">
                     <p className="text-[10px] font-black text-emerald-500/50 uppercase mb-1">إجمالي الدخل</p>
@@ -151,7 +149,6 @@ const MonthDetailView: React.FC<{
                 </div>
             </div>
 
-            {/* Tab Switcher */}
             <div className="flex bg-slate-800/60 p-1.5 rounded-[1.5rem] border border-white/5 shadow-inner">
                 <button onClick={() => setActiveTab('expense')} className={`flex-1 py-3 rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-2 ${activeTab === 'expense' ? 'bg-rose-600 text-white shadow-xl shadow-rose-900/20' : 'text-slate-500'}`}>
                     <ArrowUpIcon className="w-4 h-4"/> المصروفات
@@ -161,7 +158,6 @@ const MonthDetailView: React.FC<{
                 </button>
             </div>
 
-            {/* Category List */}
             {loading ? (
                 <div className="space-y-3">
                     {[1,2,3].map(i => <div key={i} className="h-24 bg-slate-800/30 rounded-[2rem] animate-pulse border border-white/5"></div>)}
@@ -246,8 +242,6 @@ const MonthlyReportModal: React.FC<{ onClose: () => void; }> = ({ onClose }) => 
     return (
         <div className="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-2xl flex items-center justify-center p-4 animate-fade-in pt-safe pb-safe">
             <div className="relative w-full max-w-lg bg-slate-900 rounded-[3rem] shadow-2xl border border-white/10 flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
-                
-                {/* Modal Header */}
                 <div className="p-7 pb-4 shrink-0 z-10 flex justify-between items-start border-b border-white/5 bg-slate-900/50 backdrop-blur-md">
                     <div>
                         <h3 className="text-2xl font-black text-white flex items-center gap-3">
@@ -264,7 +258,6 @@ const MonthlyReportModal: React.FC<{ onClose: () => void; }> = ({ onClose }) => 
                     </button>
                 </div>
 
-                {/* Content Area */}
                 <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
                     {selectedMonth !== null ? (
                         <MonthDetailView 
@@ -328,7 +321,6 @@ const MonthlyReportModal: React.FC<{ onClose: () => void; }> = ({ onClose }) => 
                     )}
                 </div>
                 
-                {/* Modal Footer Decorative */}
                 <div className="p-4 bg-slate-950/20 border-t border-white/5 text-center shrink-0">
                     <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.4em]">GreenBox Financial Assistant</p>
                 </div>
@@ -396,7 +388,8 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
                 const yearStart = new Date(now.getFullYear(), 0, 1).toISOString();
                 
                 const [accRes, debtRes, lastTxRes, annualRes, urgentDebtsRes, activitiesRes] = await Promise.all([
-                    supabase.from('accounts').select('*'),
+                    // استثناء الحسابات المؤرشفة من حساب صافي الممتلكات
+                    supabase.from('accounts').select('*').eq('is_archived', false),
                     supabase.from('debts').select('amount, type').eq('paid', false),
                     supabase.from('transactions').select('*, accounts:account_id(name, currency, type), categories(name, icon, color)').order('date', { ascending: false }).limit(5),
                     supabase.from('transactions').select('amount, type, date').gte('date', yearStart).in('type', ['income', 'expense']),
@@ -457,20 +450,17 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
         });
     }, [annualChartData, loading]);
 
-    // النشاطات المعروضة بناءً على حالة التوسيع
     const displayedActivities = isActivitiesExpanded ? recentActivities : recentActivities.slice(0, 1);
 
     return (
         <div className="space-y-6 pb-24 max-w-5xl mx-auto px-1 flex flex-col">
-            
-            {/* 1. Net Worth Card (Priority) */}
             <div className="relative overflow-hidden rounded-[2.5rem] p-7 text-white flex flex-col justify-between min-h-[12rem] shadow-2xl border border-white/5 bg-slate-900 order-1 animate-slide-up">
                 <div className="absolute inset-0 opacity-5 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
                 <div className="absolute -top-10 -right-10 w-48 h-48 bg-cyan-500/20 rounded-full blur-[60px]"></div>
                 
                 <div className="relative z-10">
                     <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
-                         صافي الممتلكات <ScaleIcon className="w-3 h-3 opacity-50" />
+                         صافي الممتلكات النشطة <ScaleIcon className="w-3 h-3 opacity-50" />
                     </p>
                     <h2 className="text-4xl xs:text-5xl font-black tracking-tight leading-tight">
                         <AnimatedCounter value={stats.netWorth} />
@@ -488,7 +478,6 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
                 </div>
             </div>
 
-            {/* 2. Stats Cards (Overview) */}
             <div className="grid grid-cols-2 gap-3 order-2 animate-fade-in">
                 <button onClick={() => setActivePage('debts')} className="glass-card p-5 rounded-[1.5rem] flex flex-col items-start hover:bg-white/5 transition-all group border border-white/5 bg-slate-900/40 shadow-lg">
                     <div className="p-2.5 bg-emerald-500/10 rounded-xl text-emerald-400 mb-3 group-hover:scale-110 transition-transform"><ArrowDownIcon className="w-5 h-5"/></div>
@@ -502,12 +491,10 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
                 </button>
             </div>
 
-            {/* 3. Quick Actions (Ease of use) */}
             <div className="order-3">
                 <QuickActions onActionSuccess={handleDatabaseChange} />
             </div>
 
-            {/* 4. Activities Section */}
             <div className="space-y-4 animate-fade-in order-4">
                 <div className="flex justify-between items-center px-1">
                     <h2 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-widest">
@@ -556,7 +543,6 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
                 </div>
             </div>
 
-            {/* 5. Urgent Debts Section */}
             {urgentDebts.length > 0 && (
                 <div className="space-y-3 animate-fade-in order-5">
                     <div className="flex justify-between items-center px-1">
@@ -591,8 +577,8 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
                                     </div>
 
                                     <div className="mt-auto flex justify-between items-center relative z-10 pt-2 border-t border-white/5">
-                                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase ${isOverdue ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : isToday ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-slate-800 text-slate-400'}`}>
-                                            {isOverdue ? `متأخر منذ ${Math.abs(days)} يوم` : isToday ? 'مستحق اليوم' : `باقي ${days} يوم`}
+                                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase ${isOverdue ? `متأخر منذ ${Math.abs(days)} يوم` : isToday ? 'مستحق اليوم' : `باقي ${days} يوم`}`}>
+                                            {isOverdue ? `متأخر ${Math.abs(days)} يوم` : isToday ? 'مستحق اليوم' : `باقي ${days} يوم`}
                                         </div>
                                         <ChevronLeftIcon className="w-4 h-4 text-slate-600 group-hover:translate-x-[-2px] transition-transform" />
                                     </div>
@@ -603,7 +589,6 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
                 </div>
             )}
 
-            {/* 6. Annual Performance Chart */}
             <div className="glass-card p-6 rounded-[2rem] border border-white/5 order-6 shadow-xl animate-fade-in">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="font-bold text-white flex items-center gap-2 text-sm"><ChartBarSquareIcon className="w-5 h-5 text-cyan-400"/> الأداء المالي {new Date().getFullYear()}</h3>
@@ -617,7 +602,6 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
                 </div>
             </div>
 
-            {/* 7. Recent Transactions */}
             <div className="space-y-4 order-7 animate-fade-in">
                 <div className="flex justify-between items-end px-1">
                     <h2 className="text-lg font-bold text-white">آخر المعاملات</h2>
