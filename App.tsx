@@ -22,7 +22,7 @@ import RecurringTransactionsPage from './components/RecurringTransactionsPage';
 import BottomNav from './components/BottomNav';
 import { ToastProvider } from './components/Toast';
 import { supabase } from './lib/supabase';
-import { WalletIcon } from './components/icons';
+import { WalletIcon, SparklesIcon } from './components/icons';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { translations, Language } from './lib/i18n';
 
@@ -61,10 +61,40 @@ const queryClient = new QueryClient({
   },
 });
 
+const SplashScreen: React.FC = () => (
+  <div className="fixed inset-0 z-[1000] bg-black flex flex-col items-center justify-center animate-fade-in overflow-hidden">
+    <div className="relative">
+      <img 
+        src="https://j.top4top.io/p_3698bbu8u0.gif" 
+        alt="Logo" 
+        className="w-48 h-48 md:w-64 md:h-64 object-contain relative z-10"
+      />
+    </div>
+    <div className="mt-12 flex flex-col items-center gap-4 relative z-10">
+      <div className="h-0.5 w-32 bg-slate-900 rounded-full overflow-hidden border border-white/5 shadow-inner">
+        <div className="h-full bg-gradient-to-r from-cyan-600 to-blue-500 animate-[loading_2s_ease-in-out_infinite]"></div>
+      </div>
+      <div className="flex items-center gap-2">
+        <SparklesIcon className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+        <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] animate-pulse">جاري التحميل</p>
+      </div>
+    </div>
+    
+    <style>{`
+      @keyframes loading {
+        0% { transform: translateX(-100%); }
+        50% { transform: translateX(0%); }
+        100% { transform: translateX(100%); }
+      }
+    `}</style>
+  </div>
+);
+
 function AppContent() {
   const { t, language } = useLanguage();
   const { theme } = useTheme();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
   
@@ -76,8 +106,15 @@ function AppContent() {
   const [activeContactName, setActiveContactName] = useState<string>('');
   
   useEffect(() => {
+    // إخفاء شاشة التحميل بعد 3 ثواني
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 3000);
+
     if (localStorage.getItem('app_authenticated') === 'true') setIsAuthenticated(true);
     if (localStorage.getItem('stealth_mode') === 'true') setIsStealthMode(true);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const toggleStealthMode = () => {
@@ -162,18 +199,24 @@ function AppContent() {
     }
   };
   
+  if (showSplash) {
+    return <SplashScreen />;
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen font-sans flex items-center justify-center p-4 relative overflow-hidden" dir={language === 'ar' ? 'rtl' : 'ltr'}>
         <div className="glass-card w-full max-sm p-8 rounded-3xl shadow-2xl text-center animate-slide-up relative z-10">
-          <div className="w-20 h-20 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-2xl mx-auto mb-8 flex items-center justify-center shadow-lg shadow-cyan-500/30 rotate-3">
+          <div className="w-20 h-20 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-2xl mx-auto mb-8 flex items-center justify-center shadow-lg shadow-cyan-500/30 rotate-3 transition-transform hover:rotate-0 duration-300">
              <WalletIcon className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">{t.welcome_back}</h1>
           <form onSubmit={handlePasswordSubmit} className="space-y-6">
             <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full bg-white dark:bg-slate-950/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-4 text-slate-900 dark:text-white text-center text-2xl tracking-[0.5em] focus:outline-none" placeholder={t.password_placeholder} autoFocus />
             {authError && <p className="text-rose-400 text-sm">{authError}</p>}
-            <button type="submit" className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg">{t.login}</button>
+            <button type="submit" className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95">
+              {t.login}
+            </button>
           </form>
         </div>
       </div>

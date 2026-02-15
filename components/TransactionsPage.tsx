@@ -431,7 +431,8 @@ const TransactionsPage: React.FC = () => {
                         <div key={date}>
                             <h3 className="font-bold text-sm text-slate-500 mb-3 px-2 sticky top-16 backdrop-blur-md bg-slate-950/30 rounded-lg inline-block z-10">{date}</h3>
                             <div className="space-y-2">
-                                {txs.map(tx => <TransactionItem key={tx.id} tx={tx} onClick={handleOpenDetail} />)}
+                                {/* Fix: Explicitly cast txs to Transaction[] to avoid 'unknown' type error during mapping */}
+                                {(txs as Transaction[]).map(tx => <TransactionItem key={tx.id} tx={tx} onClick={handleOpenDetail} />)}
                             </div>
                         </div>
                     ))}
