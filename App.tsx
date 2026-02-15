@@ -61,34 +61,93 @@ const queryClient = new QueryClient({
   },
 });
 
-const SplashScreen: React.FC = () => (
-  <div className="fixed inset-0 z-[1000] bg-black flex flex-col items-center justify-center animate-fade-in overflow-hidden">
-    <div className="relative">
-      <img 
-        src="https://j.top4top.io/p_3698bbu8u0.gif" 
-        alt="Logo" 
-        className="w-48 h-48 md:w-64 md:h-64 object-contain relative z-10"
-      />
+const AnimatedArabicText: React.FC<{ text: string }> = ({ text }) => {
+  return (
+    <div className="relative overflow-hidden px-4 animate-float">
+      <span className="text-xs font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-slate-600 via-cyan-400 to-slate-600 bg-[length:200%_auto] animate-shimmer-text">
+        {text}
+      </span>
     </div>
-    <div className="mt-12 flex flex-col items-center gap-4 relative z-10">
-      <div className="h-0.5 w-32 bg-slate-900 rounded-full overflow-hidden border border-white/5 shadow-inner">
-        <div className="h-full bg-gradient-to-r from-cyan-600 to-blue-500 animate-[loading_2s_ease-in-out_infinite]"></div>
+  );
+};
+
+const SplashScreen: React.FC = () => {
+  const phrases = [
+    "نؤمن بياناتك المالية",
+    "نحلل ميزانيتك بذكاء",
+    "نجهز محفظتك الرقمية",
+    "ندير التزاماتك بدقة"
+  ];
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIndex((prev) => (prev + 1) % phrases.length);
+    }, 1800);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-[1000] bg-black flex flex-col items-center justify-center animate-fade-in overflow-hidden">
+      {/* هالة ضوئية خلفية خافتة جداً */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-cyan-500/5 blur-[120px] rounded-full"></div>
+
+      <div className="relative mb-12 animate-float">
+        <img 
+          src="https://j.top4top.io/p_3698bbu8u0.gif" 
+          alt="Logo" 
+          className="w-28 h-28 md:w-32 md:h-32 object-contain relative z-10"
+        />
+        <div className="absolute inset-0 bg-white/5 blur-xl rounded-full scale-50"></div>
       </div>
-      <div className="flex items-center gap-2">
-        <SparklesIcon className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-        <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] animate-pulse">جاري التحميل</p>
+
+      <div className="flex flex-col items-center gap-6 relative z-10 w-full max-w-[240px]">
+        {/* شريط تحميل نحيف جداً وأنيق */}
+        <div className="h-[1px] w-32 bg-slate-900 rounded-full overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-transparent via-cyan-500 to-transparent w-full animate-shimmer-bar"></div>
+        </div>
+        
+        {/* النص المتغير مع تأثير الشيمر */}
+        <div className="h-6 flex items-center justify-center transition-all duration-700 animate-fade-in" key={index}>
+          <AnimatedArabicText text={phrases[index]} />
+        </div>
       </div>
+
+      <div className="absolute bottom-12 text-center opacity-30">
+        <p className="text-[7px] font-black text-slate-500 uppercase tracking-[0.6em] mb-1">Advanced Financial Ecosystem</p>
+        <div className="flex justify-center gap-1">
+          <div className="w-1 h-1 rounded-full bg-cyan-500 animate-pulse"></div>
+          <div className="w-1 h-1 rounded-full bg-cyan-500 animate-pulse [animation-delay:0.2s]"></div>
+          <div className="w-1 h-1 rounded-full bg-cyan-500 animate-pulse [animation-delay:0.4s]"></div>
+        </div>
+      </div>
+      
+      <style>{`
+        @keyframes shimmer-text {
+          0% { background-position: 100% center; }
+          100% { background-position: -100% center; }
+        }
+        @keyframes shimmer-bar {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-5px); }
+        }
+        .animate-shimmer-text {
+          animation: shimmer-text 3s linear infinite;
+        }
+        .animate-shimmer-bar {
+          animation: shimmer-bar 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+        .animate-float {
+          animation: float 4s ease-in-out infinite;
+        }
+      `}</style>
     </div>
-    
-    <style>{`
-      @keyframes loading {
-        0% { transform: translateX(-100%); }
-        50% { transform: translateX(0%); }
-        100% { transform: translateX(100%); }
-      }
-    `}</style>
-  </div>
-);
+  );
+};
 
 function AppContent() {
   const { t, language } = useLanguage();
@@ -106,10 +165,10 @@ function AppContent() {
   const [activeContactName, setActiveContactName] = useState<string>('');
   
   useEffect(() => {
-    // إخفاء شاشة التحميل بعد 3 ثواني
+    // إخفاء شاشة التحميل بعد 4 ثواني للتأكد من رؤية العبارات
     const timer = setTimeout(() => {
       setShowSplash(false);
-    }, 3000);
+    }, 4000);
 
     if (localStorage.getItem('app_authenticated') === 'true') setIsAuthenticated(true);
     if (localStorage.getItem('stealth_mode') === 'true') setIsStealthMode(true);
