@@ -12,7 +12,7 @@ import {
 } from './icons';
 import { GoogleGenAI, Type } from "@google/genai";
 
-type Period = 'this_month' | 'last_month' | 'this_year';
+type Period = 'this_month' | 'last_month' | 'this_year' | 'custom_year';
 type ActiveTab = 'expense' | 'income' | 'debt';
 
 const formatCurrency = (amount: number) => {
@@ -161,6 +161,9 @@ const AnalysisResultDisplay: React.FC<{ result: any }> = ({ result }) => {
 
 const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) => {
     const [period, setPeriod] = useState<Period>('this_month');
+    const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+    const [availableYears, setAvailableYears] = useState<number[]>([]);
+    const [showYearPicker, setShowYearPicker] = useState(false);
     const [activeTab, setActiveTab] = useState<ActiveTab>('expense');
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [previousTransactions, setPreviousTransactions] = useState<any[]>([]);
@@ -172,8 +175,9 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
     const [analysisLoading, setAnalysisLoading] = useState(false);
     const [analysisResult, setAnalysisResult] = useState<any>(null);
 
-    const getDatesForPeriod = (p: Period) => {
+    const getDatesForPeriod = (p: Period, year?: number) => {
         const now = new Date();
+        const targetYear = year || now.getFullYear();
         let startDate: Date, endDate: Date, prevStartDate: Date, prevEndDate: Date;
         switch (p) {
             case 'this_month':
@@ -194,11 +198,28 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
                 prevStartDate = new Date(now.getFullYear() - 1, 0, 1);
                 prevEndDate = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
                 break;
+            case 'custom_year':
+                startDate = new Date(targetYear, 0, 1);
+                endDate = new Date(targetYear, 11, 31, 23, 59, 59);
+                prevStartDate = new Date(targetYear - 1, 0, 1);
+                prevEndDate = new Date(targetYear - 1, 11, 31, 23, 59, 59);
+                break;
         }
         return { startDate, endDate, prevStartDate, prevEndDate };
     };
 
-    const periodDates = useMemo(() => getDatesForPeriod(period), [period]);
+    const periodDates = useMemo(() => getDatesForPeriod(period, selectedYear), [period, selectedYear]);
+
+    useEffect(() => {
+        const fetchAvailableYears = async () => {
+            const { data } = await supabase.from('transactions').select('date');
+            if (data) {
+                const years = Array.from(new Set(data.map(t => new Date(t.date).getFullYear()))).sort((a, b) => b - a);
+                setAvailableYears(years);
+            }
+        };
+        fetchAvailableYears();
+    }, [refreshTrigger]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -251,13 +272,57 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
                 .map(c => ({ ...c, percentage: total > 0 ? (c.amount / total) * 100 : 0 }))
                 .sort((a, b) => b.amount - a.amount);
 
+        // Calculate Trend Data
+        const trendData: { label: string, value: number }[] = [];
+        const isYearly = period === 'this_year' || period === 'custom_year';
+        const { startDate } = periodDates;
+
+        if (isYearly) {
+            // All 12 months
+            const months = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+            
+            const monthMap = new Map<string, number>();
+            months.forEach(m => monthMap.set(m, 0));
+
+            transactions.forEach(tx => {
+                if (tx.type !== activeTab) return;
+                const m = new Date(tx.date).toLocaleString('ar-LY', { month: 'long' });
+                // We use 'long' to match the months array or we can use month index
+                const monthIdx = new Date(tx.date).getMonth();
+                const monthName = months[monthIdx];
+                monthMap.set(monthName, (monthMap.get(monthName) || 0) + tx.amount);
+            });
+
+            months.forEach(m => trendData.push({ label: m, value: monthMap.get(m) || 0 }));
+        } else {
+            // Weeks of the month
+            const weeksCount = 5; 
+            const weekMap = new Map<number, number>();
+            for (let i = 1; i <= weeksCount; i++) weekMap.set(i, 0);
+
+            transactions.forEach(tx => {
+                if (tx.type !== activeTab) return;
+                const date = new Date(tx.date);
+                const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+                const weekNum = Math.ceil((date.getDate() + startOfMonth.getDay()) / 7);
+                if (weekMap.has(weekNum)) {
+                    weekMap.set(weekNum, (weekMap.get(weekNum) || 0) + tx.amount);
+                }
+            });
+
+            for (let i = 1; i <= weeksCount; i++) {
+                trendData.push({ label: `أسبوع ${i}`, value: weekMap.get(i) || 0 });
+            }
+        }
+
         return {
             expenses: processMap(expenseMap, totalExp),
             incomes: processMap(incomeMap, totalInc),
             totalExpense: totalExp,
-            totalIncome: totalInc
+            totalIncome: totalInc,
+            trend: trendData
         };
-    }, [transactions]);
+    }, [transactions, period, activeTab, periodDates]);
 
     const handleSmartAnalysis = async () => {
         setAnalysisModalOpen(true);
@@ -265,7 +330,11 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
         
         setAnalysisLoading(true);
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const apiKey = process.env.GEMINI_API_KEY;
+            if (!apiKey) {
+                throw new Error("API_KEY_MISSING");
+            }
+            const ai = new GoogleGenAI({ apiKey });
             
             const currentDataSummary = transactions.slice(0, 100).map(t => ({
                 type: t.type,
@@ -291,9 +360,13 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
             });
             
             setAnalysisResult(JSON.parse(response.text || '{}'));
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
-            setAnalysisResult("عذراً، تعذر إجراء التحليل في الوقت الحالي.");
+            if (err.message === "API_KEY_MISSING") {
+                setAnalysisResult("عذراً، مفتاح Gemini API غير متوفر. يرجى التأكد من إعداده في المتصفح.");
+            } else {
+                setAnalysisResult("عذراً، تعذر إجراء التحليل في الوقت الحالي. يرجى المحاولة لاحقاً.");
+            }
         } finally {
             setAnalysisLoading(false);
         }
@@ -316,16 +389,50 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
                     </button>
                 </div>
                 
-                <div className="glass-card p-1 rounded-2xl flex shadow-lg bg-slate-900/60">
-                    {(['this_month', 'last_month', 'this_year'] as Period[]).map(p => (
+                <div className="flex gap-2">
+                    <div className="glass-card p-1 rounded-2xl flex shadow-lg bg-slate-900/60 flex-1">
+                        {(['this_month', 'last_month', 'this_year'] as Period[]).map(p => (
+                            <button 
+                                key={p} 
+                                onClick={() => { setPeriod(p); setAnalysisResult(null); setShowYearPicker(false); }}
+                                className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${period === p ? 'bg-slate-800 text-cyan-400 shadow-inner' : 'text-slate-500 hover:text-white'}`}
+                            >
+                                {{ 'this_month': 'هذا الشهر', 'last_month': 'الشهر الماضي', 'this_year': 'هذه السنة', 'custom_year': 'سنة مخصصة' }[p]}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="relative">
                         <button 
-                            key={p} 
-                            onClick={() => { setPeriod(p); setAnalysisResult(null); }}
-                            className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${period === p ? 'bg-slate-800 text-cyan-400 shadow-inner' : 'text-slate-500 hover:text-white'}`}
+                            onClick={() => setShowYearPicker(!showYearPicker)}
+                            className={`px-4 py-3 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${period === 'custom_year' ? 'bg-slate-800 text-cyan-400 border border-cyan-500/30' : 'bg-slate-900/60 text-slate-500 border border-white/5'}`}
                         >
-                            {{ 'this_month': 'هذا الشهر', 'last_month': 'الشهر الماضي', 'this_year': 'هذه السنة' }[p]}
+                            <CalendarDaysIcon className="w-4 h-4" />
+                            {period === 'custom_year' ? selectedYear : 'سنة أخرى'}
                         </button>
-                    ))}
+                        
+                        {showYearPicker && (
+                            <div className="absolute top-full left-0 right-0 mt-2 z-50 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-2 min-w-[120px] animate-slide-down">
+                                <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-1">
+                                    {availableYears.length > 0 ? availableYears.map(year => (
+                                        <button 
+                                            key={year}
+                                            onClick={() => {
+                                                setSelectedYear(year);
+                                                setPeriod('custom_year');
+                                                setShowYearPicker(false);
+                                                setAnalysisResult(null);
+                                            }}
+                                            className={`w-full p-3 rounded-xl text-right text-xs font-bold transition-all ${selectedYear === year && period === 'custom_year' ? 'bg-cyan-500/10 text-cyan-400' : 'text-slate-400 hover:bg-white/5'}`}
+                                        >
+                                            سنة {year}
+                                        </button>
+                                    )) : (
+                                        <p className="text-[10px] text-slate-600 p-3 text-center">لا توجد سنوات سابقة</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -408,24 +515,42 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
                 )}
             </div>
 
-            {/* 4. Monthly Performance (Teaser/Mini Chart) */}
+            {/* 4. Financial Trend */}
             <div className="glass-card p-6 rounded-[2.5rem] border border-white/5 bg-slate-900/40">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="text-sm font-black text-white flex items-center gap-2">
-                        <ArrowTrendingUp className="w-4 h-4 text-emerald-500" /> الاتجاه المالي
+                        <ArrowTrendingUp className="w-4 h-4 text-emerald-500" /> الاتجاه المالي ({activeTab === 'expense' ? 'المصروفات' : 'الإيرادات'})
                     </h3>
                 </div>
-                <div className="h-40 flex items-end gap-2 px-2">
-                    {/* Simplified placeholder bar chart for monthly visual */}
-                    {[40, 60, 30, 80, 50, 90, 70].map((h, i) => (
-                        <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                            <div className="w-full bg-cyan-500/20 rounded-t-lg relative group" style={{ height: `${h}%` }}>
-                                <div className="absolute inset-0 bg-cyan-500 opacity-20 group-hover:opacity-60 transition-opacity rounded-t-lg"></div>
-                            </div>
-                            <span className="text-[8px] font-black text-slate-700">W{i+1}</span>
-                        </div>
-                    ))}
-                </div>
+                
+                {reportData.trend.length > 0 ? (
+                    <div className="h-48 flex items-end gap-2 px-2">
+                        {(() => {
+                            const maxVal = Math.max(...reportData.trend.map(t => t.value), 1);
+                            return reportData.trend.map((item, i) => {
+                                const height = (item.value / maxVal) * 100;
+                                return (
+                                    <div key={i} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+                                        <div className="w-full bg-cyan-500/10 rounded-t-xl relative group min-h-[4px]" style={{ height: `${height}%` }}>
+                                            <div className="absolute inset-0 bg-gradient-to-t from-cyan-600 to-cyan-400 opacity-40 group-hover:opacity-100 transition-all rounded-t-xl shadow-[0_0_15px_rgba(34,211,238,0.2)]"></div>
+                                            
+                                            {/* Tooltip on hover */}
+                                            <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] font-bold py-1 px-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none border border-white/10 shadow-xl">
+                                                {formatCurrency(item.value)}
+                                            </div>
+                                        </div>
+                                        <span className="text-[8px] font-black text-slate-500 truncate w-full text-center">{item.label}</span>
+                                    </div>
+                                );
+                            });
+                        })()}
+                    </div>
+                ) : (
+                    <div className="h-40 flex flex-col items-center justify-center gap-3 border-2 border-dashed border-slate-800 rounded-3xl">
+                        <ClockIcon className="w-6 h-6 text-slate-700" />
+                        <p className="text-[10px] text-slate-600 font-bold">لا توجد بيانات كافية لعرض الاتجاه</p>
+                    </div>
+                )}
             </div>
 
             {/* AI Analysis Modal */}

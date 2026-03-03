@@ -44,7 +44,7 @@ const useClickOutside = (ref: React.RefObject<HTMLElement>, handler: (event: Mou
     }, [ref, handler, active]); 
 };
 
-const formatDoc = (cmd: string, value: string | null = null) => { 
+const formatDoc = (cmd: string, value: string | undefined = undefined) => { 
     document.execCommand(cmd, false, value); 
     const editor = document.getElementById('rich-text-editor'); 
     if(editor) editor.focus(); 

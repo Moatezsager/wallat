@@ -30,7 +30,7 @@ const NavButton: React.FC<{
         <span className={`text-[9px] font-bold mt-0.5 transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-60'}`}>
             {label}
         </span>
-        {notificationCount > 0 && (
+        {(notificationCount ?? 0) > 0 && (
             <span className="absolute top-2 right-1/2 translate-x-3 h-2 w-2 bg-rose-500 rounded-full z-20 shadow-[0_0_5px_rgba(244,63,94,0.5)]"></span>
         )}
     </button>
