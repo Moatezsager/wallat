@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Page } from '../types';
-import { HomeIcon, ClipboardDocumentIcon, CurrencyDollarIcon, WalletIcon } from './icons';
+import { Home, ArrowLeftRight, Landmark, Wallet, Plus } from 'lucide-react';
 import { useLanguage } from '../App';
 
 interface BottomNavProps {
@@ -40,18 +40,18 @@ const BottomNav: React.FC<BottomNavProps> = ({ activePage, setActivePage, debtNo
     const { t } = useLanguage();
     
     const leftItems = [
-        { page: 'home', label: t.home, icon: <HomeIcon className="w-6 h-6" /> },
-        { page: 'transactions', label: t.transactions, icon: <ClipboardDocumentIcon className="w-6 h-6" /> },
+        { page: 'home', label: t.home, icon: <Home className="w-6 h-6" /> },
+        { page: 'transactions', label: t.transactions, icon: <ArrowLeftRight className="w-6 h-6" /> },
     ];
 
     const rightItems = [
-        { page: 'debts', label: t.debts, icon: <CurrencyDollarIcon className="w-6 h-6" /> },
-        { page: 'accounts', label: t.accounts, icon: <WalletIcon className="w-6 h-6" /> },
+        { page: 'debts', label: t.debts, icon: <Landmark className="w-6 h-6" /> },
+        { page: 'accounts', label: t.accounts, icon: <Wallet className="w-6 h-6" /> },
     ];
 
     return (
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 print-hidden">
-            <div className="absolute inset-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border-t border-black/5 dark:border-white/5 shadow-[0_-10px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_-10px_30px_rgba(0,0,0,0.4)] transition-colors"></div>
+            <div className="absolute inset-0 bg-white/90 dark:bg-slate-950/90 backdrop-blur-2xl border-t border-black/5 dark:border-white/5 shadow-[0_-10px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_-10px_30px_rgba(0,0,0,0.4)] transition-colors"></div>
             
             <div className="relative flex items-center justify-between px-2 pb-safe h-[calc(4.5rem+env(safe-area-inset-bottom))]">
                 <div className="flex-1 flex justify-around items-center h-16">
@@ -66,7 +66,15 @@ const BottomNav: React.FC<BottomNavProps> = ({ activePage, setActivePage, debtNo
                     ))}
                 </div>
 
-                <div className="w-16 shrink-0 h-16"></div>
+                {/* Central Action Button */}
+                <div className="relative w-16 shrink-0 h-16 -mt-8">
+                    <button 
+                        onClick={() => setActivePage('transactions')}
+                        className="absolute top-0 left-1/2 -translate-x-1/2 w-14 h-14 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-cyan-500/40 ring-4 ring-white dark:ring-slate-950 active:scale-90 transition-all duration-300"
+                    >
+                        <Plus className="w-8 h-8" />
+                    </button>
+                </div>
 
                 <div className="flex-1 flex justify-around items-center h-16">
                     {rightItems.map(item => (

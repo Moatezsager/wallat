@@ -1,12 +1,14 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Page } from '../types';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    HomeIcon, AccountsIcon, TransactionsIcon, CurrencyDollarIcon, 
-    ContactsIcon, CategoriesIcon, ReportsIcon, ClipboardDocumentIcon, 
-    ChartPieIcon, WalletIcon, SparklesIcon, HeartPulseIcon, XMarkIcon,
-    SquaresPlusIcon, ShoppingBagIcon, ScaleIcon, ClockIcon
-} from './icons';
+    Home, Wallet, ArrowLeftRight, Landmark, 
+    PieChart, BarChart3, Target, TrendingUp, 
+    Tags, Users, FileText, Settings,
+    ChevronDown, ShoppingBag, History, Gem,
+    X, LayoutGrid, ShieldCheck
+} from 'lucide-react';
 import { useLanguage } from '../App';
 
 interface SidebarProps {
@@ -16,57 +18,124 @@ interface SidebarProps {
     setActivePage: (page: Page) => void;
 }
 
-const NavItem: React.FC<{ label: string; icon: React.ReactNode; onClick: () => void; isActive: boolean; }> = ({ label, icon, onClick, isActive }) => (
-    <button
-        onClick={onClick}
-        className={`relative flex items-center w-full p-4 text-right rounded-2xl transition-all duration-300 group overflow-hidden active:scale-[0.97] mb-1 ${
-            isActive 
-            ? 'text-cyan-600 dark:text-cyan-50 shadow-lg shadow-cyan-900/5 dark:shadow-cyan-900/20' 
-            : 'text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-slate-200'
-        }`}
-    >
-        {isActive && (
-            <div className="absolute inset-0 bg-gradient-to-l from-cyan-600/10 to-blue-600/10 dark:from-cyan-600/30 dark:to-blue-600/20 backdrop-blur-xl rounded-2xl border border-cyan-500/20 dark:border-white/10" />
-        )}
-        
-        <div className={`relative z-10 transition-all duration-300 ${isActive ? 'text-cyan-600 dark:text-cyan-400 scale-110' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300'}`}>
-            {icon}
+interface NavGroupProps {
+    title: string;
+    items: { page: Page; label: string; icon: React.ReactNode }[];
+    activePage: Page;
+    onItemClick: (page: Page) => void;
+    language: string;
+}
+
+const NavGroup: React.FC<NavGroupProps> = ({ title, items, activePage, onItemClick, language }) => {
+    const [isExpanded, setIsExpanded] = useState(true);
+
+    return (
+        <div className="mb-6">
+            <button 
+                onClick={() => setIsExpanded(!isExpanded)}
+                className={`flex items-center justify-between w-full px-4 mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors ${language === 'ar' ? 'flex-row-reverse' : 'flex-row'}`}
+            >
+                <span>{title}</span>
+                <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${isExpanded ? 'rotate-0' : '-rotate-90'}`} />
+            </button>
+            
+            <AnimatePresence initial={false}>
+                {isExpanded && (
+                    <motion.div 
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3, ease: 'easeInOut' }}
+                        className="overflow-hidden space-y-1"
+                    >
+                        {items.map((item) => (
+                            <button
+                                key={item.page}
+                                onClick={() => onItemClick(item.page)}
+                                className={`group relative flex items-center w-full p-3 rounded-2xl transition-all duration-300 active:scale-[0.98] ${
+                                    activePage === item.page 
+                                    ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400' 
+                                    : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-slate-200'
+                                } ${language === 'ar' ? 'flex-row' : 'flex-row'}`}
+                            >
+                                {activePage === item.page && (
+                                    <motion.div 
+                                        layoutId="activeNav"
+                                        className="absolute inset-0 bg-cyan-500/5 dark:bg-cyan-500/10 rounded-2xl border border-cyan-500/20 dark:border-cyan-500/20"
+                                    />
+                                )}
+                                
+                                <div className={`relative z-10 transition-transform duration-300 ${activePage === item.page ? 'scale-110' : 'group-hover:scale-110'}`}>
+                                    {item.icon}
+                                </div>
+                                
+                                <span className={`relative z-10 mx-3 text-sm font-bold transition-colors ${activePage === item.page ? 'text-slate-900 dark:text-white' : ''}`}>
+                                    {item.label}
+                                </span>
+
+                                {activePage === item.page && (
+                                    <motion.div 
+                                        initial={{ scale: 0 }}
+                                        animate={{ scale: 1 }}
+                                        className={`absolute w-1.5 h-1.5 bg-cyan-500 rounded-full shadow-[0_0_8px_rgba(6,182,212,0.6)] ${language === 'ar' ? 'left-4' : 'right-4'}`}
+                                    />
+                                )}
+                            </button>
+                        ))}
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
-        
-        <span className={`relative z-10 mx-4 font-bold text-sm tracking-wide transition-colors ${isActive ? 'text-slate-900 dark:text-white' : ''}`}>
-            {label}
-        </span>
-    </button>
-);
+    );
+};
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActivePage }) => {
     const { t, language } = useLanguage();
+    
     const handleNavigation = (page: Page) => { 
         setActivePage(page); 
         onClose(); 
-    }
+    };
 
-    const mainNavItems = [
-        { page: 'home', label: t.home, icon: <HomeIcon className="w-5 h-5" /> },
-        { page: 'accounts', label: t.accounts, icon: <WalletIcon className="w-5 h-5" /> },
-        { page: 'transactions', label: t.transactions, icon: <TransactionsIcon className="w-5 h-5" /> },
-        { page: 'debts', label: t.debts, icon: <CurrencyDollarIcon className="w-5 h-5" /> },
-        { page: 'categories', label: t.categories, icon: <CategoriesIcon className="w-5 h-5" /> },
-        { page: 'reports', label: t.reports, icon: <ReportsIcon className="w-5 h-5" /> },
-        { page: 'budgets', label: t.budgets, icon: <ChartPieIcon className="w-5 h-5" /> },
-    ];
-    
-    const secondaryNavItems = [
-        { page: 'recurring', label: t.recurring, icon: <ClockIcon className="w-5 h-5" /> },
-        { page: 'shopping', label: t.shopping, icon: <ShoppingBagIcon className="w-5 h-5" /> },
-        { page: 'investments', label: t.investments, icon: <SparklesIcon className="w-5 h-5" /> },
-        { page: 'goals', label: t.goals, icon: <HeartPulseIcon className="w-5 h-5" /> },
-        { page: 'contacts', label: t.contacts, icon: <ContactsIcon className="w-5 h-5" /> },
-        { page: 'notes', label: t.notes, icon: <ClipboardDocumentIcon className="w-5 h-5" /> },
-        { page: 'tools', label: t.tools, icon: <SquaresPlusIcon className="w-5 h-5" /> },
+    const navGroups = [
+        {
+            title: language === 'ar' ? 'الرئيسية' : 'Main',
+            items: [
+                { page: 'home' as Page, label: t.home, icon: <Home className="w-5 h-5" /> },
+                { page: 'accounts' as Page, label: t.accounts, icon: <Wallet className="w-5 h-5" /> },
+                { page: 'transactions' as Page, label: t.transactions, icon: <ArrowLeftRight className="w-5 h-5" /> },
+            ]
+        },
+        {
+            title: language === 'ar' ? 'الإدارة المالية' : 'Finance',
+            items: [
+                { page: 'debts' as Page, label: t.debts, icon: <Landmark className="w-5 h-5" /> },
+                { page: 'budgets' as Page, label: t.budgets, icon: <PieChart className="w-5 h-5" /> },
+                { page: 'recurring' as Page, label: t.recurring, icon: <History className="w-5 h-5" /> },
+                { page: 'shopping' as Page, label: t.shopping, icon: <ShoppingBag className="w-5 h-5" /> },
+                { page: 'assets' as Page, label: t.assets, icon: <Gem className="w-5 h-5" /> },
+            ]
+        },
+        {
+            title: language === 'ar' ? 'التحليلات والأهداف' : 'Insights',
+            items: [
+                { page: 'reports' as Page, label: t.reports, icon: <BarChart3 className="w-5 h-5" /> },
+                { page: 'goals' as Page, label: t.goals, icon: <Target className="w-5 h-5" /> },
+                { page: 'investments' as Page, label: t.investments, icon: <TrendingUp className="w-5 h-5" /> },
+            ]
+        },
+        {
+            title: language === 'ar' ? 'أدوات وإعدادات' : 'Tools',
+            items: [
+                { page: 'categories' as Page, label: t.categories, icon: <Tags className="w-5 h-5" /> },
+                { page: 'contacts' as Page, label: t.contacts, icon: <Users className="w-5 h-5" /> },
+                { page: 'notes' as Page, label: t.notes, icon: <FileText className="w-5 h-5" /> },
+                { page: 'tools' as Page, label: t.tools, icon: <LayoutGrid className="w-5 h-5" /> },
+            ]
+        }
     ];
 
-    const sidebarClass = `fixed top-0 bottom-0 z-[70] h-full w-[85%] max-w-[320px] bg-white dark:bg-slate-900/95 lg:bg-slate-50/40 dark:lg:bg-slate-900/40 backdrop-blur-3xl shadow-2xl lg:shadow-none transform transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) border-x border-black/5 dark:border-white/5 print-hidden flex flex-col ${
+    const sidebarClass = `fixed top-0 bottom-0 z-[70] h-full w-[85%] max-w-[300px] bg-white dark:bg-slate-950/95 lg:bg-slate-50/40 dark:lg:bg-slate-950/40 backdrop-blur-3xl shadow-2xl lg:shadow-none transform transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) border-x border-black/5 dark:border-white/5 print-hidden flex flex-col ${
         language === 'ar' 
         ? (isOpen ? 'right-0 translate-x-0' : 'right-0 translate-x-full lg:translate-x-0') 
         : (isOpen ? 'left-0 translate-x-0' : 'left-0 -translate-x-full lg:translate-x-0')
@@ -74,43 +143,66 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActiv
 
     return (
         <>
-            <div className={`lg:hidden fixed inset-0 z-[60] bg-slate-950/80 backdrop-blur-md transition-opacity duration-500 print-hidden ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={onClose} />
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="lg:hidden fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-sm transition-opacity duration-500 print-hidden" 
+                        onClick={onClose} 
+                    />
+                )}
+            </AnimatePresence>
             
             <div className={sidebarClass}>
-                <button onClick={onClose} className={`lg:hidden absolute top-6 p-2 bg-black/5 dark:bg-white/5 rounded-full text-slate-500 active:scale-90 transition-transform ${language === 'ar' ? 'left-4' : 'right-4'}`}>
-                    <XMarkIcon className="w-5 h-5" />
-                </button>
-
                 <div className="p-6 flex flex-col h-full relative">
-                    <div className="flex items-center gap-4 mt-4 mb-10 px-2">
-                        <div className="w-12 h-12 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-xl shadow-cyan-500/20 ring-1 ring-white/10">
-                             <WalletIcon className="w-6 h-6 text-white" />
+                    {/* Header with Logo & Close */}
+                    <div className="flex items-center justify-between mb-8">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20 ring-1 ring-white/10">
+                                 <Wallet className="w-5 h-5 text-white" />
+                            </div>
+                            <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight leading-none">محفظتي</h2>
                         </div>
-                        <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight leading-none">محفظتي</h2>
+                        <button 
+                            onClick={onClose} 
+                            className="lg:hidden p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-500 transition-colors"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
                     </div>
 
-                    <nav className="flex-1 flex flex-col overflow-y-auto no-scrollbar">
-                        <div className="space-y-1">
-                            {mainNavItems.map(item => (
-                                <NavItem key={item.page} label={item.label} icon={item.icon} isActive={activePage === item.page} onClick={() => handleNavigation(item.page as Page)} />
-                            ))}
+                    {/* User Profile Card */}
+                    <div className="mb-8 p-4 rounded-2xl bg-slate-100 dark:bg-white/5 border border-black/5 dark:border-white/5 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-600 dark:text-cyan-400 font-black text-sm border border-cyan-500/20">
+                            M
                         </div>
-                        <div className="relative py-6 flex items-center">
-                            <div className="flex-grow h-px bg-black/5 dark:bg-white/5"></div>
-                            <span className="flex-shrink mx-4 text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">{language === 'ar' ? 'أدوات إضافية' : 'Extra Tools'}</span>
-                            <div className="flex-grow h-px bg-black/5 dark:bg-white/5"></div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-black text-slate-900 dark:text-white truncate">معتز صقر</p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-500 truncate">moatez1999sager@gmail.com</p>
                         </div>
-                        <div className="space-y-1">
-                            {secondaryNavItems.map(item => (
-                                <NavItem key={item.page} label={item.label} icon={item.icon} isActive={activePage === item.page} onClick={() => handleNavigation(item.page as Page)} />
-                            ))}
-                        </div>
+                    </div>
+
+                    {/* Navigation Groups */}
+                    <nav className="flex-1 overflow-y-auto no-scrollbar pr-1 -mr-1">
+                        {navGroups.map((group) => (
+                            <NavGroup 
+                                key={group.title}
+                                title={group.title}
+                                items={group.items}
+                                activePage={activePage}
+                                onItemClick={handleNavigation}
+                                language={language}
+                            />
+                        ))}
                     </nav>
                     
+                    {/* Footer / Branding */}
                     <div className="mt-auto pt-6 border-t border-black/5 dark:border-white/5 pb-safe">
-                         <div className="bg-slate-100 dark:bg-slate-950/40 rounded-2xl p-4 border border-black/5 dark:border-white/5 text-center transition-colors">
+                         <div className="bg-slate-50 dark:bg-slate-900/40 rounded-2xl p-4 border border-black/5 dark:border-white/5 text-center transition-colors">
                             <div className="flex items-center justify-center gap-2">
-                                <div className="w-5 h-5 bg-emerald-500 rounded-md flex items-center justify-center text-[10px] font-black text-slate-900 shadow-lg">G</div>
+                                <div className="w-5 h-5 bg-emerald-500 rounded-lg flex items-center justify-center text-[10px] font-black text-slate-900 shadow-lg shadow-emerald-500/20">G</div>
                                 <span className="text-xs font-black text-slate-900 dark:text-white tracking-tighter">GreenBox <span className="text-emerald-500">Tech</span></span>
                             </div>
                         </div>
