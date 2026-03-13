@@ -23,8 +23,10 @@ import BottomNav from './components/BottomNav';
 import { ToastProvider } from './components/Toast';
 import { supabase } from './lib/supabase';
 import { WalletIcon, SparklesIcon } from './components/icons';
+import { WifiOff, RefreshCw } from 'lucide-react';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { translations, Language } from './lib/i18n';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // i18n Context
 const LanguageContext = createContext<{
@@ -160,6 +162,8 @@ function AppContent() {
   const [activePage, setActivePage] = useState<Page>('home');
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [isStealthMode, setIsStealthMode] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [showUpdateBanner, setShowUpdateBanner] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [activeContactId, setActiveContactId] = useState<string | null>(null);
   const [activeContactName, setActiveContactName] = useState<string>('');
@@ -173,8 +177,37 @@ function AppContent() {
     if (localStorage.getItem('app_authenticated') === 'true') setIsAuthenticated(true);
     if (localStorage.getItem('stealth_mode') === 'true') setIsStealthMode(true);
 
-    return () => clearTimeout(timer);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    const handleSWUpdate = () => setShowUpdateBanner(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('swUpdated', handleSWUpdate);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('swUpdated', handleSWUpdate);
+    };
   }, []);
+
+  const requestNotificationPermission = async () => {
+    if ('Notification' in window) {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        new Notification(language === 'ar' ? 'تم تفعيل الإشعارات' : 'Notifications Enabled', {
+          body: language === 'ar' ? 'ستصلك تنبيهات هامة من تطبيق محفظتي' : 'You will receive important alerts from My Wallet app',
+          icon: 'https://vgosloxhrahixrduuzkt.supabase.co/storage/v1/object/public/assets/icon-192.png'
+        });
+      }
+    }
+  };
+
+  const handleUpdateApp = () => {
+    window.location.reload();
+  };
 
   const toggleStealthMode = () => {
     const newVal = !isStealthMode;
@@ -253,7 +286,7 @@ function AppContent() {
       case 'assets': return <AssetsPage refreshTrigger={refreshTrigger} />;
       case 'shopping': return <ShoppingListPage refreshTrigger={refreshTrigger} handleDatabaseChange={handleDatabaseChange} />;
       case 'recurring': return <RecurringTransactionsPage refreshTrigger={refreshTrigger} />;
-      case 'tools': return <ToolsPage isStealthMode={isStealthMode} toggleStealthMode={toggleStealthMode} handleDatabaseChange={handleDatabaseChange} />;
+      case 'tools': return <ToolsPage isStealthMode={isStealthMode} toggleStealthMode={toggleStealthMode} handleDatabaseChange={handleDatabaseChange} requestNotificationPermission={requestNotificationPermission} />;
       default: return <HomePage refreshTrigger={refreshTrigger} handleDatabaseChange={handleDatabaseChange} setActivePage={setActivePage} />;
     }
   };
@@ -285,6 +318,50 @@ function AppContent() {
   return (
     <div className={`min-h-screen font-sans pb-24 md:pb-0 lg:flex ${language === 'ar' ? 'lg:flex-row-reverse' : 'lg:flex-row'} ${isStealthMode ? 'stealth-active' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
         <style>{`.stealth-active .tabular-nums, .stealth-active .text-4xl, .stealth-active .text-3xl, .stealth-active .text-5xl, .stealth-active .font-extrabold { filter: blur(8px); pointer-events: none; user-select: none; }`}</style>
+        
+        {/* Offline Indicator */}
+        <AnimatePresence>
+          {!isOnline && (
+            <motion.div 
+              initial={{ y: -50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -50, opacity: 0 }}
+              className="fixed top-0 left-0 right-0 z-[100] bg-rose-500 text-white text-[10px] font-black py-1 px-4 flex items-center justify-center gap-2 shadow-lg"
+            >
+              <WifiOff className="w-3 h-3" />
+              <span>{language === 'ar' ? 'أنت تعمل في وضع الأوفلاين - قد لا تتوفر بعض الميزات' : 'You are offline - some features may be unavailable'}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Update Banner */}
+        <AnimatePresence>
+          {showUpdateBanner && (
+            <motion.div 
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 50, opacity: 0 }}
+              className="fixed bottom-24 md:bottom-6 left-4 right-4 md:left-auto md:right-8 md:w-80 z-[100] bg-cyan-600 text-white p-4 rounded-2xl shadow-2xl flex flex-col gap-3 border border-white/20 backdrop-blur-xl"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                  <RefreshCw className="w-5 h-5 animate-spin-slow" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold">{language === 'ar' ? 'تحديث جديد متاح' : 'New Update Available'}</p>
+                  <p className="text-[10px] opacity-80">{language === 'ar' ? 'قم بتحديث التطبيق للحصول على آخر المميزات' : 'Update the app to get the latest features'}</p>
+                </div>
+              </div>
+              <button 
+                onClick={handleUpdateApp}
+                className="w-full py-2 bg-white text-cyan-600 rounded-xl text-xs font-black active:scale-95 transition-transform"
+              >
+                {language === 'ar' ? 'تحديث الآن' : 'Update Now'}
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} activePage={activePage} setActivePage={setActivePage} />
         <div className={`flex-1 ${language === 'ar' ? 'lg:mr-80' : 'lg:ml-80'}`}>
             <Header activePage={activePage} onMenuClick={() => setSidebarOpen(true)} isProfilePage={!!activeContactId} profileName={activeContactName} onBack={handleBackToContacts} notifications={debtNotifications} onNavigate={(page) => setActivePage(page)} />

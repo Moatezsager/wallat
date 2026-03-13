@@ -175,8 +175,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActiv
 
                     {/* User Profile Card */}
                     <div className="mb-8 p-4 rounded-2xl bg-slate-100 dark:bg-white/5 border border-black/5 dark:border-white/5 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-600 dark:text-cyan-400 font-black text-sm border border-cyan-500/20">
-                            M
+                        <div className="relative">
+                            <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-600 dark:text-cyan-400 font-black text-sm border border-cyan-500/20">
+                                M
+                            </div>
+                            <div className={`absolute bottom-0 ${language === 'ar' ? 'left-0' : 'right-0'} w-3 h-3 rounded-full border-2 border-white dark:border-slate-950 ${navigator.onLine ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-black text-slate-900 dark:text-white truncate">معتز صقر</p>

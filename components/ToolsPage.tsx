@@ -11,11 +11,13 @@ import {
 } from './icons';
 import { logActivity } from '../lib/logger';
 import { useLanguage, useTheme } from '../App';
+import { Bell, Smartphone, Download, Wifi, Zap } from 'lucide-react';
 
 interface ToolsPageProps {
     isStealthMode: boolean;
     toggleStealthMode: () => void;
     handleDatabaseChange: (description?: string) => void;
+    requestNotificationPermission: () => Promise<void>;
 }
 
 const GlobeIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -24,7 +26,7 @@ const GlobeIcon: React.FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
-const ToolsPage: React.FC<ToolsPageProps> = ({ isStealthMode, toggleStealthMode, handleDatabaseChange }) => {
+const ToolsPage: React.FC<ToolsPageProps> = ({ isStealthMode, toggleStealthMode, handleDatabaseChange, requestNotificationPermission }) => {
     const toast = useToast();
     const { t, language, setLanguage } = useLanguage();
     const { theme, toggleTheme } = useTheme();
@@ -161,6 +163,61 @@ const ToolsPage: React.FC<ToolsPageProps> = ({ isStealthMode, toggleStealthMode,
                             <div className={`w-3 h-3 rounded-full ${isStealthMode ? 'bg-cyan-500 animate-pulse' : 'bg-slate-300 dark:bg-slate-700'}`}></div>
                         </div>
                         <p className={`font-black text-sm ${isStealthMode ? 'text-cyan-400' : 'text-slate-500'}`}>{isStealthMode ? t.stealth_active : t.stealth_inactive}</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* PWA & Notifications Card */}
+            <div className="glass-card rounded-[2.5rem] p-8 border border-white/5 bg-slate-100/50 dark:bg-slate-900/40 space-y-8">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500">
+                        <Smartphone className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-black text-slate-900 dark:text-white">{language === 'ar' ? 'تطبيق الويب (PWA)' : 'Web App (PWA)'}</h3>
+                        <p className="text-[10px] font-bold text-slate-500">{language === 'ar' ? 'إعدادات الإشعارات والوضع غير المتصل' : 'Notification settings and offline mode'}</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Notifications Toggle */}
+                    <button 
+                        onClick={requestNotificationPermission}
+                        className="flex flex-col items-center gap-3 p-6 bg-white/40 dark:bg-black/20 rounded-[2rem] border border-black/5 dark:border-white/5 hover:bg-amber-500/10 hover:border-amber-500/30 transition-all group"
+                    >
+                        <div className="w-12 h-12 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+                            <Bell className="w-6 h-6" />
+                        </div>
+                        <div className="text-center">
+                            <p className="font-black text-sm text-slate-900 dark:text-white">{language === 'ar' ? 'تفعيل الإشعارات' : 'Enable Notifications'}</p>
+                            <p className="text-[10px] text-slate-500 font-bold">{language === 'ar' ? 'احصل على تنبيهات الديون' : 'Get debt alerts'}</p>
+                        </div>
+                    </button>
+
+                    {/* Offline Info */}
+                    <div className="flex flex-col items-center gap-3 p-6 bg-white/40 dark:bg-black/20 rounded-[2rem] border border-black/5 dark:border-white/5">
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-500">
+                            <Wifi className="w-6 h-6" />
+                        </div>
+                        <div className="text-center">
+                            <p className="font-black text-sm text-slate-900 dark:text-white">{language === 'ar' ? 'وضع الأوفلاين' : 'Offline Mode'}</p>
+                            <p className="text-[10px] text-slate-500 font-bold">{language === 'ar' ? 'التطبيق يعمل بدون إنترنت' : 'App works without internet'}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* PWA Benefits */}
+                <div className="p-6 bg-amber-500/5 rounded-3xl border border-amber-500/10">
+                    <div className="flex items-start gap-3">
+                        <Zap className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                            <p className="text-xs font-black text-amber-600 dark:text-amber-400">{language === 'ar' ? 'نصيحة احترافية' : 'Pro Tip'}</p>
+                            <p className="text-[10px] font-bold text-slate-600 dark:text-slate-400 leading-relaxed">
+                                {language === 'ar' 
+                                    ? 'للحصول على أفضل تجربة، أضف التطبيق إلى شاشتك الرئيسية من خيارات المتصفح. سيعمل التطبيق تماماً مثل التطبيقات المثبتة.'
+                                    : 'For the best experience, add the app to your home screen from browser options. It will work just like a native app.'}
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
