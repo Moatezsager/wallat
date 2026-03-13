@@ -164,6 +164,9 @@ function AppContent() {
   const [isStealthMode, setIsStealthMode] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showUpdateBanner, setShowUpdateBanner] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [activeContactId, setActiveContactId] = useState<string | null>(null);
   const [activeContactName, setActiveContactName] = useState<string>('');
@@ -180,18 +183,48 @@ function AppContent() {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
     const handleSWUpdate = () => setShowUpdateBanner(true);
+    
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    const checkStandalone = () => {
+      const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone || document.referrer.includes('android-app://');
+      setIsStandalone(!!isStandaloneMode);
+    };
+
+    const checkIOS = () => {
+      const userAgent = window.navigator.userAgent.toLowerCase();
+      setIsIOS(/iphone|ipad|ipod/.test(userAgent));
+    };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     window.addEventListener('swUpdated', handleSWUpdate);
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    
+    checkStandalone();
+    checkIOS();
 
     return () => {
       clearTimeout(timer);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('swUpdated', handleSWUpdate);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
   }, []);
+
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
+    }
+  };
 
   const requestNotificationPermission = async () => {
     if ('Notification' in window) {
@@ -286,7 +319,16 @@ function AppContent() {
       case 'assets': return <AssetsPage refreshTrigger={refreshTrigger} />;
       case 'shopping': return <ShoppingListPage refreshTrigger={refreshTrigger} handleDatabaseChange={handleDatabaseChange} />;
       case 'recurring': return <RecurringTransactionsPage refreshTrigger={refreshTrigger} />;
-      case 'tools': return <ToolsPage isStealthMode={isStealthMode} toggleStealthMode={toggleStealthMode} handleDatabaseChange={handleDatabaseChange} requestNotificationPermission={requestNotificationPermission} />;
+      case 'tools': return <ToolsPage 
+        isStealthMode={isStealthMode} 
+        toggleStealthMode={toggleStealthMode} 
+        handleDatabaseChange={handleDatabaseChange} 
+        requestNotificationPermission={requestNotificationPermission}
+        canInstall={!!deferredPrompt}
+        onInstall={handleInstallApp}
+        isStandalone={isStandalone}
+        isIOS={isIOS}
+      />;
       default: return <HomePage refreshTrigger={refreshTrigger} handleDatabaseChange={handleDatabaseChange} setActivePage={setActivePage} />;
     }
   };

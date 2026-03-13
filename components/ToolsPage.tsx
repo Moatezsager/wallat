@@ -18,6 +18,10 @@ interface ToolsPageProps {
     toggleStealthMode: () => void;
     handleDatabaseChange: (description?: string) => void;
     requestNotificationPermission: () => Promise<void>;
+    canInstall: boolean;
+    onInstall: () => void;
+    isStandalone: boolean;
+    isIOS: boolean;
 }
 
 const GlobeIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -26,7 +30,11 @@ const GlobeIcon: React.FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
-const ToolsPage: React.FC<ToolsPageProps> = ({ isStealthMode, toggleStealthMode, handleDatabaseChange, requestNotificationPermission }) => {
+const ToolsPage: React.FC<ToolsPageProps> = ({ 
+    isStealthMode, toggleStealthMode, handleDatabaseChange, 
+    requestNotificationPermission, canInstall, onInstall, 
+    isStandalone, isIOS 
+}) => {
     const toast = useToast();
     const { t, language, setLanguage } = useLanguage();
     const { theme, toggleTheme } = useTheme();
@@ -194,6 +202,35 @@ const ToolsPage: React.FC<ToolsPageProps> = ({ isStealthMode, toggleStealthMode,
                         </div>
                     </button>
 
+                    {/* Install Button (Android/Windows) */}
+                    {canInstall && !isStandalone && (
+                        <button 
+                            onClick={onInstall}
+                            className="flex flex-col items-center gap-3 p-6 bg-cyan-500/10 border-cyan-500/30 rounded-[2rem] border hover:bg-cyan-500/20 transition-all group"
+                        >
+                            <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 flex items-center justify-center text-cyan-500 group-hover:scale-110 transition-transform">
+                                <Download className="w-6 h-6" />
+                            </div>
+                            <div className="text-center">
+                                <p className="font-black text-sm text-slate-900 dark:text-white">{language === 'ar' ? 'تثبيت كـتطبيق' : 'Install as App'}</p>
+                                <p className="text-[10px] text-slate-500 font-bold">{language === 'ar' ? 'ثبت التطبيق على جهازك' : 'Install on your device'}</p>
+                            </div>
+                        </button>
+                    )}
+
+                    {/* Already Installed State */}
+                    {isStandalone && (
+                        <div className="flex flex-col items-center gap-3 p-6 bg-emerald-500/10 border-emerald-500/30 rounded-[2rem] border">
+                            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-500">
+                                <CheckCircleIcon className="w-6 h-6" />
+                            </div>
+                            <div className="text-center">
+                                <p className="font-black text-sm text-slate-900 dark:text-white">{language === 'ar' ? 'تم التثبيت بنجاح' : 'Installed Successfully'}</p>
+                                <p className="text-[10px] text-slate-500 font-bold">{language === 'ar' ? 'أنت تستخدم نسخة التطبيق' : 'You are using the app version'}</p>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Offline Info */}
                     <div className="flex flex-col items-center gap-3 p-6 bg-white/40 dark:bg-black/20 rounded-[2rem] border border-black/5 dark:border-white/5">
                         <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-500">
@@ -205,6 +242,32 @@ const ToolsPage: React.FC<ToolsPageProps> = ({ isStealthMode, toggleStealthMode,
                         </div>
                     </div>
                 </div>
+
+                {/* iOS Installation Guide */}
+                {isIOS && !isStandalone && (
+                    <div className="p-6 bg-blue-500/5 rounded-3xl border border-blue-500/10 space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-500">
+                                <Smartphone className="w-4 h-4" />
+                            </div>
+                            <p className="text-sm font-black text-slate-900 dark:text-white">{language === 'ar' ? 'تثبيت على آيفون (iOS)' : 'Install on iPhone (iOS)'}</p>
+                        </div>
+                        <div className="space-y-3 text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                            <div className="flex items-center gap-3">
+                                <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-[10px]">1</div>
+                                <p>{language === 'ar' ? 'اضغط على أيقونة "مشاركة" في متصفح Safari' : 'Tap the "Share" icon in Safari'}</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-[10px]">2</div>
+                                <p>{language === 'ar' ? 'اختر "إضافة إلى الشاشة الرئيسية"' : 'Select "Add to Home Screen"'}</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-[10px]">3</div>
+                                <p>{language === 'ar' ? 'اضغط على "إضافة" في الزاوية العلوية' : 'Tap "Add" in the top corner'}</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* PWA Benefits */}
                 <div className="p-6 bg-amber-500/5 rounded-3xl border border-amber-500/10">
