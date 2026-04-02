@@ -66,15 +66,8 @@ const BottomNav: React.FC<BottomNavProps> = ({ activePage, setActivePage, debtNo
                     ))}
                 </div>
 
-                {/* Central Action Button */}
-                <div className="relative w-16 shrink-0 h-16 -mt-6">
-                    <button 
-                        onClick={() => setActivePage('transactions')}
-                        className="absolute top-0 left-1/2 -translate-x-1/2 w-14 h-14 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-cyan-500/40 ring-4 ring-slate-50 dark:ring-slate-950 active:scale-90 transition-all duration-300"
-                    >
-                        <Plus className="w-7 h-7" />
-                    </button>
-                </div>
+                {/* Gap for QuickActions Button */}
+                <div className="w-16 shrink-0 h-16"></div>
 
                 <div className="flex-1 flex justify-around items-center h-full">
                     {rightItems.map(item => (

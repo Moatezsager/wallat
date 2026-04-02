@@ -20,6 +20,7 @@ import AssetsPage from './components/AssetsPage';
 import ShoppingListPage from './components/ShoppingListPage';
 import RecurringTransactionsPage from './components/RecurringTransactionsPage';
 import BottomNav from './components/BottomNav';
+import QuickActions from './components/QuickActions';
 import { ToastProvider } from './components/Toast';
 import { supabase } from './lib/supabase';
 import { WalletIcon, SparklesIcon } from './components/icons';
@@ -474,6 +475,7 @@ function AppContent() {
             </main>
         </div>
         <BottomNav activePage={activePage} setActivePage={setActivePage} debtNotificationCount={debtNotifications.length} />
+        <QuickActions onActionSuccess={handleDatabaseChange} />
 
         {/* Global Install Banner */}
         <AnimatePresence>
@@ -516,18 +518,6 @@ function AppContent() {
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Global FAB for Add Transaction (Desktop Only) */}
-        {activePage !== 'transactions' && (
-          <button 
-            onClick={() => setActivePage('transactions')}
-            className="hidden md:flex fixed bottom-8 left-8 w-14 h-14 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full shadow-2xl shadow-cyan-500/40 items-center justify-center text-white z-50 hover:scale-110 active:scale-95 transition-all"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-          </button>
-        )}
     </div>
   );
 }

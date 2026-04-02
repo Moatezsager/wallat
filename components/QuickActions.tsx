@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase';
+import { useLanguage } from '../App';
 import { Account, Category, Contact, Debt, Investment } from '../types';
 import { useToast } from './Toast';
 import { useQueryClient } from '@tanstack/react-query';
@@ -910,6 +912,7 @@ const SettleDebtWizard: React.FC<{
 };
 
 const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }> = ({ onActionSuccess }) => {
+    const { t, language } = useLanguage();
     const [isFabOpen, setIsFabOpen] = useState(false);
     const [activeModal, setActiveModal] = useState<ModalType | null>(null);
     const [modalStep, setModalStep] = useState(1);
@@ -965,18 +968,40 @@ const QuickActions: React.FC<{ onActionSuccess: (description: string) => void }>
     return (
         <>
             <div className={`fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 transition-opacity duration-300 ${isFabOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsFabOpen(false)} />
-            <div className="fixed bottom-4 md:bottom-8 left-1/2 -translate-x-1/2 z-[50] flex flex-col items-center pointer-events-none mb-safe">
-                <div className={`flex flex-col items-center gap-3 mb-6 transition-all duration-300 ${isFabOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none translate-y-10'}`}>
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 md:left-auto md:right-8 md:translate-x-0 md:bottom-8 z-[50] flex flex-col items-center md:items-end pointer-events-none mb-safe">
+                <div className={`flex flex-col items-center md:items-end gap-3 mb-6 transition-all duration-300 ${isFabOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none translate-y-10'}`}>
                     {fabActions.map((action, index) => (
-                        <div key={index} className="flex items-center gap-3">
-                            <span className="text-[10px] font-bold text-white bg-slate-900/90 px-3 py-1.5 rounded-xl border border-white/10 shadow-lg">{action.label}</span>
+                        <div key={index} className={`flex items-center gap-3 ${language === 'ar' ? 'flex-row-reverse' : 'flex-row'}`}>
+                            <span className="text-[10px] font-bold text-white bg-slate-900/90 px-3 py-1.5 rounded-xl border border-white/10 shadow-lg whitespace-nowrap">{action.label}</span>
                             <button onClick={action.action} className={`h-12 w-12 rounded-2xl text-white flex items-center justify-center shadow-2xl bg-gradient-to-br ${action.gradient} active:scale-90 transition-transform`}>{action.icon}</button>
                         </div>
                     ))}
                 </div>
-                <button onClick={() => setIsFabOpen(!isFabOpen)} className={`pointer-events-auto relative h-16 w-16 bg-slate-900 rounded-[22px] shadow-[0_0_30px_rgba(8,145,178,0.4)] flex items-center justify-center transition-all duration-500 z-50 border-4 border-slate-900 ${isFabOpen ? 'rotate-[135deg] bg-rose-600 border-rose-600' : ''}`}>
-                    <div className={`absolute inset-0 rounded-[18px] flex items-center justify-center transition-all duration-500 ${isFabOpen ? 'opacity-0' : 'opacity-100 bg-gradient-to-tr from-cyan-500 to-blue-600'}`}><PlusIcon className="w-8 h-8 text-white" /></div>
-                    {isFabOpen && <XMarkIcon className="w-8 h-8 text-white" />}
+                <button 
+                    onClick={() => setIsFabOpen(!isFabOpen)} 
+                    className={`pointer-events-auto relative h-14 w-14 rounded-full shadow-lg shadow-cyan-500/40 flex items-center justify-center transition-all duration-500 z-50 ring-4 ring-slate-50 dark:ring-slate-950 ${isFabOpen ? 'rotate-[135deg] bg-rose-600 ring-rose-500/20' : 'bg-gradient-to-tr from-cyan-500 to-blue-600'}`}
+                >
+                    <AnimatePresence mode="wait">
+                        {isFabOpen ? (
+                            <motion.div
+                                key="close"
+                                initial={{ opacity: 0, rotate: -90 }}
+                                animate={{ opacity: 1, rotate: 0 }}
+                                exit={{ opacity: 0, rotate: 90 }}
+                            >
+                                <XMarkIcon className="w-7 h-7 text-white" />
+                            </motion.div>
+                        ) : (
+                            <motion.div
+                                key="plus"
+                                initial={{ opacity: 0, rotate: 90 }}
+                                animate={{ opacity: 1, rotate: 0 }}
+                                exit={{ opacity: 0, rotate: -90 }}
+                            >
+                                <PlusIcon className="w-7 h-7 text-white" />
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </button>
             </div>
             {activeModal && (

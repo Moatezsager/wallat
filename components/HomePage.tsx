@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { Account, Debt, Transaction, Page, Category } from '../types';
-import QuickActions from './QuickActions';
 import TransactionForm from './TransactionForm';
 import { 
     ArrowDownIcon, ArrowUpIcon, ClockIcon, ChevronLeftIcon, ChevronRightIcon, XMarkIcon,
@@ -490,10 +489,6 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
                     <span className="text-slate-400 text-[11px] font-bold uppercase mb-1 tracking-wider">ديون عليك</span>
                     <span className="text-xl font-black text-white tabular-nums">{formatCurrency(stats.debtsOnYou)}</span>
                 </button>
-            </div>
-
-            <div className="order-3">
-                <QuickActions onActionSuccess={handleDatabaseChange} />
             </div>
 
             <div className="space-y-4 animate-fade-in order-4">
