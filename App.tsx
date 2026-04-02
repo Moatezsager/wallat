@@ -182,7 +182,12 @@ function AppContent() {
 
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
-    const handleSWUpdate = () => setShowUpdateBanner(true);
+    const handleSWUpdate = (e: any) => {
+      setShowUpdateBanner(true);
+      if (e.detail && e.detail.updateSW) {
+        (window as any).updateSW = e.detail.updateSW;
+      }
+    };
     
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
@@ -239,7 +244,11 @@ function AppContent() {
   };
 
   const handleUpdateApp = () => {
-    window.location.reload();
+    if ((window as any).updateSW) {
+      (window as any).updateSW(true);
+    } else {
+      window.location.reload();
+    }
   };
 
   const toggleStealthMode = () => {

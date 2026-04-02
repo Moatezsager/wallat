@@ -2,6 +2,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { registerSW } from 'virtual:pwa-register';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -15,29 +16,13 @@ root.render(
   </React.StrictMode>
 );
 
-// تسجيل Service Worker للـ PWA مع الكشف عن التحديثات
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => {
-        console.log('PWA Service Worker registered');
-        
-        // الكشف عن التحديثات
-        reg.onupdatefound = () => {
-          const installingWorker = reg.installing;
-          if (installingWorker) {
-            installingWorker.onstatechange = () => {
-              if (installingWorker.state === 'installed') {
-                if (navigator.serviceWorker.controller) {
-                  console.log('New content is available; please refresh.');
-                  // يمكن إرسال حدث مخصص هنا لتنبيه المستخدم في App.tsx
-                  window.dispatchEvent(new CustomEvent('swUpdated', { detail: reg }));
-                }
-              }
-            };
-          }
-        };
-      })
-      .catch(err => console.log('PWA Service Worker registration failed', err));
-  });
-}
+// Register PWA Service Worker
+const updateSW = registerSW({
+  onNeedRefresh() {
+    console.log('New content is available; please refresh.');
+    window.dispatchEvent(new CustomEvent('swUpdated', { detail: { updateSW } }));
+  },
+  onOfflineReady() {
+    console.log('App ready to work offline');
+  },
+});
