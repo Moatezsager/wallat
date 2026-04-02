@@ -66,16 +66,16 @@ const Header: React.FC<HeaderProps> = ({ activePage, onMenuClick, isProfilePage,
     const upcomingDebts = notifications.filter(d => getDebtStatus(d.due_date) === 'due_soon');
 
     return (
-        <header className="sticky top-0 z-20 bg-slate-50/40 dark:bg-slate-950/40 backdrop-blur-md border-b border-black/5 dark:border-white/5 print-hidden transition-colors">
+        <header className="sticky top-0 z-20 bg-white/60 dark:bg-slate-950/60 backdrop-blur-2xl border-b border-black/5 dark:border-white/5 print-hidden transition-colors shadow-sm">
             <div className="max-w-5xl mx-auto flex items-center justify-between h-16 px-4 lg:px-8">
                 <div className="flex-1 flex justify-start items-center gap-2">
                     {isProfilePage && onBack ? (
-                        <button onClick={onBack} className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 transition-colors">
-                            {language === 'ar' ? <ArrowRightIcon className="w-6 h-6" /> : <ArrowLeftIcon className="w-6 h-6" />}
+                        <button onClick={onBack} className="p-2.5 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 transition-all active:scale-90">
+                            {language === 'ar' ? <ArrowRightIcon className="w-5 h-5" /> : <ArrowLeftIcon className="w-5 h-5" />}
                         </button>
                     ) : (
-                        <button onClick={onMenuClick} className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 transition-colors">
-                            <MenuIcon className="w-7 h-7" />
+                        <button onClick={onMenuClick} className="p-2.5 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 transition-all active:scale-90">
+                            <MenuIcon className="w-6 h-6" />
                         </button>
                     )}
                     

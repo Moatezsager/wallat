@@ -103,19 +103,19 @@ const AssetsPage: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigger }) =
                     assets.map(a => {
                         const Icon = ASSET_ICONS[a.category] || LandmarkIcon;
                         return (
-                            <div key={a.id} className="glass-card p-5 rounded-3xl border border-white/5 flex items-center justify-between group hover:border-white/10 transition-all">
+                            <div key={a.id} className="glass-card p-5 rounded-[2rem] border border-white/5 flex items-center justify-between group hover:border-white/10 transition-all shadow-sm hover:shadow-xl hover:-translate-y-0.5">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-14 h-14 bg-slate-800 rounded-2xl flex items-center justify-center text-emerald-400 border border-white/5 shadow-inner">
-                                        <Icon className="w-7 h-7" />
+                                    <div className="w-14 h-14 bg-slate-800 rounded-2xl flex items-center justify-center text-emerald-400 border border-white/5 shadow-inner group-hover:scale-110 transition-transform">
+                                        <Icon className="w-7 h-7 drop-shadow-md" />
                                     </div>
                                     <div>
-                                        <h4 className="font-bold text-white">{a.name}</h4>
-                                        <p className="text-[10px] text-slate-500 font-black">قيمة الشراء: {formatCurrency(a.purchase_price)}</p>
+                                        <h4 className="font-bold text-white text-sm tracking-tight">{a.name}</h4>
+                                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-0.5">قيمة الشراء: <span className="tabular-nums">{formatCurrency(a.purchase_price)}</span></p>
                                     </div>
                                 </div>
-                                <div className="text-left flex flex-col items-end">
+                                <div className="text-left flex flex-col items-end gap-1">
                                     <p className="text-lg font-black text-white tabular-nums">{formatCurrency(a.current_value)}</p>
-                                    <button onClick={() => handleDelete(a.id)} className="p-1 text-slate-700 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"><TrashIcon className="w-4 h-4"/></button>
+                                    <button onClick={() => handleDelete(a.id)} className="p-1.5 text-slate-600 hover:text-rose-500 hover:bg-white/5 rounded-lg transition-all opacity-0 group-hover:opacity-100"><TrashIcon className="w-4 h-4"/></button>
                                 </div>
                             </div>
                         );

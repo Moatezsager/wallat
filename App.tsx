@@ -261,6 +261,28 @@ function AppContent() {
     }
   };
 
+  const requestGeolocationPermission = async () => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        () => {
+          // Success - permission granted
+        },
+        (error) => {
+          console.error('Geolocation error:', error);
+        }
+      );
+    }
+  };
+
+  const requestCameraPermission = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream.getTracks().forEach(track => track.stop());
+    } catch (err) {
+      console.error('Camera error:', err);
+    }
+  };
+
   const handleUpdateApp = () => {
     if ((window as any).updateSW) {
       (window as any).updateSW(true);
@@ -351,6 +373,8 @@ function AppContent() {
         toggleStealthMode={toggleStealthMode} 
         handleDatabaseChange={handleDatabaseChange} 
         requestNotificationPermission={requestNotificationPermission}
+        requestGeolocationPermission={requestGeolocationPermission}
+        requestCameraPermission={requestCameraPermission}
         canInstall={!!deferredPrompt}
         onInstall={handleInstallApp}
         isStandalone={isStandalone}
@@ -432,9 +456,22 @@ function AppContent() {
         </AnimatePresence>
 
         <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} activePage={activePage} setActivePage={setActivePage} />
-        <div className={`flex-1 ${language === 'ar' ? 'lg:mr-80' : 'lg:ml-80'}`}>
+        <div className={`flex-1 flex flex-col min-h-screen ${language === 'ar' ? 'lg:mr-80' : 'lg:ml-80'}`}>
             <Header activePage={activePage} onMenuClick={() => setSidebarOpen(true)} isProfilePage={!!activeContactId} profileName={activeContactName} onBack={handleBackToContacts} notifications={debtNotifications} onNavigate={(page) => setActivePage(page)} />
-            <main className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 animate-fade-in">{renderPage()}</main>
+            <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 lg:p-8 relative">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activePage + (activeContactId || '')}
+                  initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
+                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                  className="w-full h-full"
+                >
+                  {renderPage()}
+                </motion.div>
+              </AnimatePresence>
+            </main>
         </div>
         <BottomNav activePage={activePage} setActivePage={setActivePage} debtNotificationCount={debtNotifications.length} />
 

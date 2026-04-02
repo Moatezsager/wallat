@@ -135,7 +135,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, setActiv
         }
     ];
 
-    const sidebarClass = `fixed top-0 bottom-0 z-[70] h-full w-[85%] max-w-[300px] bg-white dark:bg-slate-950/95 lg:bg-slate-50/40 dark:lg:bg-slate-950/40 backdrop-blur-3xl shadow-2xl lg:shadow-none transform transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) border-x border-black/5 dark:border-white/5 print-hidden flex flex-col ${
+    const sidebarClass = `fixed top-0 bottom-0 z-[70] h-full w-[85%] max-w-[300px] bg-white/90 dark:bg-slate-950/90 lg:bg-white/60 dark:lg:bg-slate-950/60 backdrop-blur-3xl shadow-2xl lg:shadow-none transform transition-all duration-500 ease-out border-x border-black/5 dark:border-white/5 print-hidden flex flex-col ${
         language === 'ar' 
         ? (isOpen ? 'right-0 translate-x-0' : 'right-0 translate-x-full lg:translate-x-0') 
         : (isOpen ? 'left-0 translate-x-0' : 'left-0 -translate-x-full lg:translate-x-0')

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { Investment } from '../types';
 import { useToast } from './Toast';
+import ConfirmDialog from './ConfirmDialog';
 import { 
     PlusIcon, XMarkIcon, SparklesIcon, TrashIcon, 
     ArrowTrendingUp, ArrowTrendingDown, WalletIcon, 
@@ -23,14 +24,18 @@ const TYPE_CONFIG: Record<string, { icon: any, color: string, gradient: string }
 };
 
 const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; }> = ({ children, title, onClose }) => (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-        <div className="glass-card bg-slate-900 rounded-[2rem] p-6 w-full max-w-md border border-white/10 shadow-2xl animate-slide-up relative">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-[60px] pointer-events-none"></div>
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+        <div className="bg-slate-900 rounded-[2rem] p-6 w-full max-w-md border border-white/10 shadow-2xl animate-slide-up relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 to-blue-500"></div>
             <div className="flex justify-between items-center mb-6 relative z-10">
-                <h3 className="text-xl font-bold text-white">{title}</h3>
-                <button onClick={onClose} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 transition-colors text-slate-400"><XMarkIcon className="w-5 h-5" /></button>
+                <h3 className="text-xl font-black text-white">{title}</h3>
+                <button onClick={onClose} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors active:scale-90">
+                    <XMarkIcon className="w-5 h-5 text-slate-400" />
+                </button>
             </div>
-            {children}
+            <div className="relative z-10">
+                {children}
+            </div>
         </div>
     </div>
 );
@@ -58,18 +63,53 @@ const InvestmentForm: React.FC<{ onSuccess: () => void; onCancel: () => void; }>
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-            <input type="text" placeholder="اسم الاستثمار (مثلاً: سبيكة ذهب)" value={name} onChange={e => setName(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500" />
-            <select value={type} onChange={e => setType(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:outline-none">
-                {Object.keys(TYPE_CONFIG).map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <div className="grid grid-cols-2 gap-4">
-                <input type="number" placeholder="سعر الشراء" value={amount} onChange={e => setAmount(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500" />
-                <input type="number" placeholder="القيمة الحالية" value={currentValue} onChange={e => setCurrentValue(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500" />
+        <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-4">
+                <div className="relative group">
+                    <input type="text" placeholder="اسم الاستثمار (مثلاً: سبيكة ذهب)" value={name} onChange={e => setName(e.target.value)} required className="w-full bg-slate-800/50 border border-white/5 rounded-2xl p-4 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all" />
+                </div>
+                
+                <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 block px-1">نوع الاستثمار</label>
+                    <div className="grid grid-cols-5 gap-2">
+                        {Object.entries(TYPE_CONFIG).map(([t, config]) => {
+                            const Icon = config.icon;
+                            const isSelected = type === t;
+                            return (
+                                <button key={t} type="button" onClick={() => setType(t)} className={`p-2 rounded-2xl border transition-all flex flex-col items-center gap-2 ${isSelected ? 'bg-cyan-500/10 border-cyan-500 shadow-lg shadow-cyan-900/20' : 'bg-slate-800/30 border-white/5'}`}>
+                                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isSelected ? 'text-white' : 'text-slate-400'}`} style={{ backgroundColor: isSelected ? config.color : 'transparent' }}>
+                                        <Icon className="w-5 h-5" />
+                                    </div>
+                                    <span className={`text-[9px] font-bold ${isSelected ? 'text-white' : 'text-slate-400'}`}>{t}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-slate-900/50 p-4 rounded-2xl border border-white/5">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block px-1">سعر الشراء</label>
+                        <div className="flex items-center gap-2">
+                            <input type="number" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} required className="w-full bg-transparent text-white focus:outline-none font-black tabular-nums text-xl" />
+                            <span className="text-sm font-bold text-cyan-600">د.ل</span>
+                        </div>
+                    </div>
+                    <div className="bg-slate-900/50 p-4 rounded-2xl border border-white/5">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block px-1">القيمة الحالية</label>
+                        <div className="flex items-center gap-2">
+                            <input type="number" placeholder="0.00" value={currentValue} onChange={e => setCurrentValue(e.target.value)} className="w-full bg-transparent text-white focus:outline-none font-black tabular-nums text-xl" />
+                            <span className="text-sm font-bold text-cyan-600">د.ل</span>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <button type="submit" disabled={isSaving} className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold transition shadow-lg shadow-cyan-900/20 disabled:opacity-50">
-                {isSaving ? 'جاري الحفظ...' : 'حفظ الاستثمار'}
-            </button>
+            <div className="flex gap-3 pt-4">
+                <button type="button" onClick={onCancel} className="flex-1 py-4 bg-slate-800 text-slate-400 rounded-2xl font-black text-lg active:scale-95 transition-all">إلغاء</button>
+                <button type="submit" disabled={isSaving} className="flex-[2] py-4 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
+                    {isSaving ? <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin"></div> : 'حفظ الاستثمار'}
+                </button>
+            </div>
         </form>
     );
 };
@@ -78,6 +118,7 @@ const InvestmentsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: 
     const [investments, setInvestments] = useState<Investment[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean, id: string, name: string }>({ isOpen: false, id: '', name: '' });
     const toast = useToast();
 
     const fetchInvestments = async () => {
@@ -95,14 +136,15 @@ const InvestmentsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: 
         return { totalInvested, totalCurrent, profit: totalCurrent - totalInvested };
     }, [investments]);
 
-    const handleDelete = async (id: string, name: string) => {
-        if (!confirm(`هل أنت متأكد من حذف ${name}؟`)) return;
+    const handleDelete = async () => {
+        const { id, name } = deleteModal;
         const { error } = await supabase.from('investments').delete().eq('id', id);
         if (!error) {
             handleDatabaseChange(`تم حذف استثمار ${name}`);
             toast.success('تم الحذف بنجاح');
             fetchInvestments();
         }
+        setDeleteModal({ isOpen: false, id: '', name: '' });
     };
 
     return (
@@ -145,37 +187,38 @@ const InvestmentsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: 
                         const profitPercent = (profit / inv.amount) * 100;
 
                         return (
-                            <div key={inv.id} className="glass-card rounded-3xl p-6 border border-white/5 relative overflow-hidden group hover:border-white/10 transition-all">
+                            <div key={inv.id} className="glass-card rounded-[2rem] p-6 border border-white/5 relative overflow-hidden group hover:border-white/10 transition-all shadow-sm hover:shadow-xl hover:-translate-y-1">
                                 <div className={`absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b ${config.gradient}`}></div>
-                                <div className="flex justify-between items-start mb-4">
+                                <div className="absolute top-0 right-0 w-32 h-32 opacity-5 blur-3xl pointer-events-none transition-opacity group-hover:opacity-10" style={{ backgroundColor: config.color }}></div>
+                                <div className="flex justify-between items-start mb-4 relative z-10">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg" style={{ backgroundColor: config.color }}>
-                                            <Icon className="w-5 h-5" />
+                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-inner group-hover:scale-110 transition-transform" style={{ backgroundColor: config.color }}>
+                                            <Icon className="w-5 h-5 drop-shadow-md" />
                                         </div>
                                         <div>
-                                            <h3 className="font-bold text-white">{inv.name}</h3>
-                                            <span className="text-[10px] text-slate-500 font-bold uppercase">{inv.type}</span>
+                                            <h3 className="font-bold text-white tracking-tight">{inv.name}</h3>
+                                            <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{inv.type}</span>
                                         </div>
                                     </div>
-                                    <button onClick={() => handleDelete(inv.id, inv.name)} className="p-2 text-slate-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => setDeleteModal({ isOpen: true, id: inv.id, name: inv.name })} className="p-2 text-slate-600 hover:text-rose-400 hover:bg-white/5 rounded-xl opacity-0 group-hover:opacity-100 transition-all">
                                         <TrashIcon className="w-4 h-4" />
                                     </button>
                                 </div>
-                                <div className="space-y-4">
+                                <div className="space-y-4 relative z-10">
                                     <div className="flex justify-between items-end">
                                         <div>
-                                            <p className="text-xs text-slate-500 mb-1">القيمة الحالية</p>
-                                            <p className="text-2xl font-black text-white">{formatCurrency(inv.current_value)}</p>
+                                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">القيمة الحالية</p>
+                                            <p className="text-2xl font-black text-white tabular-nums">{formatCurrency(inv.current_value)}</p>
                                         </div>
                                         <div className="text-left">
-                                            <p className={`text-sm font-bold ${profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            <p className={`text-sm font-black tabular-nums ${profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                 {profit >= 0 ? '+' : ''}{profitPercent.toFixed(1)}%
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="pt-3 border-t border-white/5 flex justify-between text-xs text-slate-500">
-                                        <span>سعر الشراء: {formatCurrency(inv.amount)}</span>
-                                        <span>{new Date(inv.created_at).toLocaleDateString('ar-LY')}</span>
+                                    <div className="pt-3 border-t border-white/5 flex justify-between text-[10px] font-bold text-slate-500 tracking-widest uppercase">
+                                        <span>سعر الشراء: <span className="tabular-nums">{formatCurrency(inv.amount)}</span></span>
+                                        <span className="tabular-nums">{new Date(inv.created_at).toLocaleDateString('ar-LY')}</span>
                                     </div>
                                 </div>
                             </div>
@@ -199,6 +242,15 @@ const InvestmentsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: 
                     <InvestmentForm onSuccess={() => { setIsModalOpen(false); handleDatabaseChange(); fetchInvestments(); }} onCancel={() => setIsModalOpen(false)} />
                 </Modal>
             )}
+
+            <ConfirmDialog 
+                isOpen={deleteModal.isOpen} 
+                title="حذف الاستثمار" 
+                message={`هل أنت متأكد من حذف استثمار "${deleteModal.name}"؟`} 
+                confirmText="نعم، حذف" 
+                onConfirm={handleDelete} 
+                onCancel={() => setDeleteModal({ isOpen: false, id: '', name: '' })} 
+            />
         </div>
     );
 };

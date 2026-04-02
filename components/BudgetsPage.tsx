@@ -90,31 +90,32 @@ const BudgetsPage: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigger }) 
                         const Icon = (b.categories?.icon && iconMap[b.categories.icon]) ? iconMap[b.categories.icon] : TagIcon;
                         const isExceeded = b.spent > b.amount_limit;
                         return (
-                            <div key={b.id} className="glass-card p-6 rounded-3xl border border-white/5 relative overflow-hidden">
-                                <div className="flex justify-between items-start mb-4">
+                            <div key={b.id} className="glass-card p-6 rounded-[2.5rem] border border-white/5 relative overflow-hidden group hover:border-white/10 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 blur-3xl rounded-full pointer-events-none"></div>
+                                <div className="flex justify-between items-start mb-4 relative z-10">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white" style={{ backgroundColor: b.categories?.color }}>
-                                            <Icon className="w-6 h-6" />
+                                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-inner group-hover:scale-110 transition-transform" style={{ backgroundColor: b.categories?.color }}>
+                                            <Icon className="w-6 h-6 drop-shadow-md" />
                                         </div>
                                         <div>
-                                            <h3 className="font-bold text-white text-lg">{b.categories?.name}</h3>
-                                            <p className="text-[10px] text-slate-500 font-black">ميزانية شهرية</p>
+                                            <h3 className="font-black text-white text-lg tracking-tight">{b.categories?.name}</h3>
+                                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">ميزانية شهرية</p>
                                         </div>
                                     </div>
-                                    <button onClick={() => handleDelete(b.id)} className="text-slate-600 hover:text-rose-500"><TrashIcon className="w-5 h-5"/></button>
+                                    <button onClick={() => handleDelete(b.id)} className="text-slate-600 hover:text-rose-500 transition-colors p-2 rounded-xl hover:bg-white/5"><TrashIcon className="w-5 h-5"/></button>
                                 </div>
-                                <div className="space-y-3">
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-slate-400 font-bold">المصروف: {formatCurrency(b.spent)}</span>
-                                        <span className={`font-black ${isExceeded ? 'text-rose-500' : 'text-emerald-400'}`}>{b.percentage.toFixed(0)}%</span>
+                                <div className="space-y-3 relative z-10">
+                                    <div className="flex justify-between text-sm items-end">
+                                        <span className="text-slate-400 font-bold text-xs">المصروف: <span className="text-white text-sm tabular-nums">{formatCurrency(b.spent)}</span></span>
+                                        <span className={`font-black text-lg tabular-nums ${isExceeded ? 'text-rose-500' : 'text-emerald-400'}`}>{b.percentage.toFixed(0)}%</span>
                                     </div>
-                                    <div className="h-3 bg-slate-800 rounded-full overflow-hidden p-0.5 border border-white/5">
+                                    <div className="h-3 bg-slate-800 rounded-full overflow-hidden p-0.5 border border-white/5 shadow-inner">
                                         <div 
-                                            className={`h-full rounded-full transition-all duration-1000 ${isExceeded ? 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]' : 'bg-cyan-500'}`}
+                                            className={`h-full rounded-full transition-all duration-1000 ${isExceeded ? 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]' : 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]'}`}
                                             style={{ width: `${Math.min(b.percentage, 100)}%` }}
                                         ></div>
                                     </div>
-                                    <div className="flex justify-between text-[10px] font-black text-slate-500">
+                                    <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest">
                                         <span>باقي: {formatCurrency(Math.max(0, b.amount_limit - b.spent))}</span>
                                         <span>الحد: {formatCurrency(b.amount_limit)}</span>
                                     </div>

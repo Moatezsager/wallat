@@ -25,14 +25,18 @@ const GOAL_ICONS = [
 const COLORS = ['#06b6d4', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6', '#3b82f6'];
 
 const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; }> = ({ children, title, onClose }) => (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-        <div className="glass-card bg-slate-900 rounded-[2.5rem] p-8 w-full max-w-md border border-white/10 shadow-2xl animate-slide-up relative">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-[60px] pointer-events-none"></div>
-            <div className="flex justify-between items-center mb-6 relative z-10">
-                <h3 className="text-xl font-bold text-white">{title}</h3>
-                <button onClick={onClose} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 transition-colors text-slate-400"><XMarkIcon className="w-5 h-5" /></button>
+    <div className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in pt-safe pb-safe">
+        <div className="relative w-full max-w-md bg-slate-900 rounded-[2rem] shadow-2xl border border-white/10 p-8 animate-slide-up overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-500 to-pink-500"></div>
+            <div className="flex justify-between items-center mb-8 relative z-10">
+                <h3 className="text-2xl font-black text-white tracking-tight">{title}</h3>
+                <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-400 transition-colors active:scale-90">
+                    <XMarkIcon className="w-5 h-5" />
+                </button>
             </div>
-            {children}
+            <div className="relative z-10">
+                {children}
+            </div>
         </div>
     </div>
 );
@@ -165,38 +169,38 @@ const SavingsGoalsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange:
                         const Icon = GOAL_ICONS.find(i => i.id === goal.icon)?.icon || WalletIcon;
 
                         return (
-                            <div key={goal.id} className="glass-card rounded-[2.5rem] p-8 border border-white/5 relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 w-32 h-32 opacity-10 blur-3xl pointer-events-none" style={{ backgroundColor: goal.color }}></div>
+                            <div key={goal.id} className="glass-card rounded-[2.5rem] p-8 border border-white/5 relative overflow-hidden group hover:border-white/10 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1">
+                                <div className="absolute top-0 right-0 w-32 h-32 opacity-10 blur-3xl pointer-events-none transition-opacity group-hover:opacity-20" style={{ backgroundColor: goal.color }}></div>
                                 
-                                <div className="flex justify-between items-start mb-6">
+                                <div className="flex justify-between items-start mb-6 relative z-10">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg" style={{ backgroundColor: goal.color }}>
-                                            <Icon className="w-7 h-7" />
+                                        <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-inner group-hover:scale-110 transition-transform" style={{ backgroundColor: goal.color }}>
+                                            <Icon className="w-7 h-7 drop-shadow-md" />
                                         </div>
                                         <div>
-                                            <h3 className="text-xl font-bold text-white">{goal.name}</h3>
-                                            <span className="text-xs text-slate-500 font-bold uppercase tracking-widest">المتبقي: {formatCurrency(Math.max(0, goal.target_amount - goal.current_amount))}</span>
+                                            <h3 className="text-xl font-black text-white tracking-tight">{goal.name}</h3>
+                                            <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">المتبقي: <span className="tabular-nums">{formatCurrency(Math.max(0, goal.target_amount - goal.current_amount))}</span></span>
                                         </div>
                                     </div>
-                                    <button onClick={() => handleDelete(goal.id, goal.name)} className="p-2 text-slate-700 hover:text-rose-500 transition-colors">
+                                    <button onClick={() => handleDelete(goal.id, goal.name)} className="p-2 text-slate-600 hover:text-rose-500 hover:bg-white/5 rounded-xl transition-colors">
                                         <TrashIcon className="w-5 h-5" />
                                     </button>
                                 </div>
 
-                                <div className="space-y-4">
+                                <div className="space-y-4 relative z-10">
                                     <div className="flex justify-between items-end">
                                         <div>
-                                            <p className="text-xs text-slate-500 mb-1">التقدم المحرز</p>
-                                            <p className="text-3xl font-black text-white">{progress.toFixed(0)}%</p>
+                                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">التقدم المحرز</p>
+                                            <p className="text-3xl font-black text-white tabular-nums">{progress.toFixed(0)}%</p>
                                         </div>
                                         <div className="text-left">
-                                            <p className="text-sm font-bold text-white">{formatCurrency(goal.current_amount)}</p>
-                                            <p className="text-[10px] text-slate-500 font-bold">من أصل {formatCurrency(goal.target_amount)}</p>
+                                            <p className="text-sm font-black text-white tabular-nums">{formatCurrency(goal.current_amount)}</p>
+                                            <p className="text-[10px] text-slate-500 font-bold tracking-widest">من أصل <span className="tabular-nums">{formatCurrency(goal.target_amount)}</span></p>
                                         </div>
                                     </div>
 
                                     {/* Progress Bar */}
-                                    <div className="relative h-4 bg-slate-800 rounded-full overflow-hidden border border-white/5 p-0.5">
+                                    <div className="relative h-4 bg-slate-800 rounded-full overflow-hidden border border-white/5 p-0.5 shadow-inner">
                                         <div 
                                             className="h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(255,255,255,0.1)]"
                                             style={{ width: `${progress}%`, backgroundColor: goal.color }}
@@ -205,13 +209,13 @@ const SavingsGoalsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange:
 
                                     <div className="pt-4 flex gap-3">
                                         {isCompleted ? (
-                                            <div className="w-full bg-emerald-500/20 border border-emerald-500/30 py-3 rounded-2xl flex items-center justify-center gap-2 text-emerald-400 font-bold animate-fade-in">
+                                            <div className="w-full bg-emerald-500/10 border border-emerald-500/20 py-3 rounded-2xl flex items-center justify-center gap-2 text-emerald-400 font-bold animate-fade-in shadow-inner">
                                                 <CheckCircleIcon className="w-5 h-5" /> هدف مكتمل!
                                             </div>
                                         ) : (
                                             <button 
                                                 onClick={() => setIsDepositModalOpen(goal)}
-                                                className="w-full bg-white/5 hover:bg-white/10 border border-white/10 py-3 rounded-2xl flex items-center justify-center gap-2 text-white font-bold transition-all"
+                                                className="w-full bg-white/5 hover:bg-white/10 border border-white/10 py-3 rounded-2xl flex items-center justify-center gap-2 text-white font-bold transition-all hover:shadow-lg active:scale-95"
                                             >
                                                 <ArrowUpIcon className="w-4 h-4" /> إضافة مبالغ
                                             </button>
@@ -227,31 +231,31 @@ const SavingsGoalsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange:
             {/* Modals */}
             {isAddModalOpen && (
                 <Modal title="إنشاء هدف جديد" onClose={() => setIsAddModalOpen(false)}>
-                    <form onSubmit={handleAddGoal} className="space-y-6">
+                    <form onSubmit={handleAddGoal} className="space-y-5">
                         <div>
-                            <label className="text-xs font-bold text-slate-500 mb-2 block">ما هو هدفك؟</label>
-                            <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="مثلاً: شراء سيارة" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:outline-none focus:border-cyan-500" />
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 mb-2 block">ما هو هدفك؟</label>
+                            <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="مثلاً: شراء سيارة" required className="w-full bg-slate-950/50 border border-white/10 rounded-2xl p-4 text-white placeholder-slate-600 focus:outline-none focus:border-rose-500/50 focus:ring-1 focus:ring-rose-500/50 transition-all font-bold" />
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-slate-500 mb-2 block">المبلغ المستهدف</label>
-                            <input type="number" value={newTarget} onChange={e => setNewTarget(e.target.value)} placeholder="0.00" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:outline-none focus:border-cyan-500" />
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 mb-2 block">المبلغ المستهدف</label>
+                            <input type="number" value={newTarget} onChange={e => setNewTarget(e.target.value)} placeholder="0.00" required className="w-full bg-slate-950/50 border border-white/10 rounded-2xl p-4 text-white placeholder-slate-600 focus:outline-none focus:border-rose-500/50 focus:ring-1 focus:ring-rose-500/50 transition-all font-bold tabular-nums" />
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-slate-500 mb-2 block">الأيقونة واللون</label>
-                            <div className="flex gap-2 flex-wrap mb-4">
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 mb-2 block">الأيقونة واللون</label>
+                            <div className="flex gap-2 flex-wrap mb-4 bg-slate-950/30 p-2 rounded-2xl border border-white/5">
                                 {GOAL_ICONS.map(i => (
-                                    <button key={i.id} type="button" onClick={() => setNewIcon(i.id)} className={`p-3 rounded-xl border transition-all ${newIcon === i.id ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' : 'bg-slate-800 border-transparent text-slate-500'}`}>
+                                    <button key={i.id} type="button" onClick={() => setNewIcon(i.id)} className={`p-3 rounded-xl border transition-all active:scale-95 ${newIcon === i.id ? 'bg-rose-500/20 border-rose-500/50 text-rose-400 shadow-lg shadow-rose-900/20' : 'bg-transparent border-transparent text-slate-500 hover:bg-white/5'}`}>
                                         <i.icon className="w-6 h-6" />
                                     </button>
                                 ))}
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex gap-3 bg-slate-950/30 p-3 rounded-2xl border border-white/5 justify-center">
                                 {COLORS.map(c => (
-                                    <button key={c} type="button" onClick={() => setNewColor(c)} className={`w-8 h-8 rounded-full border-2 ${newColor === c ? 'border-white scale-110' : 'border-transparent'}`} style={{ backgroundColor: c }} />
+                                    <button key={c} type="button" onClick={() => setNewColor(c)} className={`w-8 h-8 rounded-full border-2 transition-all active:scale-90 ${newColor === c ? 'border-white scale-110 shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: c }} />
                                 ))}
                             </div>
                         </div>
-                        <button type="submit" className="w-full py-4 bg-cyan-600 text-white rounded-2xl font-bold shadow-lg shadow-cyan-900/20 transition hover:bg-cyan-500">إنشاء الهدف</button>
+                        <button type="submit" className="w-full py-4 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white rounded-2xl font-black shadow-lg shadow-rose-900/20 transition-all active:scale-[0.98] mt-4">إنشاء الهدف</button>
                     </form>
                 </Modal>
             )}
@@ -259,17 +263,20 @@ const SavingsGoalsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange:
             {isDepositModalOpen && (
                 <Modal title={`إيداع في: ${isDepositModalOpen.name}`} onClose={() => setIsDepositModalOpen(null)}>
                     <form onSubmit={handleDeposit} className="space-y-6">
-                        <div className="text-center">
-                            <p className="text-xs text-slate-500 mb-2">أدخل المبلغ المراد ادخاره</p>
-                            <input type="number" step="0.01" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} placeholder="0.00" autoFocus required className="w-full bg-transparent text-center text-5xl font-black text-white focus:outline-none" />
+                        <div className="bg-slate-950/50 p-6 rounded-3xl border border-white/10 text-center relative overflow-hidden">
+                            <div className="absolute inset-0 bg-gradient-to-b from-rose-500/5 to-transparent pointer-events-none"></div>
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 relative z-10">المبلغ المراد ادخاره</p>
+                            <div className="relative z-10 flex items-center justify-center gap-2">
+                                <input type="number" step="0.01" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} placeholder="0.00" autoFocus required className="w-full bg-transparent text-center text-5xl font-black text-white focus:outline-none tabular-nums placeholder-slate-700" />
+                            </div>
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-slate-500 mb-2 block">الخصم من حساب</label>
-                            <select value={selectedAccountId} onChange={e => setSelectedAccountId(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:outline-none">
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 mb-2 block">الخصم من حساب</label>
+                            <select value={selectedAccountId} onChange={e => setSelectedAccountId(e.target.value)} className="w-full bg-slate-950/50 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:border-rose-500/50 focus:ring-1 focus:ring-rose-500/50 transition-all font-bold appearance-none">
                                 {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name} ({formatCurrency(acc.balance)})</option>)}
                             </select>
                         </div>
-                        <button type="submit" className="w-full py-4 bg-white text-slate-900 rounded-2xl font-bold transition hover:bg-cyan-50">تأكيد الإيداع</button>
+                        <button type="submit" className="w-full py-4 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white rounded-2xl font-black shadow-lg shadow-rose-900/20 transition-all active:scale-[0.98]">تأكيد الإيداع</button>
                     </form>
                 </Modal>
             )}

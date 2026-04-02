@@ -115,30 +115,45 @@ const CategoryFormModal: React.FC<{ category?: Category | null; type: 'income' |
                 <label className="block text-sm font-bold text-slate-400 mb-3 px-1">لون التمييز</label> 
                 <ColorPicker selectedColor={color} onSelect={setColor} /> 
             </div> 
-            <div className="flex justify-end gap-3 pt-6 border-t border-white/10"> 
-                <button type="button" onClick={onCancel} className="py-3 px-6 text-slate-400 hover:text-white font-bold transition rounded-xl hover:bg-white/5">إلغاء</button> 
-                <button type="submit" disabled={isSaving} className="py-3 px-8 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl transition font-bold shadow-lg shadow-blue-900/20 disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"> 
-                    {isSaving ? (<>جاري الحفظ...</>) : (<>{category ? 'حفظ التعديلات' : 'إنشاء الفئة'}</>)} 
-                </button> 
-            </div> 
+            <div className="flex gap-3 pt-4">
+                <button type="button" onClick={onCancel} className="flex-1 py-4 bg-slate-800 text-slate-400 rounded-2xl font-black text-lg active:scale-95 transition-all">إلغاء</button>
+                <button type="submit" disabled={isSaving} className="flex-[2] py-4 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
+                    {isSaving ? <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin"></div> : (category ? 'حفظ التعديلات' : 'إنشاء الفئة')}
+                </button>
+            </div>
         </form> 
     ); 
 };
 
-const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; }> = ({ children, title, onClose }) => ( <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"> <div className="glass-card bg-slate-900 rounded-[2rem] p-6 w-full max-w-md border border-white/10 shadow-2xl animate-slide-up overflow-hidden relative"> <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-[60px] pointer-events-none"></div> <div className="flex justify-between items-center mb-6 relative z-10"> <h3 className="text-xl font-bold text-white tracking-wide">{title}</h3> <button onClick={onClose} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 transition-colors text-slate-400 hover:text-white"><XMarkIcon className="w-5 h-5" /></button> </div> {children} </div> </div> );
+const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; }> = ({ children, title, onClose }) => (
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+        <div className="bg-slate-900 rounded-[2rem] p-6 w-full max-w-md border border-white/10 shadow-2xl animate-slide-up relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 to-blue-500"></div>
+            <div className="flex justify-between items-center mb-6 relative z-10">
+                <h3 className="text-xl font-black text-white">{title}</h3>
+                <button onClick={onClose} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors active:scale-90">
+                    <XMarkIcon className="w-5 h-5 text-slate-400" />
+                </button>
+            </div>
+            <div className="relative z-10">
+                {children}
+            </div>
+        </div>
+    </div>
+);
 
 const CategoryCard: React.FC<{ category: Category; onEdit: () => void; onDelete: () => void; }> = ({ category, onEdit, onDelete }) => { 
     const Icon = (category.icon && iconMap[category.icon]) ? iconMap[category.icon] : CurrencyDollarIcon; 
     const cardColor = category.color || '#334155';
     return ( 
-        <div className="relative group overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-lg bg-slate-900/40 border border-white/5 hover:border-white/10"> 
+        <div className="relative group overflow-hidden rounded-[2rem] transition-all duration-300 hover:-translate-y-1 shadow-sm hover:shadow-xl bg-slate-900/40 border border-white/5 hover:border-white/10 glass-card"> 
             <div className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-300 bg-gradient-to-br from-transparent to-white" style={{ background: `linear-gradient(135deg, ${cardColor}10 0%, transparent 100%)` }}></div> 
             <div className="absolute top-0 right-0 w-16 h-16 rounded-bl-full opacity-10 transition-transform duration-500 group-hover:scale-150" style={{ backgroundColor: cardColor }}></div> 
             <div className="p-5 flex flex-col items-center text-center relative z-10 h-full"> 
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-3 shadow-lg transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3" style={{ backgroundColor: cardColor }} > 
-                    <Icon className="w-7 h-7 text-white drop-shadow-sm" /> 
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-3 shadow-inner transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3" style={{ backgroundColor: cardColor }} > 
+                    <Icon className="w-7 h-7 text-white drop-shadow-md" /> 
                 </div> 
-                <h3 className="font-bold text-white text-base mb-1 truncate w-full">{category.name}</h3> 
+                <h3 className="font-bold text-white text-sm mb-1 truncate w-full tracking-tight">{category.name}</h3> 
                 <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0"> 
                     <button onClick={(e) => { e.stopPropagation(); onEdit(); }} className="p-2 rounded-xl bg-slate-800/90 text-cyan-400 hover:bg-cyan-500 hover:text-white transition shadow-lg backdrop-blur-sm"><PencilSquareIcon className="w-4 h-4"/></button> 
                     <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="p-2 rounded-xl bg-slate-800/90 text-rose-400 hover:bg-rose-500 hover:text-white transition shadow-lg backdrop-blur-sm"><TrashIcon className="w-4 h-4"/></button> 

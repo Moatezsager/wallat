@@ -303,30 +303,38 @@ const TransferModal: React.FC<{ accounts: Account[]; onSuccess: () => void; onCa
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="text-center py-4">
-                <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" required className="w-full bg-transparent text-center text-5xl font-black text-indigo-400 outline-none" />
-                <p className="text-[10px] text-slate-500 font-black mt-2">مبلغ التحويل</p>
+            <div className="relative group text-center py-4">
+                <div className="absolute inset-0 blur-3xl opacity-10 rounded-full bg-indigo-500"></div>
+                <div className="relative z-10 flex flex-col items-center">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">مبلغ التحويل</span>
+                    <div className="flex items-center justify-center gap-2">
+                        <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" required autoFocus className="w-full bg-transparent text-center text-6xl font-black focus:outline-none transition-colors duration-300 placeholder-slate-800 text-indigo-400" />
+                        <span className="text-xl font-bold text-indigo-600">د.ل</span>
+                    </div>
+                </div>
             </div>
             <div className="space-y-4">
                 <div>
                     <label className="text-[10px] font-black text-slate-500 uppercase px-1 mb-2 block">من حساب</label>
-                    <select value={fromId} onChange={e => setFromId(e.target.value)} required className="w-full bg-slate-800 border border-white/5 rounded-2xl p-4 text-white focus:outline-none">
+                    <select value={fromId} onChange={e => setFromId(e.target.value)} required className="w-full bg-slate-800/50 border border-white/5 rounded-2xl p-4 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-all appearance-none">
                         <option value="">اختر حساب المصدر</option>
                         {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({formatCurrency(a.balance)})</option>)}
                     </select>
                 </div>
                 <div className="flex justify-center -my-2 relative z-10">
-                    <div className="bg-indigo-600 p-2 rounded-full border-4 border-slate-900 shadow-lg"><ArrowDownIcon className="w-4 h-4 text-white" /></div>
+                    <div className="bg-indigo-600/20 p-2 rounded-full border border-indigo-500/30 shadow-lg backdrop-blur-md"><ArrowDownIcon className="w-4 h-4 text-indigo-400" /></div>
                 </div>
                 <div>
                     <label className="text-[10px] font-black text-slate-500 uppercase px-1 mb-2 block">إلى حساب</label>
-                    <select value={toId} onChange={e => setToId(e.target.value)} required className="w-full bg-slate-800 border border-white/5 rounded-2xl p-4 text-white focus:outline-none">
+                    <select value={toId} onChange={e => setToId(e.target.value)} required className="w-full bg-slate-800/50 border border-white/5 rounded-2xl p-4 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-all appearance-none">
                         <option value="">اختر حساب الوجهة</option>
                         {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({formatCurrency(a.balance)})</option>)}
                     </select>
                 </div>
             </div>
-            <button type="submit" disabled={isSaving} className="w-full py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all">{isSaving ? 'جاري التحويل...' : 'تأكيد التحويل'}</button>
+            <button type="submit" disabled={isSaving} className="w-full py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
+                {isSaving ? <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin"></div> : <><CheckCircleIcon className="w-6 h-6" /> تأكيد التحويل</>}
+            </button>
         </form>
     );
 };
@@ -354,13 +362,31 @@ const AddInvestmentModal: React.FC<{ onSuccess: () => void; onCancel: () => void
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="اسم الاستثمار" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:outline-none" />
-            <select value={type} onChange={e => setType(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white">
-                <option value="ذهب">ذهب</option><option value="أسهم">أسهم</option><option value="عملات">عملات</option><option value="مدخرات">مدخرات</option>
-            </select>
-            <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="المبلغ المستثمر" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white" />
-            <button type="submit" disabled={isSaving} className="w-full py-3 bg-cyan-600 text-white rounded-xl font-bold">حفظ الاستثمار</button>
+        <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="relative group text-center py-4">
+                <div className="absolute inset-0 blur-3xl opacity-10 rounded-full bg-cyan-500"></div>
+                <div className="relative z-10 flex flex-col items-center">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">المبلغ المستثمر</span>
+                    <div className="flex items-center justify-center gap-2">
+                        <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" required autoFocus className="w-full bg-transparent text-center text-6xl font-black focus:outline-none transition-colors duration-300 placeholder-slate-800 text-cyan-400" />
+                        <span className="text-xl font-bold text-cyan-600">د.ل</span>
+                    </div>
+                </div>
+            </div>
+            <div className="space-y-4">
+                <div className="relative group">
+                    <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="اسم الاستثمار" required className="w-full bg-slate-800/50 border border-white/5 rounded-2xl p-4 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all" />
+                </div>
+                <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase px-1 mb-2 block">نوع الاستثمار</label>
+                    <select value={type} onChange={e => setType(e.target.value)} className="w-full bg-slate-800/50 border border-white/5 rounded-2xl p-4 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all appearance-none">
+                        <option value="ذهب">ذهب</option><option value="أسهم">أسهم</option><option value="عملات">عملات</option><option value="مدخرات">مدخرات</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" disabled={isSaving} className="w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
+                {isSaving ? <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin"></div> : <><CheckCircleIcon className="w-6 h-6" /> حفظ الاستثمار</>}
+            </button>
         </form>
     );
 };
@@ -387,13 +413,40 @@ const AddAccountModal: React.FC<{ onSuccess: () => void; onCancel: () => void; }
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="اسم الحساب" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:outline-none" />
-            <select value={type} onChange={e => setType(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white">
-                <option value="بنكي">بنكي</option><option value="نقدي">نقدي</option><option value="مخصص">مخصص</option>
-            </select>
-            <input type="number" value={balance} onChange={e => setBalance(e.target.value)} placeholder="الرصيد الافتتاحي" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white" />
-            <button type="submit" disabled={isSaving} className="w-full py-3 bg-cyan-600 text-white rounded-xl font-bold">فتح الحساب</button>
+        <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="relative group text-center py-4">
+                <div className="absolute inset-0 blur-3xl opacity-10 rounded-full bg-cyan-500"></div>
+                <div className="relative z-10 flex flex-col items-center">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">الرصيد الافتتاحي</span>
+                    <div className="flex items-center justify-center gap-2">
+                        <input type="number" step="0.01" value={balance} onChange={e => setBalance(e.target.value)} placeholder="0.00" required autoFocus className="w-full bg-transparent text-center text-6xl font-black focus:outline-none transition-colors duration-300 placeholder-slate-800 text-cyan-400" />
+                        <span className="text-xl font-bold text-cyan-600">د.ل</span>
+                    </div>
+                </div>
+            </div>
+            <div className="space-y-4">
+                <div className="relative group">
+                    <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="اسم الحساب" required className="w-full bg-slate-800/50 border border-white/5 rounded-2xl p-4 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all" />
+                </div>
+                <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase px-1 mb-2 block">نوع الحساب</label>
+                    <div className="grid grid-cols-3 gap-3">
+                        {['بنكي', 'نقدي', 'مخصص'].map(t => {
+                            const Icon = getAccountTypeIcon(t);
+                            const isSelected = type === t;
+                            return (
+                                <button key={t} type="button" onClick={() => setType(t)} className={`p-3 rounded-2xl border transition-all flex flex-col items-center gap-2 ${isSelected ? 'bg-cyan-500/10 border-cyan-500 shadow-lg shadow-cyan-900/20' : 'bg-slate-800/30 border-white/5'}`}>
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isSelected ? 'bg-cyan-500 text-white' : 'bg-slate-700 text-slate-400'}`}><Icon className="w-5 h-5" /></div>
+                                    <span className={`text-[10px] font-bold ${isSelected ? 'text-white' : 'text-slate-400'}`}>{t}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+            <button type="submit" disabled={isSaving} className="w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
+                {isSaving ? <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin"></div> : <><CheckCircleIcon className="w-6 h-6" /> فتح الحساب</>}
+            </button>
         </form>
     );
 };

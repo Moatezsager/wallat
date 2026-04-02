@@ -71,20 +71,20 @@ const TransactionItem = memo(({ tx, onClick }: { tx: Transaction, onClick: (tx: 
 
     return (
         <button onClick={() => onClick(tx)}
-            className="w-full text-right glass-card p-4 rounded-2xl flex justify-between items-center hover:bg-white/5 transition-all group border-transparent hover:border-white/10 active:scale-[0.98] duration-200 hover:shadow-lg">
+            className="w-full text-right glass-card p-4 rounded-[1.5rem] flex justify-between items-center hover:bg-white/5 transition-all group border border-white/5 hover:border-white/10 active:scale-[0.98] duration-300 shadow-sm hover:shadow-xl hover:-translate-y-0.5">
             <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-md transition-transform group-hover:scale-110 ${
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner transition-transform group-hover:scale-110 ${
                     tx.type === 'income' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 
                     tx.type === 'expense' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
                 }`}>
-                    {CategoryIcon ? <CategoryIcon className="w-6 h-6"/> : <TransactionIcon type={tx.type} />}
+                    {CategoryIcon ? <CategoryIcon className="w-6 h-6 drop-shadow-md"/> : <TransactionIcon type={tx.type} className="w-6 h-6 drop-shadow-md" />}
                 </div>
                 <div className="min-w-0">
-                    <p className="font-bold text-white text-base mb-0.5 line-clamp-1">{tx.notes || tx.categories?.name || (tx.type === 'transfer' ? `تحويل إلى ${tx.to_accounts?.name}` : 'معاملة')}</p>
-                    <p className="text-xs text-slate-400 font-medium truncate">{tx.accounts?.name || 'حساب محذوف'}</p>
+                    <p className="font-bold text-white text-sm mb-0.5 line-clamp-1">{tx.notes || tx.categories?.name || (tx.type === 'transfer' ? `تحويل إلى ${tx.to_accounts?.name}` : 'معاملة')}</p>
+                    <p className="text-[11px] text-slate-500 font-medium truncate">{tx.accounts?.name || 'حساب محذوف'}</p>
                 </div>
             </div>
-            <p className={`font-extrabold text-lg whitespace-nowrap ${tx.type === 'income' ? 'text-emerald-400' : tx.type === 'expense' ? 'text-rose-400' : 'text-indigo-400'}`}>
+            <p className={`font-black text-base whitespace-nowrap tabular-nums ${tx.type === 'income' ? 'text-emerald-400' : tx.type === 'expense' ? 'text-rose-400' : 'text-indigo-400'}`}>
                 {formatCurrency(tx.amount)}
             </p>
         </button>
@@ -94,13 +94,18 @@ const TransactionItem = memo(({ tx, onClick }: { tx: Transaction, onClick: (tx: 
 TransactionItem.displayName = 'TransactionItem';
 
 const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; }> = ({ children, title, onClose }) => (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-        <div className="glass-card bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-white/10 shadow-2xl animate-slide-up">
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-white">{title}</h3>
-                <button onClick={onClose} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 transition-colors"><XMarkIcon className="w-5 h-5 text-slate-400" /></button>
+    <div className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in pt-safe pb-safe">
+        <div className="relative w-full max-w-md bg-slate-900 rounded-[2rem] shadow-2xl border border-white/10 p-8 animate-slide-up overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 to-blue-500"></div>
+            <div className="flex justify-between items-center mb-8 relative z-10">
+                <h3 className="text-2xl font-black text-white tracking-tight">{title}</h3>
+                <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-400 transition-colors active:scale-90">
+                    <XMarkIcon className="w-5 h-5" />
+                </button>
             </div>
-            {children}
+            <div className="relative z-10">
+                {children}
+            </div>
         </div>
     </div>
 );
@@ -142,36 +147,50 @@ const FilterModal: React.FC<{
 
     return (
         <Modal title="تصفية المعاملات" onClose={onClose}>
-            <div className="space-y-5 max-h-[60vh] overflow-y-auto pr-2">
+            <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
                 <div>
-                    <label className="text-sm font-medium text-slate-400 mb-2 block">نوع المعاملة</label>
-                    <div className="flex gap-2">
-                        {(['expense', 'income', 'transfer'] as Transaction['type'][]).map(type => (
-                            <button key={type} onClick={() => handleTypeToggle(type)}
-                                className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium transition-colors border ${tempFilters.types.includes(type) ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>
-                                {{expense: 'مصروف', income: 'دخل', transfer: 'تحويل'}[type]}
-                            </button>
-                        ))}
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 block px-1">نوع المعاملة</label>
+                    <div className="grid grid-cols-3 gap-2">
+                        {(['expense', 'income', 'transfer'] as Transaction['type'][]).map(type => {
+                            const isSelected = tempFilters.types.includes(type);
+                            return (
+                                <button key={type} onClick={() => handleTypeToggle(type)}
+                                    className={`py-3 px-2 rounded-2xl text-xs font-bold transition-all border flex flex-col items-center gap-2 ${isSelected ? 'bg-cyan-500/10 border-cyan-500 text-white shadow-lg shadow-cyan-900/20' : 'bg-slate-800/50 border-white/5 text-slate-400 hover:bg-slate-800'}`}>
+                                    {type === 'expense' && <ArrowUpIcon className={`w-5 h-5 ${isSelected ? 'text-rose-400' : 'text-slate-500'}`} />}
+                                    {type === 'income' && <ArrowDownIcon className={`w-5 h-5 ${isSelected ? 'text-emerald-400' : 'text-slate-500'}`} />}
+                                    {type === 'transfer' && <ArrowsRightLeftIcon className={`w-5 h-5 ${isSelected ? 'text-indigo-400' : 'text-slate-500'}`} />}
+                                    {{expense: 'مصروف', income: 'دخل', transfer: 'تحويل'}[type]}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
-                <div>
-                    <label className="text-sm font-medium text-slate-400 mb-2 block">نطاق التاريخ</label>
+                
+                <div className="bg-slate-950/50 p-4 rounded-2xl border border-white/10">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 block px-1">نطاق التاريخ</label>
                     <div className="flex gap-3">
-                        <input type="date" value={tempFilters.date_from} onChange={e => setTempFilters(f => ({...f, date_from: e.target.value}))} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
-                        <input type="date" value={tempFilters.date_to} onChange={e => setTempFilters(f => ({...f, date_to: e.target.value}))} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
+                        <div className="flex-1 relative">
+                            <input type="date" value={tempFilters.date_from} onChange={e => setTempFilters(f => ({...f, date_from: e.target.value}))} className="w-full bg-slate-900/50 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 focus:outline-none transition-colors" />
+                            <span className="absolute -top-2.5 right-3 bg-slate-950 px-1 text-[9px] text-slate-500 font-bold">من</span>
+                        </div>
+                        <div className="flex-1 relative">
+                            <input type="date" value={tempFilters.date_to} onChange={e => setTempFilters(f => ({...f, date_to: e.target.value}))} className="w-full bg-slate-900/50 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 focus:outline-none transition-colors" />
+                            <span className="absolute -top-2.5 right-3 bg-slate-950 px-1 text-[9px] text-slate-500 font-bold">إلى</span>
+                        </div>
                     </div>
                 </div>
-                 <div>
-                    <label htmlFor="account" className="text-sm font-medium text-slate-400 mb-2 block">الحساب</label>
-                     <select id="account" value={tempFilters.accounts[0] || ''} onChange={e => setTempFilters(f => ({...f, accounts: e.target.value ? [e.target.value] : []}))} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
+                
+                 <div className="bg-slate-950/50 p-4 rounded-2xl border border-white/10">
+                    <label htmlFor="account" className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 block px-1">الحساب</label>
+                     <select id="account" value={tempFilters.accounts[0] || ''} onChange={e => setTempFilters(f => ({...f, accounts: e.target.value ? [e.target.value] : []}))} className="w-full bg-slate-900/50 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 focus:outline-none transition-colors appearance-none font-bold">
                         <option value="">كل الحسابات</option>
                         {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
                     </select>
                 </div>
             </div>
-            <div className="flex justify-between items-center pt-6 mt-4 border-t border-white/10">
-                <button onClick={handleReset} className="py-2 px-4 text-slate-400 hover:text-white transition font-medium text-sm">إعادة تعيين</button>
-                <button onClick={() => onApply(tempFilters)} className="py-2.5 px-6 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl transition font-bold shadow-lg shadow-cyan-500/20">تطبيق</button>
+            <div className="flex gap-3 pt-6 mt-2">
+                <button onClick={handleReset} className="flex-1 py-4 bg-slate-800 text-slate-400 rounded-2xl font-black text-sm active:scale-95 transition-all">إعادة تعيين</button>
+                <button onClick={() => onApply(tempFilters)} className="flex-[2] py-4 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-2xl font-black text-sm shadow-xl active:scale-95 transition-all">تطبيق الفلاتر</button>
             </div>
         </Modal>
     );
@@ -392,18 +411,18 @@ const TransactionsPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-3 gap-4 text-center">
-                <div className="glass-card p-4 rounded-2xl border border-white/5">
-                    <p className="text-xs text-emerald-400 font-bold mb-1">الدخل</p>
-                    <p className="font-extrabold text-lg tracking-tight tabular-nums">{formatCurrency(summary.income)}</p>
+            <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="glass-card p-4 rounded-[1.5rem] border border-white/5 shadow-lg">
+                    <p className="text-[10px] text-emerald-400 font-bold mb-1 uppercase tracking-wider">الدخل</p>
+                    <p className="font-black text-base tracking-tight tabular-nums">{formatCurrency(summary.income)}</p>
                 </div>
-                <div className="glass-card p-4 rounded-2xl border border-white/5">
-                    <p className="text-xs text-rose-400 font-bold mb-1">المصروف</p>
-                    <p className="font-extrabold text-lg tracking-tight tabular-nums">{formatCurrency(summary.expense)}</p>
+                <div className="glass-card p-4 rounded-[1.5rem] border border-white/5 shadow-lg">
+                    <p className="text-[10px] text-rose-400 font-bold mb-1 uppercase tracking-wider">المصروف</p>
+                    <p className="font-black text-base tracking-tight tabular-nums">{formatCurrency(summary.expense)}</p>
                 </div>
-                <div className="glass-card p-4 rounded-2xl border border-white/5">
-                    <p className="text-xs text-cyan-400 font-bold mb-1">الصافي</p>
-                    <p className="font-extrabold text-lg tracking-tight tabular-nums">{formatCurrency(summary.income - summary.expense)}</p>
+                <div className="glass-card p-4 rounded-[1.5rem] border border-white/5 shadow-lg">
+                    <p className="text-[10px] text-cyan-400 font-bold mb-1 uppercase tracking-wider">الصافي</p>
+                    <p className="font-black text-base tracking-tight tabular-nums">{formatCurrency(summary.income - summary.expense)}</p>
                 </div>
             </div>
 

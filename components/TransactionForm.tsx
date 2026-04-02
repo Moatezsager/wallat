@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { Transaction, Account, Category } from '../types';
 import { useToast } from './Toast';
 import { logActivity } from '../lib/logger';
+import { CheckCircleIcon, ArrowDownIcon, ArrowUpIcon, CalendarDaysIcon, PencilSquareIcon } from './icons';
 
 interface TransactionFormProps {
     transaction?: Transaction;
@@ -115,44 +116,61 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ transaction, onSave, 
     const filteredCategories = categories.filter(c => c.type === type);
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">نوع المعاملة</label>
-                <div className="flex gap-4">
-                    <button type="button" onClick={() => { setType('expense'); setCategoryId(''); }} className={`w-full p-2 rounded-xl font-bold transition-all ${type === 'expense' ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'bg-slate-800 text-slate-400'}`}>مصروف</button>
-                    <button type="button" onClick={() => { setType('income'); setCategoryId(''); }} className={`w-full p-2 rounded-xl font-bold transition-all ${type === 'income' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-slate-800 text-slate-400'}`}>دخل</button>
+        <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="flex bg-slate-800/50 p-1 rounded-2xl border border-white/5 shadow-inner">
+                <button type="button" onClick={() => { setType('expense'); setCategoryId(''); }} className={`flex-1 py-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 ${type === 'expense' ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/20' : 'text-slate-500 hover:text-slate-300'}`}>
+                    <ArrowUpIcon className="w-4 h-4" /> مصروف
+                </button>
+                <button type="button" onClick={() => { setType('income'); setCategoryId(''); }} className={`flex-1 py-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 ${type === 'income' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-500 hover:text-slate-300'}`}>
+                    <ArrowDownIcon className="w-4 h-4" /> دخل
+                </button>
+            </div>
+
+            <div className="relative group text-center py-4">
+                <div className={`absolute inset-0 blur-3xl opacity-10 rounded-full transition-colors duration-500 ${type === 'income' ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
+                <div className="relative z-10 flex flex-col items-center">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">المبلغ</span>
+                    <div className="flex items-center justify-center gap-2">
+                        <input type="number" step="0.01" id="amount" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" required autoFocus className={`w-full bg-transparent text-center text-6xl font-black focus:outline-none transition-colors duration-300 placeholder-slate-800 ${type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`} />
+                        <span className={`text-xl font-bold ${type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>د.ل</span>
+                    </div>
                 </div>
             </div>
-            <div>
-                <label htmlFor="amount" className="block text-sm font-medium text-slate-300 mb-1">المبلغ</label>
-                <input type="number" step="0.01" id="amount" value={amount} onChange={e => setAmount(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none font-bold text-lg" placeholder="0.00" />
+
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label htmlFor="account" className="text-[10px] font-black text-slate-500 uppercase px-1 mb-2 block">الحساب</label>
+                    <select id="account" value={accountId} onChange={e => setAccountId(e.target.value)} required className="w-full bg-slate-800/50 border border-white/5 rounded-2xl p-4 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all appearance-none">
+                        <option value="" disabled>اختر حساب</option>
+                        {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label htmlFor="category" className="text-[10px] font-black text-slate-500 uppercase px-1 mb-2 block">الفئة</label>
+                    <select id="category" value={categoryId || ''} onChange={e => setCategoryId(e.target.value)} className="w-full bg-slate-800/50 border border-white/5 rounded-2xl p-4 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all appearance-none">
+                        <option value="">بدون فئة</option>
+                        {filteredCategories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                    </select>
+                </div>
             </div>
-             <div>
-                <label htmlFor="account" className="block text-sm font-medium text-slate-300 mb-1">الحساب</label>
-                <select id="account" value={accountId} onChange={e => setAccountId(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
-                    <option value="" disabled>اختر حساب</option>
-                    {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
-                </select>
+
+            <div className="space-y-1.5">
+                <label htmlFor="date" className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">التاريخ</label>
+                <div className="relative group">
+                    <input type="date" id="date" value={date} onChange={e => setDate(e.target.value)} required className="w-full bg-slate-800/50 border border-white/5 rounded-2xl p-4 text-xs text-white focus:outline-none focus:border-cyan-500/50 transition-all appearance-none" />
+                    <CalendarDaysIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                </div>
             </div>
-             <div>
-                <label htmlFor="category" className="block text-sm font-medium text-slate-300 mb-1">الفئة</label>
-                <select id="category" value={categoryId || ''} onChange={e => setCategoryId(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
-                    <option value="">بدون فئة</option>
-                    {filteredCategories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-                </select>
+
+            <div className="relative group">
+                <input type="text" id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="ملاحظات إضافية (اختياري)..." className="w-full bg-slate-800/50 border border-white/5 rounded-2xl p-4 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 transition-all" />
+                <PencilSquareIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
             </div>
-             <div>
-                <label htmlFor="date" className="block text-sm font-medium text-slate-300 mb-1">التاريخ</label>
-                <input type="date" id="date" value={date} onChange={e => setDate(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
-            </div>
-             <div>
-                <label htmlFor="notes" className="block text-sm font-medium text-slate-300 mb-1">ملاحظات</label>
-                <input type="text" id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="وصف للمعاملة..." className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" />
-            </div>
-            <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
-                <button type="button" onClick={onCancel} className="py-3 px-6 text-slate-400 hover:text-white font-bold transition">إلغاء</button>
-                <button type="submit" disabled={isSaving} className="py-3 px-8 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl transition font-bold shadow-lg disabled:opacity-70">
-                    {isSaving ? 'جاري الحفظ...' : 'حفظ المعاملة'}
+
+            <div className="flex gap-3 pt-4">
+                <button type="button" onClick={onCancel} className="flex-1 py-4 bg-slate-800 text-slate-400 rounded-2xl font-black text-lg active:scale-95 transition-all">إلغاء</button>
+                <button type="submit" disabled={isSaving} className={`flex-[2] py-4 rounded-2xl font-black text-lg text-white shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 ${type === 'income' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 shadow-emerald-900/20' : 'bg-gradient-to-r from-rose-600 to-pink-600 shadow-rose-900/20'}`}>
+                    {isSaving ? <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin"></div> : <><CheckCircleIcon className="w-6 h-6" /> حفظ المعاملة</>}
                 </button>
             </div>
         </form>

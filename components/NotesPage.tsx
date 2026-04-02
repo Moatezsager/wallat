@@ -352,37 +352,37 @@ const NoteCard: React.FC<{ note: Note; onClick: () => void; onDelete: () => void
         <div className="break-inside-avoid group perspective-1000"> 
             <div 
                 onClick={onClick} 
-                className="relative rounded-[2.5rem] cursor-pointer overflow-hidden transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.6)] border ring-1 ring-white/5 active:scale-95" 
+                className="relative rounded-[2rem] cursor-pointer overflow-hidden transition-all duration-500 hover:-translate-y-1 hover:shadow-xl border ring-1 ring-white/5 active:scale-95 shadow-sm" 
                 style={{ backgroundColor: note.color, borderColor: theme.border }} 
             > 
                 <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
                 <div className="absolute -top-10 -right-10 w-32 h-32 blur-[40px] opacity-10 rounded-full" style={{ backgroundColor: theme.accent }}></div>
 
-                <div className="p-7 pb-16 min-h-[140px]"> 
+                <div className="p-6 pb-16 min-h-[140px]"> 
                     {note.is_pinned && (
-                        <div className="absolute top-6 left-6 text-white/40 bg-white/10 p-1.5 rounded-xl backdrop-blur-md border border-white/10">
+                        <div className="absolute top-5 left-5 text-white/40 bg-white/10 p-1.5 rounded-xl backdrop-blur-md border border-white/10">
                             <SolidPinIcon className="w-4 h-4 shadow-sm" />
                         </div>
                     )} 
                     {title ? ( 
-                        <h3 className="font-black text-xl text-white mb-4 leading-tight tracking-tight">{title}</h3> 
+                        <h3 className="font-bold text-lg text-white mb-3 leading-tight tracking-tight">{title}</h3> 
                     ) : null} 
-                    <div className="text-slate-200/80 text-base leading-relaxed line-clamp-6 prose prose-invert prose-sm max-w-none break-words font-medium" dangerouslySetInnerHTML={{ __html: content || (title ? '' : '<span class="italic opacity-30">مساحة فارغة...</span>') }} /> 
+                    <div className="text-slate-200/80 text-sm leading-relaxed line-clamp-6 prose prose-invert prose-sm max-w-none break-words font-medium" dangerouslySetInnerHTML={{ __html: content || (title ? '' : '<span class="italic opacity-30">مساحة فارغة...</span>') }} /> 
                 </div> 
 
-                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 via-black/20 to-transparent flex items-center justify-between opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-4 group-hover:translate-y-0 backdrop-blur-sm"> 
-                    <span className="text-[10px] text-white/50 px-3 py-1 bg-white/5 rounded-lg border border-white/5 font-black uppercase tracking-widest"> 
+                <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/60 via-black/20 to-transparent flex items-center justify-between opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-4 group-hover:translate-y-0 backdrop-blur-sm"> 
+                    <span className="text-[10px] text-white/50 px-2 py-1 bg-white/5 rounded-lg border border-white/5 font-black uppercase tracking-widest tabular-nums"> 
                         {new Date(note.updated_at).toLocaleDateString('ar-LY', {month:'short', day:'numeric'})} 
                     </span> 
-                    <div className="flex gap-1.5"> 
-                        <button type="button" onClick={(e) => { e.stopPropagation(); onUpdateField({ is_pinned: !note.is_pinned }); }} className="p-2.5 rounded-xl hover:bg-white/20 text-white/70 hover:text-cyan-400 transition-all active:scale-90 border border-transparent hover:border-white/10"> 
-                            {note.is_pinned ? <SolidPinIcon className="w-5 h-5"/> : <PinIcon className="w-5 h-5"/>} 
+                    <div className="flex gap-1"> 
+                        <button type="button" onClick={(e) => { e.stopPropagation(); onUpdateField({ is_pinned: !note.is_pinned }); }} className="p-2 rounded-xl hover:bg-white/20 text-white/70 hover:text-cyan-400 transition-all active:scale-90 border border-transparent hover:border-white/10"> 
+                            {note.is_pinned ? <SolidPinIcon className="w-4 h-4"/> : <PinIcon className="w-4 h-4"/>} 
                         </button> 
                         <ColorPickerPopover currentColor={note.color} onSelect={(color) => onUpdateField({ color })}> 
-                            <PaintBrushIcon className="w-5 h-5 text-white/70" /> 
+                            <PaintBrushIcon className="w-4 h-4 text-white/70" /> 
                         </ColorPickerPopover> 
-                        <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(); }} className="p-2.5 rounded-xl hover:bg-rose-500/20 text-white/70 hover:text-rose-400 transition-all active:scale-90 border border-transparent hover:border-white/10"> 
-                            <TrashIcon className="w-5 h-5"/> 
+                        <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(); }} className="p-2 rounded-xl hover:bg-rose-500/20 text-white/70 hover:text-rose-400 transition-all active:scale-90 border border-transparent hover:border-white/10"> 
+                            <TrashIcon className="w-4 h-4"/> 
                         </button> 
                     </div> 
                 </div> 

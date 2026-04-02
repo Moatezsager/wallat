@@ -10,8 +10,89 @@ import ConfirmDialog from './ConfirmDialog';
 interface ContactWithDebtInfo extends Contact { forYou: number; onYou: number; netBalance: number; }
 interface ContactsPageProps { refreshTrigger: number; handleDatabaseChange: (description?: string) => void; onSelectContact: (contactId: string) => void; }
 const formatCurrency = (amount: number, currency: string = 'د.ل') => { const options: Intl.NumberFormatOptions = { style: 'currency', currency: 'LYD', }; if (amount % 1 === 0) { options.minimumFractionDigits = 0; options.maximumFractionDigits = 0; } else { options.minimumFractionDigits = 2; options.maximumFractionDigits = 2; } return new Intl.NumberFormat('ar-LY', options).format(amount).replace('LYD', currency); };
-const ContactForm: React.FC<{ contact?: Contact | null; onSave: () => void; onCancel: () => void; }> = ({ contact, onSave, onCancel }) => { const toast = useToast(); const [name, setName] = useState(contact?.name || ''); const [phone, setPhone] = useState(contact?.phone || ''); const [address, setAddress] = useState(contact?.address || ''); const [isSaving, setIsSaving] = useState(false); const handleSubmit = async (e: React.FormEvent) => { e.preventDefault(); setIsSaving(true); const contactData = { name, phone: phone || null, address: address || null }; const { error } = contact?.id ? await supabase.from('contacts').update(contactData).eq('id', contact.id) : await supabase.from('contacts').insert(contactData); if (error) { console.error('Error saving contact:', error.message); toast.error('حدث خطأ أثناء حفظ جهة الاتصال'); } else { onSave(); } setIsSaving(false); }; return ( <form onSubmit={handleSubmit} className="space-y-4"> <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="الاسم الكامل" required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" /> <input type="tel" value={phone || ''} onChange={e => setPhone(e.target.value)} placeholder="رقم الهاتف (اختياري)" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" /> <input type="text" value={address || ''} onChange={e => setAddress(e.target.value)} placeholder="العنوان (اختياري)" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none" /> <div className="flex justify-end gap-3 pt-4"> <button type="button" onClick={onCancel} className="py-2 px-4 text-slate-400 hover:text-white font-bold transition">إلغاء</button> <button type="submit" disabled={isSaving} className="py-2 px-6 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl transition font-bold shadow-lg"> {isSaving ? 'جاري الحفظ...' : 'حفظ'} </button> </div> </form> ); };
-const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; }> = ({ children, title, onClose }) => ( <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"> <div className="glass-card bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-white/10 shadow-2xl animate-slide-up"> <div className="flex justify-between items-center mb-6"> <h3 className="text-xl font-bold text-white">{title}</h3> <button onClick={onClose} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 transition-colors"><XMarkIcon className="w-5 h-5 text-slate-400" /></button> </div> {children} </div> </div> );
+const ContactForm: React.FC<{ contact?: Contact | null; onSave: () => void; onCancel: () => void; }> = ({ contact, onSave, onCancel }) => {
+    const toast = useToast();
+    const [name, setName] = useState(contact?.name || '');
+    const [phone, setPhone] = useState(contact?.phone || '');
+    const [address, setAddress] = useState(contact?.address || '');
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSaving(true);
+        const contactData = { name, phone: phone || null, address: address || null };
+        const { error } = contact?.id 
+            ? await supabase.from('contacts').update(contactData).eq('id', contact.id) 
+            : await supabase.from('contacts').insert(contactData);
+            
+        if (error) {
+            console.error('Error saving contact:', error.message);
+            toast.error('حدث خطأ أثناء حفظ جهة الاتصال');
+        } else {
+            onSave();
+        }
+        setIsSaving(false);
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block px-2">الاسم الكامل</label>
+                <input 
+                    type="text" 
+                    value={name} 
+                    onChange={e => setName(e.target.value)} 
+                    placeholder="أدخل الاسم" 
+                    required 
+                    className="w-full bg-slate-950/50 border border-white/10 rounded-2xl p-4 text-white font-bold focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 focus:outline-none transition-all placeholder-slate-600" 
+                />
+            </div>
+            <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block px-2">رقم الهاتف (اختياري)</label>
+                <input 
+                    type="tel" 
+                    value={phone || ''} 
+                    onChange={e => setPhone(e.target.value)} 
+                    placeholder="09X XXX XXXX" 
+                    dir="ltr"
+                    className="w-full bg-slate-950/50 border border-white/10 rounded-2xl p-4 text-white font-bold focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 focus:outline-none transition-all text-right placeholder-slate-600" 
+                />
+            </div>
+            <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block px-2">العنوان (اختياري)</label>
+                <input 
+                    type="text" 
+                    value={address || ''} 
+                    onChange={e => setAddress(e.target.value)} 
+                    placeholder="أدخل العنوان" 
+                    className="w-full bg-slate-950/50 border border-white/10 rounded-2xl p-4 text-white font-bold focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 focus:outline-none transition-all placeholder-slate-600" 
+                />
+            </div>
+            <div className="flex gap-3 pt-4">
+                <button type="button" onClick={onCancel} className="flex-1 py-4 bg-slate-800 text-slate-400 rounded-2xl font-black text-lg active:scale-95 transition-all">إلغاء</button>
+                <button type="submit" disabled={isSaving} className="flex-[2] py-4 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
+                    {isSaving ? <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin"></div> : 'حفظ البيانات'}
+                </button>
+            </div>
+        </form>
+    );
+};
+const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; }> = ({ children, title, onClose }) => (
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+        <div className="bg-slate-900 rounded-[2rem] p-6 w-full max-w-md border border-white/10 shadow-2xl animate-slide-up relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 to-blue-500"></div>
+            <div className="flex justify-between items-center mb-6 relative z-10">
+                <h3 className="text-xl font-black text-white">{title}</h3>
+                <button onClick={onClose} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors active:scale-90">
+                    <XMarkIcon className="w-5 h-5 text-slate-400" />
+                </button>
+            </div>
+            <div className="relative z-10">
+                {children}
+            </div>
+        </div>
+    </div>
+);
 const getInitials = (name: string) => { const names = name.split(' '); if (names.length > 1 && names[0] && names[names.length - 1]) { return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase(); } return name.substring(0, 2).toUpperCase(); };
 
 const ContactsPage: React.FC<ContactsPageProps> = ({ refreshTrigger, handleDatabaseChange, onSelectContact }) => {
@@ -132,22 +213,22 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ refreshTrigger, handleDatab
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-24">
                     {filteredContacts.map(contact => (
-                        <div key={contact.id} className="relative glass-card rounded-2xl p-1 hover:bg-white/5 transition-all group border border-white/5 hover:border-white/10">
+                        <div key={contact.id} className="relative glass-card rounded-[2rem] p-1 hover:bg-white/5 transition-all group border border-white/5 hover:border-white/10 shadow-sm hover:shadow-xl hover:-translate-y-0.5">
                              <button onClick={() => onSelectContact(contact.id)} className="w-full text-right p-4 flex items-center justify-between focus:outline-none">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-14 h-14 bg-gradient-to-br from-cyan-600 to-blue-700 rounded-2xl flex-shrink-0 flex items-center justify-center font-bold text-white text-xl shadow-lg">
+                                    <div className="w-14 h-14 bg-gradient-to-br from-cyan-600 to-blue-700 rounded-2xl flex-shrink-0 flex items-center justify-center font-bold text-white text-xl shadow-inner group-hover:scale-110 transition-transform">
                                         {getInitials(contact.name)}
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-lg text-white mb-1">{contact.name}</h3>
+                                        <h3 className="font-bold text-lg text-white mb-1 tracking-tight">{contact.name}</h3>
                                         {contact.netBalance !== 0 && (
-                                            <div className={`text-sm font-bold flex items-center gap-1 ${contact.netBalance > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            <div className={`text-sm font-black flex items-center gap-1 ${contact.netBalance > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                 <ScaleIcon className="w-3.5 h-3.5"/>
-                                                <span dir="ltr">{formatCurrency(Math.abs(contact.netBalance))}</span>
-                                                <span>{contact.netBalance > 0 ? '(لك)' : '(عليك)'}</span>
+                                                <span dir="ltr" className="tabular-nums">{formatCurrency(Math.abs(contact.netBalance))}</span>
+                                                <span className="text-[10px] uppercase tracking-widest">{contact.netBalance > 0 ? '(لك)' : '(عليك)'}</span>
                                             </div>
                                         )}
-                                        {contact.netBalance === 0 && contact.phone && <p className="text-sm text-slate-500">{contact.phone}</p>}
+                                        {contact.netBalance === 0 && contact.phone && <p className="text-[10px] text-slate-500 font-bold tracking-widest">{contact.phone}</p>}
                                     </div>
                                 </div>
                             </button>

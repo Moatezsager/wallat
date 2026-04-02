@@ -11,13 +11,15 @@ import {
 } from './icons';
 import { logActivity } from '../lib/logger';
 import { useLanguage, useTheme } from '../App';
-import { Bell, Smartphone, Download, Wifi, Zap } from 'lucide-react';
+import { Bell, Smartphone, Download, Wifi, Zap, MapPin, Camera } from 'lucide-react';
 
 interface ToolsPageProps {
     isStealthMode: boolean;
     toggleStealthMode: () => void;
     handleDatabaseChange: (description?: string) => void;
     requestNotificationPermission: () => Promise<void>;
+    requestGeolocationPermission: () => Promise<void>;
+    requestCameraPermission: () => Promise<void>;
     canInstall: boolean;
     onInstall: () => void;
     isStandalone: boolean;
@@ -32,8 +34,8 @@ const GlobeIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 const ToolsPage: React.FC<ToolsPageProps> = ({ 
     isStealthMode, toggleStealthMode, handleDatabaseChange, 
-    requestNotificationPermission, canInstall, onInstall, 
-    isStandalone, isIOS 
+    requestNotificationPermission, requestGeolocationPermission, requestCameraPermission,
+    canInstall, onInstall, isStandalone, isIOS 
 }) => {
     const toast = useToast();
     const { t, language, setLanguage } = useLanguage();
@@ -199,6 +201,34 @@ const ToolsPage: React.FC<ToolsPageProps> = ({
                         <div className="text-center">
                             <p className="font-black text-sm text-slate-900 dark:text-white">{language === 'ar' ? 'تفعيل الإشعارات' : 'Enable Notifications'}</p>
                             <p className="text-[10px] text-slate-500 font-bold">{language === 'ar' ? 'احصل على تنبيهات الديون' : 'Get debt alerts'}</p>
+                        </div>
+                    </button>
+
+                    {/* Geolocation Toggle */}
+                    <button 
+                        onClick={requestGeolocationPermission}
+                        className="flex flex-col items-center gap-3 p-6 bg-white/40 dark:bg-black/20 rounded-[2rem] border border-black/5 dark:border-white/5 hover:bg-blue-500/10 hover:border-blue-500/30 transition-all group"
+                    >
+                        <div className="w-12 h-12 rounded-2xl bg-blue-500/20 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
+                            <MapPin className="w-6 h-6" />
+                        </div>
+                        <div className="text-center">
+                            <p className="font-black text-sm text-slate-900 dark:text-white">{language === 'ar' ? 'تفعيل الموقع' : 'Enable Location'}</p>
+                            <p className="text-[10px] text-slate-500 font-bold">{language === 'ar' ? 'لتحديد أماكن المعاملات' : 'To tag transaction locations'}</p>
+                        </div>
+                    </button>
+
+                    {/* Camera Toggle */}
+                    <button 
+                        onClick={requestCameraPermission}
+                        className="flex flex-col items-center gap-3 p-6 bg-white/40 dark:bg-black/20 rounded-[2rem] border border-black/5 dark:border-white/5 hover:bg-rose-500/10 hover:border-rose-500/30 transition-all group"
+                    >
+                        <div className="w-12 h-12 rounded-2xl bg-rose-500/20 flex items-center justify-center text-rose-500 group-hover:scale-110 transition-transform">
+                            <Camera className="w-6 h-6" />
+                        </div>
+                        <div className="text-center">
+                            <p className="font-black text-sm text-slate-900 dark:text-white">{language === 'ar' ? 'تفعيل الكاميرا' : 'Enable Camera'}</p>
+                            <p className="text-[10px] text-slate-500 font-bold">{language === 'ar' ? 'لتصوير الفواتير والوصولات' : 'To scan bills and receipts'}</p>
                         </div>
                     </button>
 

@@ -17,14 +17,14 @@ const formatCurrency = (amount: number) => {
 };
 
 const Modal: React.FC<{ children: React.ReactNode; title: string; onClose: () => void; }> = ({ children, title, onClose }) => ( 
-    <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in pt-safe pb-safe"> 
-        <div className="glass-card bg-slate-900 rounded-[2.5rem] p-6 w-full max-w-md border border-white/10 shadow-2xl animate-slide-up overflow-hidden relative"> 
-            <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-[60px] pointer-events-none"></div>
-            <div className="flex justify-between items-center mb-6 relative z-10"> 
-                <h3 className="text-xl font-bold text-white">{title}</h3> 
-                <button onClick={onClose} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 transition-colors text-slate-400"><XMarkIcon className="w-5 h-5" /></button> 
+    <div className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in pt-safe pb-safe"> 
+        <div className="relative w-full max-w-md bg-slate-900 rounded-[2rem] shadow-2xl border border-white/10 p-8 animate-slide-up overflow-hidden"> 
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 to-blue-500"></div>
+            <div className="flex justify-between items-center mb-8 relative z-10"> 
+                <h3 className="text-2xl font-black text-white tracking-tight">{title}</h3> 
+                <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-400 transition-colors active:scale-90"><XMarkIcon className="w-5 h-5" /></button> 
             </div> 
-            <div className="relative z-10 max-h-[70vh] overflow-y-auto no-scrollbar">{children}</div>
+            <div className="relative z-10 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2">{children}</div>
         </div> 
     </div> 
 );
@@ -81,49 +81,56 @@ const EditDebtModal: React.FC<{
     };
 
     return (
-        <form onSubmit={handleUpdate} className="space-y-5">
-            <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase px-1 block tracking-widest">نوع الذمة المالية</label>
-                <div className="flex bg-slate-800 p-1 rounded-2xl border border-white/5 shadow-inner">
-                    <button type="button" onClick={() => setType('on_you')} className={`flex-1 py-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 ${type === 'on_you' ? 'bg-rose-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
-                        <ArrowDownIcon className="w-4 h-4"/> دين عليك
-                    </button>
-                    <button type="button" onClick={() => setType('for_you')} className={`flex-1 py-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 ${type === 'for_you' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
-                        <ArrowUpIcon className="w-4 h-4"/> دين لك
-                    </button>
-                </div>
+        <form onSubmit={handleUpdate} className="space-y-6">
+            <div className="flex bg-slate-800 p-1 rounded-2xl border border-white/5 shadow-inner">
+                <button type="button" onClick={() => setType('on_you')} className={`flex-1 py-3 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2 ${type === 'on_you' ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/30' : 'text-slate-500 hover:text-slate-300'}`}>
+                    <ArrowDownIcon className="w-4 h-4"/> دين عليك
+                </button>
+                <button type="button" onClick={() => setType('for_you')} className={`flex-1 py-3 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2 ${type === 'for_you' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/30' : 'text-slate-500 hover:text-slate-300'}`}>
+                    <ArrowUpIcon className="w-4 h-4"/> دين لك
+                </button>
             </div>
 
-            <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase px-1 mb-1 block">المبلغ الحالي</label>
+            <div className="text-center relative py-4">
+                <div className={`absolute inset-0 blur-[60px] opacity-10 rounded-full ${type === 'on_you' ? 'bg-rose-500' : 'bg-emerald-500'}`}></div>
+                <p className="text-[10px] text-slate-500 font-black uppercase mb-1 relative z-10">المبلغ الحالي</p>
+                <div className="flex items-center justify-center gap-2 relative z-10">
+                    <input 
+                        type="number" 
+                        step="0.01" 
+                        value={amount} 
+                        onChange={e => setAmount(e.target.value)} 
+                        placeholder="0.00" 
+                        required 
+                        className={`w-full bg-transparent text-center text-6xl font-black focus:outline-none transition-colors duration-300 ${type === 'on_you' ? 'text-rose-400' : 'text-emerald-400'}`} 
+                    />
+                    <span className={`text-xl font-bold ${type === 'on_you' ? 'text-rose-600' : 'text-emerald-600'}`}>د.ل</span>
+                </div>
+            </div>
+            
+            <div className="space-y-4">
                 <div className="relative group">
-                    <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 text-white font-black text-2xl focus:border-cyan-500 transition-all text-center" />
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-500">د.ل</span>
+                    <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="البيان / الوصف" className="w-full bg-slate-950/50 border border-white/10 rounded-2xl p-4 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all font-bold" />
                 </div>
-            </div>
-            
-            <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase px-1 mb-1 block">البيان / الوصف</label>
-                <input type="text" value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 outline-none" placeholder="اكتب سبباً للدين..." />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase px-1 mb-1 block">التاريخ</label>
-                    <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 outline-none text-xs" />
-                </div>
-                <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase px-1 mb-1 block">الطرف الآخر</label>
-                    <select value={contactId} onChange={e => setContactId(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-cyan-500 outline-none text-xs">
-                        {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
+                
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block px-2">التاريخ</label>
+                        <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full bg-slate-950/50 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all font-bold" />
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block px-2">الطرف الآخر</label>
+                        <select value={contactId} onChange={e => setContactId(e.target.value)} required className="w-full bg-slate-950/50 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all font-bold appearance-none">
+                            {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                    </div>
                 </div>
             </div>
 
             <div className="flex gap-3 pt-4">
-                <button type="button" onClick={onCancel} className="flex-1 py-3 text-slate-400 font-bold">إلغاء</button>
-                <button type="submit" disabled={isSaving} className="flex-[2] py-4 bg-cyan-600 text-white rounded-2xl font-black text-lg shadow-xl shadow-cyan-900/20 active:scale-95 transition-all">
-                    {isSaving ? 'جاري المعالجة...' : 'تحديث البيانات'}
+                <button type="button" onClick={onCancel} className="flex-1 py-4 bg-slate-800 text-slate-400 rounded-2xl font-black text-lg active:scale-95 transition-all">إلغاء</button>
+                <button type="submit" disabled={isSaving} className="flex-[2] py-4 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
+                    {isSaving ? <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin"></div> : 'تحديث البيانات'}
                 </button>
             </div>
         </form>
@@ -192,45 +199,49 @@ const InstallmentModal: React.FC<{
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="flex bg-slate-800 p-1 rounded-2xl mb-2 shadow-inner">
-                <button type="button" onClick={() => setMode('months')} className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${mode === 'months' ? 'bg-cyan-600 text-white shadow-lg' : 'text-slate-500'}`}>خطة أشهر</button>
-                <button type="button" onClick={() => setMode('amount')} className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${mode === 'amount' ? 'bg-cyan-600 text-white shadow-lg' : 'text-slate-500'}`}>مبلغ يدوي</button>
+            <div className="flex bg-slate-800 p-1 rounded-2xl mb-2 shadow-inner border border-white/5">
+                <button type="button" onClick={() => setMode('months')} className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all ${mode === 'months' ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-900/30' : 'text-slate-500 hover:text-slate-300'}`}>خطة أشهر</button>
+                <button type="button" onClick={() => setMode('amount')} className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all ${mode === 'amount' ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-900/30' : 'text-slate-500 hover:text-slate-300'}`}>مبلغ يدوي</button>
             </div>
 
-            <div className="text-center bg-slate-800/40 p-6 rounded-3xl border border-white/5 relative overflow-hidden">
-                <p className="text-[10px] text-slate-500 font-black mb-2 uppercase tracking-widest">المبلغ المستحق للدفع</p>
-                <div className="flex items-center justify-center gap-2">
+            <div className="text-center relative py-6">
+                <div className="absolute inset-0 blur-[60px] opacity-10 rounded-full bg-cyan-500"></div>
+                <p className="text-[10px] text-slate-500 font-black mb-2 uppercase tracking-widest relative z-10">المبلغ المستحق للدفع</p>
+                <div className="flex items-center justify-center gap-2 relative z-10">
                     {mode === 'months' ? (
-                        <span className="text-4xl font-black text-cyan-400 tabular-nums">{formatCurrency(calculatedAmount)}</span>
+                        <span className="text-5xl font-black text-cyan-400 tabular-nums">{formatCurrency(calculatedAmount)}</span>
                     ) : (
                         <div className="flex items-center gap-2">
-                             <input type="number" step="0.01" value={customAmount} onChange={e => setCustomAmount(e.target.value)} required placeholder="0.00" className="w-full bg-transparent text-center text-5xl font-black text-cyan-400 focus:outline-none" />
+                             <input type="number" step="0.01" value={customAmount} onChange={e => setCustomAmount(e.target.value)} required placeholder="0.00" className="w-full bg-transparent text-center text-6xl font-black text-cyan-400 focus:outline-none transition-colors duration-300 placeholder-slate-700" />
                              <span className="text-xl font-bold text-cyan-600">د.ل</span>
                         </div>
                     )}
                 </div>
                 {mode === 'months' && (
-                    <div className="mt-6 space-y-3">
+                    <div className="mt-8 space-y-3 relative z-10">
                         <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest">مدة التقسيط (أشهر)</label>
                         <div className="flex items-center justify-center gap-6">
-                            <button type="button" onClick={() => setMonths(Math.max(1, parseInt(months)-1).toString())} className="w-12 h-12 rounded-2xl bg-slate-700 text-white text-2xl font-black transition-transform active:scale-90">-</button>
+                            <button type="button" onClick={() => setMonths(Math.max(1, parseInt(months)-1).toString())} className="w-12 h-12 rounded-2xl bg-slate-950/50 border border-white/10 text-white text-2xl font-black transition-transform active:scale-90 hover:bg-white/5">-</button>
                             <span className="text-3xl font-black text-white w-12">{months}</span>
-                            <button type="button" onClick={() => setMonths((parseInt(months)+1).toString())} className="w-12 h-12 rounded-2xl bg-slate-700 text-white text-2xl font-black transition-transform active:scale-90">+</button>
+                            <button type="button" onClick={() => setMonths((parseInt(months)+1).toString())} className="w-12 h-12 rounded-2xl bg-slate-950/50 border border-white/10 text-white text-2xl font-black transition-transform active:scale-90 hover:bg-white/5">+</button>
                         </div>
                     </div>
                 )}
             </div>
 
             <div>
-                <label className="text-xs font-bold text-slate-500 block mb-2 px-1">الحساب المالي للعملية</label>
-                <select value={accId} onChange={e => setAccId(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:outline-none">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block px-2">الحساب المالي للعملية</label>
+                <select value={accId} onChange={e => setAccId(e.target.value)} required className="w-full bg-slate-950/50 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all font-bold appearance-none">
                     {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({formatCurrency(a.balance)})</option>)}
                 </select>
             </div>
 
-            <button type="submit" disabled={isSaving} className="w-full py-4 bg-cyan-600 text-white rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3">
-                {isSaving ? <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin"></div> : <><CheckCircleIcon className="w-6 h-6" /> تأكيد الدفعة</>}
-            </button>
+            <div className="flex gap-3 pt-4">
+                <button type="button" onClick={onCancel} className="flex-1 py-4 bg-slate-800 text-slate-400 rounded-2xl font-black text-lg active:scale-95 transition-all">إلغاء</button>
+                <button type="submit" disabled={isSaving} className="flex-[2] py-4 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
+                    {isSaving ? <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin"></div> : <><CheckCircleIcon className="w-6 h-6" /> تأكيد الدفعة</>}
+                </button>
+            </div>
         </form>
     );
 };

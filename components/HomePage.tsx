@@ -240,9 +240,10 @@ const MonthlyReportModal: React.FC<{ onClose: () => void; }> = ({ onClose }) => 
     }, [year]);
 
     return (
-        <div className="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-2xl flex items-center justify-center p-4 animate-fade-in pt-safe pb-safe">
-            <div className="relative w-full max-w-lg bg-slate-900 rounded-[3rem] shadow-2xl border border-white/10 flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
-                <div className="p-7 pb-4 shrink-0 z-10 flex justify-between items-start border-b border-white/5 bg-slate-900/50 backdrop-blur-md">
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in pt-safe pb-safe">
+            <div className="relative w-full max-w-lg bg-slate-900 rounded-[2rem] shadow-2xl border border-white/10 flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 to-blue-500"></div>
+                <div className="p-7 pb-4 shrink-0 z-10 flex justify-between items-start border-b border-white/5 bg-slate-900/50 backdrop-blur-md relative">
                     <div>
                         <h3 className="text-2xl font-black text-white flex items-center gap-3">
                              الموجز المالي <ScaleIcon className="w-6 h-6 text-cyan-500 opacity-50" />
@@ -253,12 +254,12 @@ const MonthlyReportModal: React.FC<{ onClose: () => void; }> = ({ onClose }) => 
                             <button onClick={() => setYear(y => y + 1)} className="p-1 text-slate-500 hover:text-cyan-400 transition active:scale-75"><ChevronLeftIcon className="w-4 h-4"/></button>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-3 rounded-2xl bg-white/5 text-slate-400 border border-white/5 hover:text-white transition-colors active:scale-90">
-                        <XMarkIcon className="w-6 h-6" />
+                    <button onClick={onClose} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 transition-colors active:scale-90">
+                        <XMarkIcon className="w-5 h-5" />
                     </button>
                 </div>
 
-                <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+                <div className="p-6 overflow-y-auto custom-scrollbar flex-1 relative z-10">
                     {selectedMonth !== null ? (
                         <MonthDetailView 
                             year={year} 
@@ -283,7 +284,7 @@ const MonthlyReportModal: React.FC<{ onClose: () => void; }> = ({ onClose }) => 
                                     <div 
                                         key={m.month} 
                                         onClick={() => setSelectedMonth(m.month)}
-                                        className="glass-card p-5 rounded-[2.5rem] border border-white/5 flex items-center justify-between group hover:bg-white/[0.03] hover:border-white/10 transition-all cursor-pointer active:scale-[0.98]"
+                                        className="glass-card p-5 rounded-[2rem] border border-white/5 flex items-center justify-between group hover:bg-white/[0.03] hover:border-white/10 transition-all cursor-pointer active:scale-[0.98]"
                                     >
                                         <div className="flex items-center gap-6">
                                             <div className="h-16 w-16 shrink-0 relative">
@@ -321,7 +322,7 @@ const MonthlyReportModal: React.FC<{ onClose: () => void; }> = ({ onClose }) => 
                     )}
                 </div>
                 
-                <div className="p-4 bg-slate-950/20 border-t border-white/5 text-center shrink-0">
+                <div className="p-4 bg-slate-950/20 border-t border-white/5 text-center shrink-0 relative z-10">
                     <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.4em]">GreenBox Financial Assistant</p>
                 </div>
             </div>
@@ -478,16 +479,16 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 order-2 animate-fade-in">
-                <button onClick={() => setActivePage('debts')} className="glass-card p-5 rounded-[1.5rem] flex flex-col items-start hover:bg-white/5 transition-all group border border-white/5 bg-slate-900/40 shadow-lg">
-                    <div className="p-2.5 bg-emerald-500/10 rounded-xl text-emerald-400 mb-3 group-hover:scale-110 transition-transform"><ArrowDownIcon className="w-5 h-5"/></div>
-                    <span className="text-slate-400 text-[10px] font-bold uppercase mb-1">ديون لك</span>
-                    <span className="text-lg font-black text-white tabular-nums">{formatCurrency(stats.debtsForYou)}</span>
+            <div className="grid grid-cols-2 gap-4 order-2 animate-fade-in">
+                <button onClick={() => setActivePage('debts')} className="glass-card p-5 rounded-[2rem] flex flex-col items-start hover:bg-white/5 transition-all group border border-white/5 bg-slate-900/40 shadow-sm hover:shadow-xl hover:-translate-y-1 duration-300">
+                    <div className="p-3 bg-emerald-500/10 rounded-2xl text-emerald-400 mb-4 group-hover:scale-110 transition-transform"><ArrowDownIcon className="w-6 h-6"/></div>
+                    <span className="text-slate-400 text-[11px] font-bold uppercase mb-1 tracking-wider">ديون لك</span>
+                    <span className="text-xl font-black text-white tabular-nums">{formatCurrency(stats.debtsForYou)}</span>
                 </button>
-                <button onClick={() => setActivePage('debts')} className="glass-card p-5 rounded-[1.5rem] flex flex-col items-start hover:bg-white/5 transition-all group border border-white/5 bg-slate-900/40 shadow-lg">
-                    <div className="p-2.5 bg-rose-500/10 rounded-xl text-rose-400 mb-3 group-hover:scale-110 transition-transform"><ArrowUpIcon className="w-5 h-5"/></div>
-                    <span className="text-slate-400 text-[10px] font-bold uppercase mb-1">ديون عليك</span>
-                    <span className="text-lg font-black text-white tabular-nums">{formatCurrency(stats.debtsOnYou)}</span>
+                <button onClick={() => setActivePage('debts')} className="glass-card p-5 rounded-[2rem] flex flex-col items-start hover:bg-white/5 transition-all group border border-white/5 bg-slate-900/40 shadow-sm hover:shadow-xl hover:-translate-y-1 duration-300">
+                    <div className="p-3 bg-rose-500/10 rounded-2xl text-rose-400 mb-4 group-hover:scale-110 transition-transform"><ArrowUpIcon className="w-6 h-6"/></div>
+                    <span className="text-slate-400 text-[11px] font-bold uppercase mb-1 tracking-wider">ديون عليك</span>
+                    <span className="text-xl font-black text-white tabular-nums">{formatCurrency(stats.debtsOnYou)}</span>
                 </button>
             </div>
 
@@ -605,27 +606,27 @@ const HomePage: React.FC<{ refreshTrigger: number; handleDatabaseChange: (descri
             <div className="space-y-4 order-7 animate-fade-in">
                 <div className="flex justify-between items-end px-1">
                     <h2 className="text-lg font-bold text-white">آخر المعاملات</h2>
-                    <button onClick={() => setActivePage('transactions')} className="text-xs font-bold text-cyan-500">عرض الكل</button>
+                    <button onClick={() => setActivePage('transactions')} className="text-xs font-bold text-cyan-500 hover:text-cyan-400 transition-colors">عرض الكل</button>
                 </div>
-                <div className="space-y-2">
-                    {loading ? [...Array(3)].map((_, i) => <div key={i} className="h-16 bg-slate-800/50 rounded-2xl animate-pulse"></div>) 
+                <div className="space-y-3">
+                    {loading ? [...Array(3)].map((_, i) => <div key={i} className="h-20 bg-slate-800/50 rounded-3xl animate-pulse"></div>) 
                     : lastTransactions.length > 0 ? lastTransactions.map(tx => {
                         const Icon = (tx.categories?.icon && iconMap[tx.categories.icon]) || (tx.type === 'income' ? ArrowDownIcon : ArrowUpIcon);
                         return (
-                            <div key={tx.id} className="bg-slate-900/40 p-4 rounded-2xl flex items-center justify-between border border-white/5 active:bg-slate-800/60 transition-colors shadow-sm">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-inner" style={{ backgroundColor: tx.categories?.color || '#334155' }}><Icon className="w-5 h-5" /></div>
+                            <div key={tx.id} className="glass-card p-4 rounded-[2rem] flex items-center justify-between border border-white/5 hover:bg-white/5 transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5 cursor-pointer">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-inner" style={{ backgroundColor: tx.categories?.color || '#334155' }}><Icon className="w-6 h-6 drop-shadow-md" /></div>
                                     <div>
                                         <p className="font-bold text-slate-200 text-sm line-clamp-1">{tx.notes || tx.categories?.name || 'معاملة'}</p>
-                                        <p className="text-[10px] text-slate-500">{tx.accounts?.name}</p>
+                                        <p className="text-[11px] font-medium text-slate-500 mt-0.5">{tx.accounts?.name}</p>
                                     </div>
                                 </div>
-                                <div className={`font-black text-sm tabular-nums ${tx.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                <div className={`font-black text-base tabular-nums ${tx.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>
                                     {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
                                 </div>
                             </div>
                         )
-                    }) : <div className="text-center py-8 text-slate-600 border border-dashed border-slate-800 rounded-2xl text-xs">لا توجد سجلات</div>}
+                    }) : <div className="text-center py-10 text-slate-500 border border-dashed border-slate-800 rounded-3xl text-sm font-medium">لا توجد سجلات</div>}
                 </div>
             </div>
 

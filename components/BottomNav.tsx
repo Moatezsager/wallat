@@ -50,11 +50,11 @@ const BottomNav: React.FC<BottomNavProps> = ({ activePage, setActivePage, debtNo
     ];
 
     return (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 print-hidden">
-            <div className="absolute inset-0 bg-white/90 dark:bg-slate-950/90 backdrop-blur-2xl border-t border-black/5 dark:border-white/5 shadow-[0_-10px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_-10px_30px_rgba(0,0,0,0.4)] transition-colors"></div>
+        <div className="md:hidden fixed bottom-4 left-4 right-4 z-40 print-hidden">
+            <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-black/5 dark:border-white/10 shadow-2xl rounded-3xl transition-colors"></div>
             
-            <div className="relative flex items-center justify-between px-2 pb-safe h-[calc(4.5rem+env(safe-area-inset-bottom))]">
-                <div className="flex-1 flex justify-around items-center h-16">
+            <div className="relative flex items-center justify-between px-2 h-[4.5rem]">
+                <div className="flex-1 flex justify-around items-center h-full">
                     {leftItems.map(item => (
                         <NavButton 
                             key={item.page}
@@ -67,16 +67,16 @@ const BottomNav: React.FC<BottomNavProps> = ({ activePage, setActivePage, debtNo
                 </div>
 
                 {/* Central Action Button */}
-                <div className="relative w-16 shrink-0 h-16 -mt-8">
+                <div className="relative w-16 shrink-0 h-16 -mt-6">
                     <button 
                         onClick={() => setActivePage('transactions')}
-                        className="absolute top-0 left-1/2 -translate-x-1/2 w-14 h-14 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-cyan-500/40 ring-4 ring-white dark:ring-slate-950 active:scale-90 transition-all duration-300"
+                        className="absolute top-0 left-1/2 -translate-x-1/2 w-14 h-14 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-cyan-500/40 ring-4 ring-slate-50 dark:ring-slate-950 active:scale-90 transition-all duration-300"
                     >
-                        <Plus className="w-8 h-8" />
+                        <Plus className="w-7 h-7" />
                     </button>
                 </div>
 
-                <div className="flex-1 flex justify-around items-center h-16">
+                <div className="flex-1 flex justify-around items-center h-full">
                     {rightItems.map(item => (
                         <NavButton 
                             key={item.page}

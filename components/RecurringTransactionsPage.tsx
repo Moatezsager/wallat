@@ -75,24 +75,24 @@ const RecurringTransactionsPage: React.FC<{ refreshTrigger: number }> = ({ refre
                             لا توجد التزامات مجدولة حالياً.
                         </div>
                     ) : tasks.map(task => (
-                        <div key={task.id} className="glass-card p-5 rounded-3xl border border-white/5 flex items-center justify-between group">
+                        <div key={task.id} className="glass-card p-5 rounded-[2rem] border border-white/5 flex items-center justify-between group hover:border-white/10 transition-all shadow-sm hover:shadow-xl hover:-translate-y-0.5">
                             <div className="flex items-center gap-4">
-                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${task.type === 'income' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                                    <ClockIcon className="w-6 h-6" />
+                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform ${task.type === 'income' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                                    <ClockIcon className="w-6 h-6 drop-shadow-md" />
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-white">{task.categories?.name || 'بدون فئة'}</h4>
-                                    <p className="text-[10px] text-slate-500 font-black uppercase">
+                                    <h4 className="font-bold text-white text-sm">{task.categories?.name || 'بدون فئة'}</h4>
+                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-0.5">
                                         كل {task.frequency === 'monthly' ? 'شهر' : task.frequency === 'weekly' ? 'أسبوع' : 'سنة'} • {task.accounts?.name}
                                     </p>
                                 </div>
                             </div>
                             <div className="text-left flex items-center gap-4">
                                 <div>
-                                    <p className={`text-lg font-black ${task.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>{formatCurrency(task.amount)}</p>
-                                    <p className="text-[9px] text-slate-600 font-bold">الموعد: {new Date(task.next_date).toLocaleDateString('ar-LY')}</p>
+                                    <p className={`text-lg font-black tabular-nums ${task.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>{formatCurrency(task.amount)}</p>
+                                    <p className="text-[9px] text-slate-600 font-bold tracking-widest mt-0.5">الموعد: {new Date(task.next_date).toLocaleDateString('ar-LY')}</p>
                                 </div>
-                                <button onClick={() => handleDelete(task.id)} className="p-2 text-slate-700 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => handleDelete(task.id)} className="p-2 text-slate-600 hover:text-rose-500 hover:bg-white/5 rounded-xl opacity-0 group-hover:opacity-100 transition-all">
                                     <TrashIcon className="w-4 h-4" />
                                 </button>
                             </div>

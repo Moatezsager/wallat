@@ -1,14 +1,14 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { Transaction, Debt, Category } from '../types';
+import { Transaction, Debt, Category, Goal } from '../types';
 import Chart from 'chart.js/auto';
 import { 
     SparklesIcon, ExclamationTriangleIcon, CheckCircleIcon, XMarkIcon, 
     ArrowTrendingUp, ArrowTrendingDown, ChartBarSquareIcon,
     ChevronLeftIcon, ChevronRightIcon, CalendarDaysIcon, TagIcon,
     ArrowDownIcon, ArrowUpIcon, iconMap, ScaleIcon, ClockIcon,
-    ZapIcon, ShoppingBagIcon, ClipboardDocumentIcon
+    ZapIcon, ShoppingBagIcon, ClipboardDocumentIcon, WalletIcon
 } from './icons';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -65,6 +65,87 @@ const DoughnutChart: React.FC<{ data: number[], colors: string[], labels: string
     return <div className="h-full w-full"><canvas ref={canvasRef}></canvas></div>;
 };
 
+const MonthlyTrendsChart: React.FC<{ data: { month: string, income: number, expense: number }[] }> = ({ data }) => {
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const chartRef = useRef<Chart | null>(null);
+
+    useEffect(() => {
+        if (!canvasRef.current) return;
+        if (chartRef.current) chartRef.current.destroy();
+        const ctx = canvasRef.current.getContext('2d');
+        if (!ctx) return;
+
+        chartRef.current = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.map(d => d.month),
+                datasets: [
+                    {
+                        label: 'الدخل',
+                        data: data.map(d => d.income),
+                        backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        barThickness: 12,
+                    },
+                    {
+                        label: 'المصروف',
+                        data: data.map(d => d.expense),
+                        backgroundColor: 'rgba(244, 63, 94, 0.8)',
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        barThickness: 12,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        align: 'end',
+                        labels: {
+                            color: '#94a3b8',
+                            font: { size: 10, weight: 'bold' },
+                            usePointStyle: true,
+                            pointStyle: 'circle',
+                            padding: 20
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#0f172a',
+                        titleColor: '#f8fafc',
+                        bodyColor: '#f8fafc',
+                        padding: 12,
+                        cornerRadius: 12,
+                        displayColors: true,
+                        boxPadding: 6
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#64748b', font: { size: 10, weight: 'bold' } }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: {
+                            color: '#64748b',
+                            font: { size: 10, weight: 'bold' },
+                            callback: (value) => formatCurrency(value as number)
+                        }
+                    }
+                }
+            }
+        });
+        return () => chartRef.current?.destroy();
+    }, [data]);
+
+    return <div className="h-64 w-full"><canvas ref={canvasRef}></canvas></div>;
+};
+
 const CategoryBreakdown: React.FC<{ data: any[], total: number }> = ({ data, total }) => {
     if (data.length === 0) {
         return (
@@ -82,23 +163,23 @@ const CategoryBreakdown: React.FC<{ data: any[], total: number }> = ({ data, tot
             {data.map((cat, i) => {
                 const Icon = (cat.icon && iconMap[cat.icon]) ? iconMap[cat.icon] : TagIcon;
                 return (
-                    <div key={i} className="flex items-center gap-4 bg-slate-900/40 p-4 rounded-3xl border border-white/5 hover:bg-slate-800/40 transition-colors group">
-                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg transition-transform group-hover:scale-110" style={{ backgroundColor: cat.color || '#334155' }}>
-                            <Icon className="w-6 h-6" />
+                    <div key={i} className="flex items-center gap-4 bg-slate-900/40 p-4 rounded-[2rem] border border-white/5 hover:bg-slate-800/40 transition-all group shadow-sm hover:shadow-xl hover:-translate-y-0.5">
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-inner group-hover:scale-110 transition-transform" style={{ backgroundColor: cat.color || '#334155' }}>
+                            <Icon className="w-6 h-6 drop-shadow-md" />
                         </div>
                         <div className="flex-1 min-w-0">
                             <div className="flex justify-between items-center mb-1.5">
                                 <div className="flex items-center gap-2 overflow-hidden">
-                                    <span className="text-sm font-bold text-white truncate">{cat.name}</span>
-                                    <span className="shrink-0 text-[10px] font-black px-2 py-0.5 bg-white/5 rounded-full text-slate-500 border border-white/5">{cat.count} عملية</span>
+                                    <span className="text-sm font-bold text-white truncate tracking-tight">{cat.name}</span>
+                                    <span className="shrink-0 text-[10px] font-black px-2 py-0.5 bg-white/5 rounded-full text-slate-500 border border-white/5 tracking-widest">{cat.count} عملية</span>
                                 </div>
-                                <span className="text-sm font-black text-slate-200 shrink-0">{formatCurrency(cat.amount)}</span>
+                                <span className="text-sm font-black text-slate-200 shrink-0 tabular-nums">{formatCurrency(cat.amount)}</span>
                             </div>
-                            <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                <div className="h-full transition-all duration-1000 ease-out rounded-full" style={{ width: `${cat.percentage}%`, backgroundColor: cat.color || '#334155' }}></div>
+                            <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden shadow-inner">
+                                <div className="h-full transition-all duration-1000 ease-out rounded-full shadow-sm" style={{ width: `${cat.percentage}%`, backgroundColor: cat.color || '#334155' }}></div>
                             </div>
                             <div className="flex justify-between mt-1">
-                                <span className="text-[9px] font-black text-slate-500 uppercase">{cat.percentage.toFixed(1)}% من الإجمالي</span>
+                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest tabular-nums">{cat.percentage.toFixed(1)}% من الإجمالي</span>
                             </div>
                         </div>
                     </div>
@@ -110,45 +191,86 @@ const CategoryBreakdown: React.FC<{ data: any[], total: number }> = ({ data, tot
 
 const AnalysisResultDisplay: React.FC<{ result: any }> = ({ result }) => {
     if (!result) return null;
-    if (typeof result === 'string') return <div className="p-6 text-white bg-slate-800 rounded-2xl">{result}</div>;
+    if (typeof result === 'string') return (
+        <div className="p-8 text-white bg-slate-800/50 rounded-[2rem] border border-white/5 flex flex-col items-center gap-4 text-center">
+            <ExclamationTriangleIcon className="w-12 h-12 text-amber-500" />
+            <p className="font-bold leading-relaxed">{result}</p>
+        </div>
+    );
 
     return (
         <div className="space-y-8 animate-fade-in text-right">
-            <div className="bg-white/5 p-6 rounded-3xl border border-white/10">
-                <h3 className="text-lg font-bold text-cyan-400 mb-3 flex items-center gap-2">
-                    <CheckCircleIcon className="w-5 h-5" /> ملخص المستشار المالي
-                </h3>
-                <p className="text-slate-200 leading-relaxed text-sm">{result.summary}</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-4">
-                    <h3 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest px-2">النقاط الإيجابية</h3>
-                    {result.positives?.map((item: any, i: number) => (
-                        <div key={i} className="bg-emerald-500/5 border border-emerald-500/10 p-4 rounded-2xl">
-                            <h4 className="font-bold text-white text-xs mb-1">{item.title}</h4>
-                            <p className="text-[10px] text-slate-400 leading-relaxed">{item.description}</p>
-                        </div>
-                    ))}
-                </div>
-                <div className="space-y-4">
-                    <h3 className="text-[10px] font-black text-rose-400 uppercase tracking-widest px-2">نصائح للتحسين</h3>
-                    {result.improvements?.map((item: string, i: number) => (
-                        <div key={i} className="bg-rose-500/5 border border-rose-500/10 p-4 rounded-2xl flex items-start gap-3">
-                            <span className="w-5 h-5 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center text-[10px] shrink-0 font-bold">{i+1}</span>
-                            <p className="text-[11px] text-slate-300 font-bold leading-relaxed">{item}</p>
-                        </div>
-                    ))}
+            {/* Summary Section */}
+            <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-violet-600 to-cyan-600 rounded-[2.5rem] blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+                <div className="relative bg-slate-900 p-8 rounded-[2rem] border border-white/10 shadow-2xl">
+                    <h3 className="text-xl font-black text-cyan-400 mb-4 flex items-center gap-3">
+                        <SparklesIcon className="w-6 h-6" /> ملخص المستشار المالي
+                    </h3>
+                    <p className="text-slate-200 leading-relaxed text-lg font-medium">{result.summary}</p>
                 </div>
             </div>
 
+            {/* Positives & Improvements Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                    <h3 className="text-xs font-black text-emerald-400 uppercase tracking-widest px-4 flex items-center gap-2">
+                        <CheckCircleIcon className="w-4 h-4" /> النقاط الإيجابية
+                    </h3>
+                    <div className="space-y-3">
+                        {result.positives?.map((item: any, i: number) => (
+                            <div key={i} className="bg-emerald-500/5 border border-emerald-500/10 p-5 rounded-3xl hover:bg-emerald-500/10 transition-colors">
+                                <h4 className="font-black text-white text-sm mb-2">{item.title}</h4>
+                                <p className="text-xs text-slate-400 leading-relaxed font-bold">{item.description}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div className="space-y-4">
+                    <h3 className="text-xs font-black text-rose-400 uppercase tracking-widest px-4 flex items-center gap-2">
+                        <ExclamationTriangleIcon className="w-4 h-4" /> نصائح للتحسين
+                    </h3>
+                    <div className="space-y-3">
+                        {result.improvements?.map((item: string, i: number) => (
+                            <div key={i} className="bg-rose-500/5 border border-rose-500/10 p-5 rounded-3xl flex items-start gap-4 hover:bg-rose-500/10 transition-colors">
+                                <span className="w-6 h-6 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-xs shrink-0 font-black">{i+1}</span>
+                                <p className="text-xs text-slate-300 font-bold leading-relaxed">{item}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Debt & Savings Advice */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {result.debtAdvice && (
+                    <div className="bg-amber-500/5 border border-amber-500/10 p-6 rounded-[2rem]">
+                        <h3 className="text-xs font-black text-amber-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <ScaleIcon className="w-4 h-4" /> نصيحة الديون
+                        </h3>
+                        <p className="text-xs text-slate-300 font-bold leading-relaxed">{result.debtAdvice}</p>
+                    </div>
+                )}
+                {result.savingsAdvice && (
+                    <div className="bg-cyan-500/5 border border-cyan-500/10 p-6 rounded-[2rem]">
+                        <h3 className="text-xs font-black text-cyan-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <WalletIcon className="w-4 h-4" /> نصيحة الادخار
+                        </h3>
+                        <p className="text-xs text-slate-300 font-bold leading-relaxed">{result.savingsAdvice}</p>
+                    </div>
+                )}
+            </div>
+
+            {/* Action Plan */}
             <div className="space-y-4">
-                <h3 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest px-2">خطة العمل المقترحة</h3>
-                <div className="space-y-2">
+                <h3 className="text-xs font-black text-violet-400 uppercase tracking-widest px-4 flex items-center gap-2">
+                    <ZapIcon className="w-4 h-4" /> خطة العمل المقترحة
+                </h3>
+                <div className="grid grid-cols-1 gap-3">
                     {result.actionPlan?.map((step: string, i: number) => (
-                        <div key={i} className="flex items-center gap-3 p-4 bg-slate-800/40 rounded-2xl border border-white/5">
-                            <div className="w-7 h-7 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center font-black text-[10px] shrink-0">{i+1}</div>
-                            <p className="text-[11px] text-white font-bold leading-relaxed">{step}</p>
+                        <div key={i} className="flex items-center gap-4 p-5 bg-slate-900/60 rounded-3xl border border-white/5 hover:border-violet-500/30 transition-all group">
+                            <div className="w-10 h-10 rounded-2xl bg-violet-500/10 text-violet-400 flex items-center justify-center font-black text-sm shrink-0 group-hover:scale-110 transition-transform">{i+1}</div>
+                            <p className="text-sm text-white font-bold leading-relaxed">{step}</p>
                         </div>
                     ))}
                 </div>
@@ -168,6 +290,7 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [previousTransactions, setPreviousTransactions] = useState<any[]>([]);
     const [debts, setDebts] = useState<Debt[]>([]);
+    const [goals, setGoals] = useState<Goal[]>([]);
     const [loading, setLoading] = useState(true);
     
     // AI Analysis States
@@ -226,15 +349,17 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
             setLoading(true);
             const { startDate, endDate, prevStartDate, prevEndDate } = periodDates;
             
-            const [txRes, prevTxRes, debtRes] = await Promise.all([
+            const [txRes, prevTxRes, debtRes, goalsRes] = await Promise.all([
                 supabase.from('transactions').select('*, categories(*)').gte('date', startDate.toISOString()).lte('date', endDate.toISOString()),
                 supabase.from('transactions').select('amount, type, categories(name), date').gte('date', prevStartDate.toISOString()).lte('date', prevEndDate.toISOString()).in('type', ['income', 'expense']),
-                supabase.from('debts').select('*').eq('paid', false)
+                supabase.from('debts').select('*, contacts(name)').eq('paid', false),
+                supabase.from('goals').select('*')
             ]);
 
             setTransactions((txRes.data as any) || []);
             setPreviousTransactions(prevTxRes.data || []);
             setDebts(debtRes.data as unknown as Debt[] || []);
+            setGoals(goalsRes.data as unknown as Goal[] || []);
             setLoading(false);
         };
         fetchData();
@@ -273,27 +398,21 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
                 .sort((a, b) => b.amount - a.amount);
 
         // Calculate Trend Data
-        const trendData: { label: string, value: number }[] = [];
+        const monthlyTrends: { month: string, income: number, expense: number }[] = Array.from({ length: 12 }, (_, i) => {
+            const monthName = new Intl.DateTimeFormat('ar-LY', { month: 'short' }).format(new Date(selectedYear, i));
+            return { month: monthName, income: 0, expense: 0 };
+        });
+
         const isYearly = period === 'this_year' || period === 'custom_year';
-        const { startDate } = periodDates;
+        const trendData: { label: string, value: number }[] = [];
 
         if (isYearly) {
-            // All 12 months
-            const months = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
-            
-            const monthMap = new Map<string, number>();
-            months.forEach(m => monthMap.set(m, 0));
-
             transactions.forEach(tx => {
-                if (tx.type !== activeTab) return;
-                const m = new Date(tx.date).toLocaleString('ar-LY', { month: 'long' });
-                // We use 'long' to match the months array or we can use month index
                 const monthIdx = new Date(tx.date).getMonth();
-                const monthName = months[monthIdx];
-                monthMap.set(monthName, (monthMap.get(monthName) || 0) + tx.amount);
+                if (tx.type === 'income') monthlyTrends[monthIdx].income += tx.amount;
+                if (tx.type === 'expense') monthlyTrends[monthIdx].expense += tx.amount;
             });
-
-            months.forEach(m => trendData.push({ label: m, value: monthMap.get(m) || 0 }));
+            monthlyTrends.forEach(m => trendData.push({ label: m.month, value: activeTab === 'expense' ? m.expense : m.income }));
         } else {
             // Weeks of the month
             const weeksCount = 5; 
@@ -320,9 +439,10 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
             incomes: processMap(incomeMap, totalInc),
             totalExpense: totalExp,
             totalIncome: totalInc,
-            trend: trendData
+            trend: trendData,
+            monthlyTrends
         };
-    }, [transactions, period, activeTab, periodDates]);
+    }, [transactions, period, activeTab, periodDates, selectedYear]);
 
     const handleSmartAnalysis = async () => {
         setAnalysisModalOpen(true);
@@ -336,21 +456,39 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
             }
             const ai = new GoogleGenAI({ apiKey });
             
-            const currentDataSummary = transactions.slice(0, 100).map(t => ({
+            const currentDataSummary = transactions.slice(0, 50).map(t => ({
                 type: t.type,
                 amount: t.amount,
-                category: (t.categories as any)?.name
+                category: (t.categories as any)?.name,
+                date: t.date
             }));
 
-            const prompt = `أنت مستشار مالي خبير من ليبيا، حلل هذه البيانات المالية للمستخدم.
-            البيانات الحالية: ${JSON.stringify(currentDataSummary)}. 
-            إجمالي الدخل: ${reportData.totalIncome}، إجمالي المصروف: ${reportData.totalExpense}.
+            const debtSummary = debts.map(d => ({
+                type: d.type,
+                amount: d.amount,
+                person: d.contacts?.name || 'غير معروف'
+            }));
+
+            const goalsSummary = goals.map(g => ({
+                name: g.name,
+                target: g.target_amount,
+                current: g.current_amount
+            }));
+
+            const prompt = `أنت مستشار مالي خبير من ليبيا، حلل هذه البيانات المالية للمستخدم وقدم نصائح عملية بلهجة ليبية محببة.
+            البيانات الحالية (آخر 50 معاملة): ${JSON.stringify(currentDataSummary)}. 
+            الديون الحالية: ${JSON.stringify(debtSummary)}.
+            أهداف الادخار: ${JSON.stringify(goalsSummary)}.
+            إجمالي الدخل لهذه الفترة: ${reportData.totalIncome}، إجمالي المصروف: ${reportData.totalExpense}.
+            
             أرجع تقرير JSON بالهيكل التالي فقط:
             {
-              "summary": "ملخص عام بلهجة ليبية محببة",
+              "summary": "ملخص عام بلهجة ليبية محببة (مثلاً: يا غالي وضعك باهي لكن...)",
               "positives": [{"title": "...", "description": "..."}],
               "improvements": ["...", "..."],
-              "actionPlan": ["...", "..."]
+              "actionPlan": ["...", "..."],
+              "debtAdvice": "نصيحة بخصوص الديون إذا وجدت",
+              "savingsAdvice": "نصيحة بخصوص أهداف الادخار"
             }`;
 
             const response = await ai.models.generateContent({
@@ -374,6 +512,7 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
 
     const currentTabCategories = activeTab === 'expense' ? reportData.expenses : reportData.incomes;
     const currentTabTotal = activeTab === 'expense' ? reportData.totalExpense : reportData.totalIncome;
+    const isYearly = period === 'this_year' || period === 'custom_year';
 
     return (
         <div className="space-y-6 pb-24 max-w-4xl mx-auto px-1">
@@ -516,54 +655,70 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
             </div>
 
             {/* 4. Financial Trend */}
-            <div className="glass-card p-6 rounded-[2.5rem] border border-white/5 bg-slate-900/40">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-sm font-black text-white flex items-center gap-2">
-                        <ArrowTrendingUp className="w-4 h-4 text-emerald-500" /> الاتجاه المالي ({activeTab === 'expense' ? 'المصروفات' : 'الإيرادات'})
-                    </h3>
+            <div className="glass-card p-8 rounded-[2.5rem] border border-white/5 bg-slate-900/40 shadow-2xl">
+                <div className="flex justify-between items-center mb-8">
+                    <div>
+                        <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+                            <ArrowTrendingUp className="w-6 h-6 text-emerald-500" /> 
+                            {isYearly ? 'تحليل التوجهات السنوية' : `الاتجاه المالي (${activeTab === 'expense' ? 'المصروفات' : 'الإيرادات'})`}
+                        </h3>
+                        <p className="text-slate-500 text-xs font-bold mt-1">
+                            {isYearly ? 'مقارنة الدخل والمصروفات على مدار العام' : 'تتبع حركة الأموال خلال الفترة المختارة'}
+                        </p>
+                    </div>
+                    <div className="w-12 h-12 bg-violet-500/10 rounded-2xl flex items-center justify-center">
+                        <ChartBarSquareIcon className="w-6 h-6 text-violet-400" />
+                    </div>
                 </div>
                 
-                {reportData.trend.length > 0 ? (
-                    <div className="h-48 flex items-end gap-2 px-2">
-                        {(() => {
-                            const maxVal = Math.max(...reportData.trend.map(t => t.value), 1);
-                            return reportData.trend.map((item, i) => {
-                                const height = (item.value / maxVal) * 100;
-                                return (
-                                    <div key={i} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
-                                        <div className="w-full bg-cyan-500/10 rounded-t-xl relative group min-h-[4px]" style={{ height: `${height}%` }}>
-                                            <div className="absolute inset-0 bg-gradient-to-t from-cyan-600 to-cyan-400 opacity-40 group-hover:opacity-100 transition-all rounded-t-xl shadow-[0_0_15px_rgba(34,211,238,0.2)]"></div>
-                                            
-                                            {/* Tooltip on hover */}
-                                            <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] font-bold py-1 px-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none border border-white/10 shadow-xl">
-                                                {formatCurrency(item.value)}
-                                            </div>
-                                        </div>
-                                        <span className="text-[8px] font-black text-slate-500 truncate w-full text-center">{item.label}</span>
-                                    </div>
-                                );
-                            });
-                        })()}
-                    </div>
+                {isYearly ? (
+                    <MonthlyTrendsChart data={reportData.monthlyTrends} />
                 ) : (
-                    <div className="h-40 flex flex-col items-center justify-center gap-3 border-2 border-dashed border-slate-800 rounded-3xl">
-                        <ClockIcon className="w-6 h-6 text-slate-700" />
-                        <p className="text-[10px] text-slate-600 font-bold">لا توجد بيانات كافية لعرض الاتجاه</p>
-                    </div>
+                    reportData.trend.length > 0 ? (
+                        <div className="h-48 flex items-end gap-2 px-2">
+                            {(() => {
+                                const maxVal = Math.max(...reportData.trend.map(t => t.value), 1);
+                                return reportData.trend.map((item, i) => {
+                                    const height = (item.value / maxVal) * 100;
+                                    return (
+                                        <div key={i} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+                                            <div className="w-full bg-cyan-500/10 rounded-t-xl relative group min-h-[4px]" style={{ height: `${height}%` }}>
+                                                <div className="absolute inset-0 bg-gradient-to-t from-cyan-600 to-cyan-400 opacity-40 group-hover:opacity-100 transition-all rounded-t-xl shadow-[0_0_15px_rgba(34,211,238,0.2)]"></div>
+                                                
+                                                {/* Tooltip on hover */}
+                                                <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] font-bold py-1 px-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none border border-white/10 shadow-xl">
+                                                    {formatCurrency(item.value)}
+                                                </div>
+                                            </div>
+                                            <span className="text-[8px] font-black text-slate-500 truncate w-full text-center">{item.label}</span>
+                                        </div>
+                                    );
+                                });
+                            })()}
+                        </div>
+                    ) : (
+                        <div className="h-40 flex flex-col items-center justify-center gap-3 border-2 border-dashed border-slate-800 rounded-3xl">
+                            <ClockIcon className="w-6 h-6 text-slate-700" />
+                            <p className="text-[10px] text-slate-600 font-bold">لا توجد بيانات كافية لعرض الاتجاه</p>
+                        </div>
+                    )
                 )}
             </div>
 
             {/* AI Analysis Modal */}
             {isAnalysisModalOpen && (
-                <div className="fixed inset-0 z-[110] bg-slate-950/95 backdrop-blur-2xl flex items-center justify-center p-4 animate-fade-in pt-safe pb-safe">
-                    <div className="relative w-full max-w-lg bg-slate-900 rounded-[2.5rem] shadow-2xl border border-white/10 flex flex-col max-h-[85vh] overflow-hidden animate-slide-up">
-                        <div className="p-6 shrink-0 z-10 flex justify-between items-center border-b border-white/5">
+                <div className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in pt-safe pb-safe">
+                    <div className="relative w-full max-w-lg bg-slate-900 rounded-[2rem] shadow-2xl border border-white/10 flex flex-col max-h-[85vh] overflow-hidden animate-slide-up">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-violet-500 to-fuchsia-500"></div>
+                        <div className="p-6 shrink-0 z-10 flex justify-between items-center border-b border-white/5 relative">
                             <h3 className="text-xl font-black text-white flex items-center gap-2">
                                 <SparklesIcon className="w-6 h-6 text-violet-400" /> تحليل المستشار الذكي
                             </h3>
-                            <button onClick={() => setAnalysisModalOpen(false)} className="p-2 bg-white/5 rounded-full text-slate-400"><XMarkIcon className="w-5 h-5" /></button>
+                            <button onClick={() => setAnalysisModalOpen(false)} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-400 transition-colors active:scale-90">
+                                <XMarkIcon className="w-5 h-5" />
+                            </button>
                         </div>
-                        <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+                        <div className="p-6 overflow-y-auto custom-scrollbar flex-1 relative z-10">
                             {analysisLoading ? (
                                 <div className="py-20 flex flex-col items-center justify-center gap-4">
                                     <div className="w-16 h-16 border-4 border-slate-800 border-t-violet-500 rounded-full animate-spin"></div>
@@ -573,7 +728,7 @@ const ReportsPage: React.FC<{ refreshTrigger: number }> = ({ refreshTrigger }) =
                                 <AnalysisResultDisplay result={analysisResult} />
                             )}
                         </div>
-                        <div className="p-6 border-t border-white/5 text-center">
+                        <div className="p-6 border-t border-white/5 text-center relative z-10">
                              <p className="text-[9px] text-slate-600 font-bold">هذا التحليل يتم بواسطة الذكاء الاصطناعي (Gemini) بناءً على معاملاتك الأخيرة.</p>
                         </div>
                     </div>

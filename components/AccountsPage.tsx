@@ -226,31 +226,40 @@ const AccountForm: React.FC<{ account?: Account | null; onSave: () => void; onCa
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-4">
-                <div className="bg-slate-900/50 p-4 rounded-2xl border border-white/5">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block px-1">اسم الحساب (مثلاً: مصرف الأمان)</label>
-                    <input type="text" value={name} onChange={e => setName(e.target.value)} required className="w-full bg-transparent border-b border-slate-700 p-2 text-white focus:outline-none focus:border-cyan-500 transition-all text-xl font-black" placeholder="اسم الحساب" />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-slate-900/50 p-4 rounded-2xl border border-white/5">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block px-1">النوع</label>
-                        <select value={type} onChange={e => setType(e.target.value)} className="w-full bg-transparent text-white focus:outline-none font-bold appearance-none">
-                            <option value="بنكي">بنكي</option>
-                            <option value="نقدي">نقدي</option>
-                            <option value="مخصص">مخصص</option>
-                        </select>
-                    </div>
-                    <div className="bg-slate-900/50 p-4 rounded-2xl border border-white/5">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block px-1">الرصيد الافتتاحي</label>
-                        <input type="number" step="0.01" value={balance} onChange={e => setBalance(e.target.value)} required className="w-full bg-transparent text-white focus:outline-none font-black tabular-nums text-xl" />
+            <div className="relative group text-center py-4">
+                <div className="absolute inset-0 blur-3xl opacity-10 rounded-full bg-cyan-500"></div>
+                <div className="relative z-10 flex flex-col items-center">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">الرصيد الافتتاحي</span>
+                    <div className="flex items-center justify-center gap-2">
+                        <input type="number" step="0.01" value={balance} onChange={e => setBalance(e.target.value)} placeholder="0.00" required autoFocus className="w-full bg-transparent text-center text-6xl font-black focus:outline-none transition-colors duration-300 placeholder-slate-800 text-cyan-400" />
+                        <span className="text-xl font-bold text-cyan-600">د.ل</span>
                     </div>
                 </div>
             </div>
-            <div className="flex gap-3">
-                <button type="button" onClick={onCancel} className="flex-1 py-4 text-slate-500 font-bold">إلغاء</button>
-                <button type="submit" disabled={isSaving} className="flex-[2] py-5 bg-cyan-600 text-white rounded-2xl font-black text-lg shadow-2xl shadow-cyan-900/40 active:scale-95 transition-all">
-                    {isSaving ? 'جاري الحفظ...' : 'حفظ الحساب'}
+            <div className="space-y-4">
+                <div className="relative group">
+                    <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="اسم الحساب (مثلاً: مصرف الأمان)" required className="w-full bg-slate-950/50 border border-white/10 rounded-2xl p-4 text-white font-bold focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all placeholder-slate-600" />
+                </div>
+                <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase px-2 mb-2 block">نوع الحساب</label>
+                    <div className="grid grid-cols-3 gap-3">
+                        {['بنكي', 'نقدي', 'مخصص'].map(t => {
+                            const Icon = getAccountTypeIcon(t);
+                            const isSelected = type === t;
+                            return (
+                                <button key={t} type="button" onClick={() => setType(t)} className={`p-3 rounded-2xl border transition-all flex flex-col items-center gap-2 ${isSelected ? 'bg-cyan-500/10 border-cyan-500 shadow-lg shadow-cyan-900/20' : 'bg-slate-950/50 border-white/10 hover:bg-white/5'}`}>
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isSelected ? 'bg-cyan-500 text-white' : 'bg-slate-800 text-slate-400'}`}><Icon className="w-5 h-5" /></div>
+                                    <span className={`text-[10px] font-bold ${isSelected ? 'text-white' : 'text-slate-400'}`}>{t}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+            <div className="flex gap-3 pt-4">
+                <button type="button" onClick={onCancel} className="flex-1 py-4 bg-slate-800 text-slate-400 rounded-2xl font-black text-lg active:scale-95 transition-all">إلغاء</button>
+                <button type="submit" disabled={isSaving} className="flex-[2] py-4 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
+                    {isSaving ? <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin"></div> : 'حفظ الحساب'}
                 </button>
             </div>
         </form>
@@ -403,13 +412,18 @@ const AccountsPage: React.FC<{ refreshTrigger: number, handleDatabaseChange: (de
 
             {/* Modals */}
             {(modal.type === 'add' || modal.type === 'edit') && (
-                <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-2xl flex items-center justify-center p-4 animate-fade-in pt-safe pb-safe">
-                    <div className="relative w-full max-w-md bg-[#0a0a0a] rounded-[2.5rem] shadow-2xl border border-white/10 p-8 animate-slide-up">
-                        <div className="flex justify-between items-center mb-8">
+                <div className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in pt-safe pb-safe">
+                    <div className="relative w-full max-w-md bg-slate-900 rounded-[2rem] shadow-2xl border border-white/10 p-8 animate-slide-up overflow-hidden">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 to-blue-500"></div>
+                        <div className="flex justify-between items-center mb-8 relative z-10">
                             <h3 className="text-2xl font-black text-white tracking-tight">{modal.type === 'add' ? 'فتح حساب مالي' : 'تحديث البيانات'}</h3>
-                            <button onClick={() => setModal({ type: null, account: null })} className="p-3 bg-white/5 rounded-full text-slate-500 hover:text-white transition-colors"><XMarkIcon className="w-6 h-6" /></button>
+                            <button onClick={() => setModal({ type: null, account: null })} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-400 transition-colors active:scale-90">
+                                <XMarkIcon className="w-5 h-5" />
+                            </button>
                         </div>
-                        <AccountForm account={modal.account} onSave={() => { setModal({type:null, account:null}); handleDatabaseChange(); fetchAccounts(); }} onCancel={() => setModal({ type: null, account: null })} />
+                        <div className="relative z-10">
+                            <AccountForm account={modal.account} onSave={() => { setModal({type:null, account:null}); handleDatabaseChange(); fetchAccounts(); }} onCancel={() => setModal({ type: null, account: null })} />
+                        </div>
                     </div>
                 </div>
             )}

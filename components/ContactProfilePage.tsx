@@ -212,17 +212,17 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
                     filteredDebts.map(debt => {
                         const isForYou = debt.type === 'for_you';
                         return (
-                            <div key={debt.id} className={`group relative p-4 rounded-3xl border transition-all active:scale-[0.98] ${debt.paid ? 'bg-slate-900/30 border-slate-800 opacity-60' : 'bg-slate-800/40 border-white/5'}`}>
+                            <div key={debt.id} className={`group relative p-4 rounded-[2rem] border transition-all shadow-sm hover:shadow-xl hover:-translate-y-0.5 ${debt.paid ? 'bg-slate-900/30 border-slate-800 opacity-60' : 'bg-slate-800/40 border-white/5 hover:border-white/10'}`}>
                                 <div className="flex justify-between items-center">
                                     <div className="flex items-center gap-4">
-                                        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-inner ${debt.paid ? 'bg-slate-800 text-slate-600' : isForYou ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                                            {debt.paid ? <CheckCircleIcon className="w-6 h-6" /> : isForYou ? <ArrowDownIcon className="w-6 h-6" /> : <ArrowUpIcon className="w-6 h-6" />}
+                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform ${debt.paid ? 'bg-slate-800 text-slate-600' : isForYou ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                                            {debt.paid ? <CheckCircleIcon className="w-6 h-6 drop-shadow-md" /> : isForYou ? <ArrowDownIcon className="w-6 h-6 drop-shadow-md" /> : <ArrowUpIcon className="w-6 h-6 drop-shadow-md" />}
                                         </div>
                                         <div>
-                                            <p className="font-bold text-white text-sm line-clamp-1">{debt.description || (isForYou ? 'دين جديد لك' : 'دين جديد عليك')}</p>
-                                            <p className="text-[10px] text-slate-500 font-bold flex items-center gap-1 mt-0.5">
+                                            <p className="font-bold text-white text-sm line-clamp-1 tracking-tight">{debt.description || (isForYou ? 'دين جديد لك' : 'دين جديد عليك')}</p>
+                                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest flex items-center gap-1 mt-1">
                                                 <CalendarDaysIcon className="w-3 h-3" />
-                                                {new Date(debt.created_at).toLocaleDateString('ar-LY')}
+                                                <span className="tabular-nums">{new Date(debt.created_at).toLocaleDateString('ar-LY')}</span>
                                             </p>
                                         </div>
                                     </div>
@@ -233,7 +233,7 @@ const ContactProfilePage: React.FC<ContactProfilePageProps> = ({ contactId, onBa
                                         {!debt.paid && isForYou && contact.phone && (
                                             <button 
                                                 onClick={() => handleWhatsAppReminder(debt)}
-                                                className="mt-1 flex items-center gap-1 px-2 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg text-[9px] font-black hover:bg-emerald-500 hover:text-white transition-all"
+                                                className="mt-1 flex items-center gap-1 px-2 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg text-[9px] font-black hover:bg-emerald-500 hover:text-white transition-all shadow-sm active:scale-95"
                                             >
                                                 <WhatsappIcon className="w-3 h-3" /> تذكير
                                             </button>
