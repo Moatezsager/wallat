@@ -63,3 +63,16 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
+
+// Explicit fetch event to satisfy Chrome's installability criteria
+self.addEventListener('fetch', (event) => {
+  // Workbox handles this via precacheAndRoute, 
+  // but an explicit listener can help with some browser checks
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        return caches.match('/');
+      })
+    );
+  }
+});

@@ -10,12 +10,15 @@ export default defineConfig({
       strategies: 'injectManifest',
       srcDir: '',
       filename: 'sw.js',
+      manifestFilename: 'manifest.json',
       registerType: 'prompt',
       injectRegister: 'auto',
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
       },
       manifest: {
+        id: "/",
+        scope: "/",
         name: "محفظتي الاكترونية - الإدارة المالية الذكية",
         short_name: "محفظتي",
         description: "تطبيق متطور لإدارة الشؤون المالية الشخصية، تتبع المصاريف، الديون، والأهداف الادخارية بذكاء.",
@@ -24,6 +27,7 @@ export default defineConfig({
         display: "standalone",
         orientation: "portrait",
         start_url: "/",
+        prefer_related_applications: false,
         icons: [
           {
             src: "https://vgosloxhrahixrduuzkt.supabase.co/storage/v1/object/public/assets/icon-192.png",
