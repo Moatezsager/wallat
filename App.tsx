@@ -171,6 +171,8 @@ function AppContent() {
   const [activeContactId, setActiveContactId] = useState<string | null>(null);
   const [activeContactName, setActiveContactName] = useState<string>('');
   
+  const [showGlobalInstall, setShowGlobalInstall] = useState(false);
+  
   useEffect(() => {
     // إخفاء شاشة التحميل بعد 4 ثواني للتأكد من رؤية العبارات
     const timer = setTimeout(() => {
@@ -192,6 +194,10 @@ function AppContent() {
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
+      // Show global install prompt if not dismissed recently
+      if (localStorage.getItem('install_prompt_dismissed') !== 'true') {
+        setShowGlobalInstall(true);
+      }
     };
 
     const checkStandalone = () => {
@@ -201,7 +207,13 @@ function AppContent() {
 
     const checkIOS = () => {
       const userAgent = window.navigator.userAgent.toLowerCase();
-      setIsIOS(/iphone|ipad|ipod/.test(userAgent));
+      const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
+      setIsIOS(isIOSDevice);
+      
+      // Show iOS install prompt if not standalone and not dismissed
+      if (isIOSDevice && !isStandalone && localStorage.getItem('install_prompt_dismissed') !== 'true') {
+        setShowGlobalInstall(true);
+      }
     };
 
     window.addEventListener('online', handleOnline);
@@ -219,7 +231,7 @@ function AppContent() {
       window.removeEventListener('swUpdated', handleSWUpdate);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
-  }, []);
+  }, [isStandalone]);
 
   const handleInstallApp = async () => {
     if (deferredPrompt) {
@@ -227,8 +239,14 @@ function AppContent() {
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
         setDeferredPrompt(null);
+        setShowGlobalInstall(false);
       }
     }
+  };
+
+  const dismissInstallPrompt = () => {
+    setShowGlobalInstall(false);
+    localStorage.setItem('install_prompt_dismissed', 'true');
   };
 
   const requestNotificationPermission = async () => {
@@ -419,6 +437,60 @@ function AppContent() {
             <main className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 animate-fade-in">{renderPage()}</main>
         </div>
         <BottomNav activePage={activePage} setActivePage={setActivePage} debtNotificationCount={debtNotifications.length} />
+
+        {/* Global Install Banner */}
+        <AnimatePresence>
+          {showGlobalInstall && !isStandalone && (
+            <motion.div 
+              initial={{ y: -100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -100, opacity: 0 }}
+              className="fixed top-4 left-4 right-4 md:left-auto md:right-8 md:w-96 z-[110] bg-white dark:bg-slate-900 p-4 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col gap-4"
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center shrink-0">
+                  <img src="https://vgosloxhrahixrduuzkt.supabase.co/storage/v1/object/public/assets/icon-192.png" alt="App Icon" className="w-8 h-8 rounded-xl" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-black text-slate-900 dark:text-white text-sm">{language === 'ar' ? 'تثبيت تطبيق محفظتي' : 'Install My Wallet'}</h3>
+                  <p className="text-xs text-slate-500 font-bold mt-1 leading-relaxed">
+                    {language === 'ar' 
+                      ? (isIOS ? 'اضغط على زر المشاركة ثم "إضافة إلى الشاشة الرئيسية" لتجربة أفضل' : 'قم بتثبيت التطبيق للوصول السريع والعمل بدون إنترنت')
+                      : (isIOS ? 'Tap Share then "Add to Home Screen" for a better experience' : 'Install the app for quick access and offline support')}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button 
+                  onClick={dismissInstallPrompt}
+                  className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl text-xs font-black active:scale-95 transition-transform"
+                >
+                  {language === 'ar' ? 'لاحقاً' : 'Later'}
+                </button>
+                {!isIOS && !!deferredPrompt && (
+                  <button 
+                    onClick={handleInstallApp}
+                    className="flex-1 py-2.5 bg-cyan-500 text-white rounded-xl text-xs font-black active:scale-95 transition-transform shadow-lg shadow-cyan-500/30"
+                  >
+                    {language === 'ar' ? 'تثبيت الآن' : 'Install Now'}
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Global FAB for Add Transaction (Desktop Only) */}
+        {activePage !== 'transactions' && (
+          <button 
+            onClick={() => setActivePage('transactions')}
+            className="hidden md:flex fixed bottom-8 left-8 w-14 h-14 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full shadow-2xl shadow-cyan-500/40 items-center justify-center text-white z-50 hover:scale-110 active:scale-95 transition-all"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+          </button>
+        )}
     </div>
   );
 }
